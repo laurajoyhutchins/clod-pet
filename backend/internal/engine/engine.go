@@ -44,6 +44,7 @@ type StepResult struct {
 
 type Engine struct {
 	petDef         *pet.Pet
+	animationIDs   map[string]int
 	currentAnim    int
 	frameIdx       int
 	totalStepsDone int
@@ -66,10 +67,18 @@ func (e *Engine) PetDef() *pet.Pet {
 }
 
 func NewEngine(p *pet.Pet) *Engine {
+	animationIDs := make(map[string]int, len(p.Animations))
+	for id, anim := range p.Animations {
+		if anim.Name != "" {
+			animationIDs[anim.Name] = id
+		}
+	}
+
 	return &Engine{
-		petDef: p,
-		state:  StateIdle,
-		env:    expression.NewEnv(),
+		petDef:       p,
+		animationIDs: animationIDs,
+		state:        StateIdle,
+		env:          expression.NewEnv(),
 	}
 }
 
@@ -124,10 +133,7 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 
 	e.env.RegenerateRandom()
 
-	progress := float64(e.totalStepsDone) / float64(e.animTotalSteps)
-	if progress > 1 {
-		progress = 1
-	}
+	progress := expression.Clamp(float64(e.totalStepsDone)/float64(e.animTotalSteps), 0, 1)
 
 	startX, _ := expression.Eval(anim.Start.X, e.env)
 	startY, _ := expression.Eval(anim.Start.Y, e.env)
@@ -153,31 +159,13 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 
 	if borderCtx != ContextNone {
 		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
-			return &StepResult{
-				FrameIndex: frame,
-				X:          e.parentX,
-				Y:          e.parentY,
-				OffsetY:    curOffsetY,
-				Opacity:    curOpacity,
-				IntervalMs: curInterval,
-				NextAnimID: nextID,
-				ShouldFlip: e.flipH,
-			}, nil
+			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 		}
 	}
 
 	if gravity {
 		if nextID := e.pickGravityTransition(); nextID > 0 {
-			return &StepResult{
-				FrameIndex: frame,
-				X:          e.parentX,
-				Y:          e.parentY,
-				OffsetY:    curOffsetY,
-				Opacity:    curOpacity,
-				IntervalMs: curInterval,
-				NextAnimID: nextID,
-				ShouldFlip: e.flipH,
-			}, nil
+			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 		}
 	}
 
@@ -189,31 +177,14 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 
 		if e.totalStepsDone >= e.animTotalSteps {
 			if nextID := e.pickSequenceTransition(borderCtx); nextID > 0 {
-				return &StepResult{
-					FrameIndex: frame,
-					X:          e.parentX,
-					Y:          e.parentY,
-					OffsetY:    curOffsetY,
-					Opacity:    curOpacity,
-					IntervalMs: curInterval,
-					NextAnimID: nextID,
-					ShouldFlip: e.flipH,
-				}, nil
+				return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 			}
 			e.totalStepsDone = 0
 			e.frameIdx = e.animRepeatFrom
 		}
 	}
 
-	return &StepResult{
-		FrameIndex: frame,
-		X:          e.parentX,
-		Y:          e.parentY,
-		OffsetY:    curOffsetY,
-		Opacity:    curOpacity,
-		IntervalMs: curInterval,
-		ShouldFlip: e.flipH,
-	}, nil
+	return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0), nil
 }
 
 func (e *Engine) SetDrag() {
@@ -265,7 +236,7 @@ func (e *Engine) loadAnimation() {
 		return
 	}
 
-	e.animFrames = anim.Frames
+	e.animFrames = append(e.animFrames[:0], anim.Frames...)
 	e.animRepeatFrom = anim.RepeatFrom
 
 	repeat, err := expression.EvalInt(anim.Repeat, e.env)
@@ -326,12 +297,20 @@ func (e *Engine) pickGravityTransition() int {
 }
 
 func (e *Engine) findAnimationByName(name string) int {
-	for id, anim := range e.petDef.Animations {
-		if anim.Name == name {
-			return id
-		}
+	return e.animationIDs[name]
+}
+
+func (e *Engine) stepResult(frame int, offsetY, opacity float64, intervalMs, nextAnimID int) *StepResult {
+	return &StepResult{
+		FrameIndex: frame,
+		X:          e.parentX,
+		Y:          e.parentY,
+		OffsetY:    offsetY,
+		Opacity:    opacity,
+		IntervalMs: intervalMs,
+		NextAnimID: nextAnimID,
+		ShouldFlip: e.flipH,
 	}
-	return 0
 }
 
 func borderMatches(only string, ctx BorderContext) bool {
@@ -344,8 +323,10 @@ func borderMatches(only string, ctx BorderContext) bool {
 		return ctx == ContextWindow
 	case "vertical":
 		return ctx == ContextVertical
-	case "horizontal", "horizontal+":
+	case "horizontal":
 		return ctx == ContextHorizontal
+	case "horizontal+":
+		return ctx == ContextHorizontal || ctx == ContextTaskbar
 	}
 	return false
 }

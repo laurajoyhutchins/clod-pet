@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"clod-pet/backend/internal/ipc"
 	log "clod-pet/backend/internal/logutil"
@@ -36,10 +41,37 @@ func main() {
 	mux.HandleFunc("/api/describe", describeHandler())
 	mux.HandleFunc("/api/version", versionHandler(petsDir, settingsPath))
 
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           cors.Default().Handler(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.ListenAndServe()
+	}()
+
 	log.Info("clod-pet backend starting", "port", port, "pets_dir", petsDir)
-	if err := http.ListenAndServe(":"+port, cors.Default().Handler(mux)); err != nil {
+	shutdownCh := make(chan os.Signal, 1)
+	signal.Notify(shutdownCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(shutdownCh)
+
+	select {
+	case err := <-errCh:
+		if errors.Is(err, http.ErrServerClosed) {
+			return
+		}
 		log.Error("http server error", "error", err)
 		os.Exit(1)
+	case sig := <-shutdownCh:
+		log.Info("shutdown signal received", "signal", sig.String())
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Error("http server shutdown error", "error", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -110,7 +142,12 @@ func loadPetHandler(h *ipc.Handler) http.HandlerFunc {
 			return
 		}
 
-		data, _ := json.Marshal(petInfo)
+		data, err := json.Marshal(petInfo)
+		if err != nil {
+			log.Error("marshal pet info failed", "error", err)
+			writeError(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
 		resp := &ipc.Response{OK: true, Payload: data}
 		writeResponse(w, resp)
 	}
@@ -170,13 +207,17 @@ func describeHandler() http.HandlerFunc {
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Error("write json failed", "error", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": msg}); err != nil {
+		log.Error("write error response failed", "error", err)
+	}
 }
 
 func writeResponse(w http.ResponseWriter, resp *ipc.Response) {
