@@ -1,11 +1,14 @@
 package engine
 
 import (
+	"errors"
 	"math/rand"
 
 	"clod-pet/backend/internal/expression"
 	"clod-pet/backend/internal/pet"
 )
+
+var ErrPetNotFound = errors.New("pet not found")
 
 type BorderContext int
 
@@ -54,11 +57,11 @@ type Engine struct {
 	animRepeatFrom int
 }
 
-func (e *Engine) GetCurrentAnim() int {
+func (e *Engine) CurrentAnim() int {
 	return e.currentAnim
 }
 
-func (e *Engine) GetPetDef() *pet.Pet {
+func (e *Engine) PetDef() *pet.Pet {
 	return e.petDef
 }
 
@@ -102,7 +105,7 @@ func (e *Engine) Start(spawnID int) error {
 	return nil
 }
 
-func (e *Engine) Step(borderCtx BorderContext) (*StepResult, error) {
+func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error) {
 	if e.state == StateIdle {
 		return nil, nil
 	}
@@ -150,6 +153,21 @@ func (e *Engine) Step(borderCtx BorderContext) (*StepResult, error) {
 
 	if borderCtx != ContextNone {
 		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
+			return &StepResult{
+				FrameIndex: frame,
+				X:          e.parentX,
+				Y:          e.parentY,
+				OffsetY:    curOffsetY,
+				Opacity:    curOpacity,
+				IntervalMs: curInterval,
+				NextAnimID: nextID,
+				ShouldFlip: e.flipH,
+			}, nil
+		}
+	}
+
+	if gravity {
+		if nextID := e.pickGravityTransition(); nextID > 0 {
 			return &StepResult{
 				FrameIndex: frame,
 				X:          e.parentX,
@@ -223,7 +241,7 @@ func (e *Engine) SetPosition(x, y float64) {
 	e.parentY = y
 }
 
-func (e *Engine) GetPosition() (float64, float64) {
+func (e *Engine) Position() (float64, float64) {
 	return e.parentX, e.parentY
 }
 
@@ -270,12 +288,12 @@ func (e *Engine) pickBorderTransition(ctx BorderContext) int {
 
 	var candidates []pet.NextAnimation
 	for _, n := range anim.BorderNext {
-		if n.Only == "none" || BorderMatches(n.Only, ctx) {
+		if n.Only == "none" || borderMatches(n.Only, ctx) {
 			candidates = append(candidates, n)
 		}
 	}
 
-	return WeightedPick(candidates)
+	return weightedPick(candidates)
 }
 
 func (e *Engine) pickSequenceTransition(ctx BorderContext) int {
@@ -286,12 +304,25 @@ func (e *Engine) pickSequenceTransition(ctx BorderContext) int {
 
 	var candidates []pet.NextAnimation
 	for _, n := range anim.SequenceNext {
-		if n.Only == "none" || BorderMatches(n.Only, ctx) {
+		if n.Only == "none" || borderMatches(n.Only, ctx) {
 			candidates = append(candidates, n)
 		}
 	}
 
-	return WeightedPick(candidates)
+	return weightedPick(candidates)
+}
+
+func (e *Engine) pickGravityTransition() int {
+	anim, ok := e.petDef.Animations[e.currentAnim]
+	if !ok {
+		return 0
+	}
+
+	if len(anim.GravityNext) == 0 {
+		return 0
+	}
+
+	return weightedPick(anim.GravityNext)
 }
 
 func (e *Engine) findAnimationByName(name string) int {
@@ -303,7 +334,7 @@ func (e *Engine) findAnimationByName(name string) int {
 	return 0
 }
 
-func BorderMatches(only string, ctx BorderContext) bool {
+func borderMatches(only string, ctx BorderContext) bool {
 	switch only {
 	case "none":
 		return true
@@ -319,7 +350,7 @@ func BorderMatches(only string, ctx BorderContext) bool {
 	return false
 }
 
-func WeightedPick(candidates []pet.NextAnimation) int {
+func weightedPick(candidates []pet.NextAnimation) int {
 	if len(candidates) == 0 {
 		return 0
 	}

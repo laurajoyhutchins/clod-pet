@@ -1,256 +1,171 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"sync"
+	"strings"
 
-	"clod-pet/backend/internal/engine"
-	"clod-pet/backend/internal/expression"
 	"clod-pet/backend/internal/ipc"
-	"clod-pet/backend/internal/pet"
+	log "clod-pet/backend/internal/logutil"
+	"clod-pet/backend/internal/service"
 	"clod-pet/backend/internal/settings"
 	"clod-pet/backend/internal/sound"
 
 	"github.com/rs/cors"
 )
 
-var (
-	handler    *ipc.Handler
-	cfg        *settings.Config
-	petsDir    string
-	petStore   = make(map[string]*pet.Pet)
-	engines    = make(map[string]*engine.Engine)
-	enginesMu  sync.RWMutex
-	soundPlayer *sound.Player
-	soundMu     sync.RWMutex
-)
-
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	verbose := os.Getenv("VERBOSE") == "true"
+	log.Init(verbose)
 
-	petsDir = os.Getenv("PETS_DIR")
-	if petsDir == "" {
-		petsDir = "../pets"
-	}
+	port := envOr("PORT", "8080")
+	petsDir := envOr("PETS_DIR", "../pets")
+	settingsPath := envOr("SETTINGS_PATH", "clod-pet-settings.json")
 
-	var err error
-	cfg, err = settings.Load("clod-pet-settings.json")
-	if err != nil {
-		log.Printf("warning: could not load settings: %v", err)
-		cfg = settings.DefaultConfig()
-	}
+	cfg := loadSettings(settingsPath)
+	soundPlayer := newSoundPlayer(cfg.Volume)
 
-	soundPlayer, err = sound.NewPlayer(44100, cfg.Volume)
-	if err != nil {
-		log.Printf("warning: could not initialize sound: %v", err)
-	}
-
-	handler = ipc.NewHandler()
+	svc := service.New(petsDir, settingsPath, cfg, soundPlayer)
+	handler := ipc.NewHandler(svc)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api", apiHandler(handler))
+	mux.HandleFunc("/api/pet/load", loadPetHandler(handler))
+	mux.HandleFunc("/api/health", healthHandler(svc))
+	mux.HandleFunc("/api/describe", describeHandler())
+	mux.HandleFunc("/api/version", versionHandler(petsDir, settingsPath))
 
-	mux.HandleFunc("/api", apiHandler)
-	mux.HandleFunc("/api/pet/load", loadPetHandler)
-	mux.HandleFunc("/api/health", healthHandler)
-
-	c := cors.Default()
-	httpHandler := c.Handler(mux)
-
-	log.Printf("clod-pet backend starting on :%s", port)
-	log.Printf("pets dir: %s", petsDir)
-	if err := http.ListenAndServe(":"+port, httpHandler); err != nil {
-		log.Fatal(err)
+	log.Info("clod-pet backend starting", "port", port, "pets_dir", petsDir)
+	if err := http.ListenAndServe(":"+port, cors.Default().Handler(mux)); err != nil {
+		log.Error("http server error", "error", err)
+		os.Exit(1)
 	}
 }
 
-func apiHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-
-	var req ipc.Request
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, "invalid request: "+err.Error())
-		return
-	}
-
-	// Override handler for add_pet to include pet loading
-	if req.Command == ipc.CmdAddPet {
-		resp := handleAddPet(req.Payload)
-		writeJSON(w, resp)
-		return
-	}
-
-	// Override step_pet to include border detection context
-	if req.Command == ipc.CmdStepPet {
-		resp := handleStepPet(req.Payload)
-		writeJSON(w, resp)
-		return
-	}
-
-	// Handle set_volume command
-	if req.Command == ipc.CmdSetVolume {
-		resp := handleSetVolume(req.Payload)
-		writeJSON(w, resp)
-		return
-	}
-
-	resp := handler.Handle(&req)
-	writeJSON(w, resp)
+	return fallback
 }
 
-func handleAddPet(payload json.RawMessage) *ipc.Response {
-	var p ipc.AddPetPayload
-	if err := json.Unmarshal(payload, &p); err != nil {
-		return &ipc.Response{OK: false, Error: "invalid payload: " + err.Error()}
+func loadSettings(path string) *settings.Config {
+	cfg, err := settings.Load(path)
+	if err != nil {
+		log.Warn("could not load settings, using defaults", "path", path, "error", err)
+		return settings.DefaultConfig()
 	}
+	return cfg
+}
 
-	enginesMu.Lock()
-	defer enginesMu.Unlock()
+func newSoundPlayer(volume float64) *sound.Player {
+	player, err := sound.NewPlayer(44100, volume)
+	if err != nil {
+		log.Warn("could not initialize sound", "error", err)
+		return nil
+	}
+	return player
+}
 
-	petPath := filepath.Clean(p.PetPath)
-	petDef, exists := petStore[petPath]
-	if !exists {
-		var err error
-		petDef, err = pet.LoadPet(petPath)
+func apiHandler(h *ipc.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeError(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req ipc.Request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, "invalid request: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		log.Debug("api command", "command", req.Command)
+		resp := h.Handle(&req)
+		writeResponse(w, resp)
+	}
+}
+
+func loadPetHandler(h *ipc.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeError(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var payload struct {
+			PetPath string `json:"pet_path"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			writeError(w, "invalid request: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		log.Debug("load pet request", "pet_path", payload.PetPath)
+		petInfo, err := h.Service().LoadPet(payload.PetPath)
 		if err != nil {
-			return &ipc.Response{OK: false, Error: "load pet: " + err.Error()}
+			log.Warn("load pet failed", "pet_path", payload.PetPath, "error", err)
+			writeError(w, "load pet failed: "+err.Error(), http.StatusBadRequest)
+			return
 		}
-		petStore[petPath] = petDef
+
+		data, _ := json.Marshal(petInfo)
+		resp := &ipc.Response{OK: true, Payload: data}
+		writeResponse(w, resp)
 	}
-
-	petID := p.PetPath
-
-	e := engine.NewEngine(petDef)
-	if err := e.Start(p.SpawnID); err != nil {
-		return &ipc.Response{OK: false, Error: "start: " + err.Error()}
-	}
-	engines[petID] = e
-
-	// Play sound for the initial animation
-	playSoundForPet(petDef, e.GetCurrentAnim())
-
-	data, _ := json.Marshal(map[string]string{"pet_id": petID})
-	return &ipc.Response{OK: true, Payload: data}
 }
 
-func handleStepPet(payload json.RawMessage) *ipc.Response {
-	var p ipc.StepPetPayload
-	if err := json.Unmarshal(payload, &p); err != nil {
-		return &ipc.Response{OK: false, Error: "invalid payload: " + err.Error()}
-	}
-
-	enginesMu.RLock()
-	e, ok := engines[p.PetID]
-	enginesMu.RUnlock()
-
-	if !ok {
-		return &ipc.Response{OK: false, Error: "pet not found: " + p.PetID}
-	}
-
-	step, err := e.Step(p.BorderCtx)
-	if err != nil {
-		return &ipc.Response{OK: false, Error: "step: " + err.Error()}
-	}
-	if step == nil {
-		return &ipc.Response{OK: true}
-	}
-
-	if step.NextAnimID > 0 {
-		oldAnim := e.GetCurrentAnim()
-		e.TransitionTo(step.NextAnimID)
-		if oldAnim != step.NextAnimID {
-			enginesMu.RLock()
-			petDef := e.GetPetDef()
-			enginesMu.RUnlock()
-			if petDef != nil {
-				playSoundForPet(petDef, step.NextAnimID)
-			}
+func versionHandler(petsDir, settingsPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
+		writeJSON(w, map[string]interface{}{
+			"ok":            true,
+			"version":       "1.0.0",
+			"pid":           os.Getpid(),
+			"pets_dir":      petsDir,
+			"settings_path": settingsPath,
+		})
 	}
-
-	data, _ := json.Marshal(ipc.PetState{
-		PetID:      p.PetID,
-		FrameIndex: step.FrameIndex,
-		X:          step.X,
-		Y:          step.Y,
-		OffsetY:    step.OffsetY,
-		Opacity:    step.Opacity,
-		IntervalMs: step.IntervalMs,
-		FlipH:      step.ShouldFlip,
-		NextAnimID: step.NextAnimID,
-	})
-	return &ipc.Response{OK: true, Payload: data}
 }
 
-func loadPetHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+func healthHandler(svc *service.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		status := svc.Status()
+		if status["pet_count"] == 0 {
+			writeJSON(w, map[string]interface{}{"ok": true, "status": "degraded", "message": "no pets loaded"})
+			return
+		}
+		writeJSON(w, map[string]interface{}{"ok": true, "status": "ok"})
 	}
-
-	var payload struct {
-		PetPath string `json:"pet_path"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		writeError(w, "invalid request: "+err.Error())
-		return
-	}
-
-	p, err := pet.LoadPet(filepath.Clean(payload.PetPath))
-	if err != nil {
-		writeError(w, "load pet failed: "+err.Error())
-		return
-	}
-
-	type spawnInfo struct {
-		ID          int `json:"id"`
-		Probability int `json:"probability"`
-	}
-
-	type petResponse struct {
-		Title     string      `json:"title"`
-		PetName   string      `json:"pet_name"`
-		TilesX    int         `json:"tiles_x"`
-		TilesY    int         `json:"tiles_y"`
-		PngBase64 string      `json:"png_base64"`
-		Spawns    []spawnInfo `json:"spawns"`
-		AnimCount int         `json:"anim_count"`
-	}
-
-	spawns := make([]spawnInfo, len(p.Spawns))
-	for i, s := range p.Spawns {
-		spawns[i] = spawnInfo{ID: s.ID, Probability: s.Probability}
-	}
-
-	resp := petResponse{
-		Title:     p.Header.Title,
-		PetName:   p.Header.PetName,
-		TilesX:    p.Image.TilesX,
-		TilesY:    p.Image.TilesY,
-		PngBase64: base64.StdEncoding.EncodeToString(p.Image.PngData),
-		AnimCount: len(p.Animations),
-		Spawns:    spawns,
-	}
-
-	writeJSON(w, map[string]interface{}{
-		"ok":  true,
-		"pet": resp,
-	})
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+func describeHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		description := map[string]interface{}{
+			"version": "1.0.0",
+			"commands": []string{
+				"add_pet", "remove_pet", "drag_pet", "drop_pet",
+				"step_pet", "border_pet", "get_status", "get_pet",
+				"set_volume", "set_scale", "get_settings", "set_settings",
+				"list_pets", "list_active",
+			},
+			"endpoints": []map[string]interface{}{
+				{"path": "/api", "method": "POST", "description": "Generic command endpoint"},
+				{"path": "/api/pet/load", "method": "POST", "description": "Load pet definition"},
+				{"path": "/api/health", "method": "GET", "description": "Health check"},
+				{"path": "/api/describe", "method": "GET", "description": "API description"},
+			},
+		}
+		writeJSON(w, description)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
@@ -258,71 +173,20 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
-func writeError(w http.ResponseWriter, msg string) {
+func writeError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"ok":    false,
-		"error": msg,
-	})
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]interface{}{"ok": false, "error": msg})
 }
 
-func init() {
-	_ = expression.NewEnv()
-}
-
-func playSoundForPet(petDef *pet.Pet, animID int) {
-	soundMu.RLock()
-	player := soundPlayer
-	soundMu.RUnlock()
-
-	if player == nil {
+func writeResponse(w http.ResponseWriter, resp *ipc.Response) {
+	if !resp.OK {
+		code := http.StatusBadRequest
+		if resp.Error != "" && strings.Contains(resp.Error, "not found") {
+			code = http.StatusNotFound
+		}
+		writeError(w, resp.Error, code)
 		return
 	}
-
-	sounds, ok := petDef.Sounds[animID]
-	if !ok || len(sounds) == 0 {
-		return
-	}
-
-	// Convert pet.Sound to sound.SoundEntry for PickSound
-	var soundEntries []sound.SoundEntry
-	for _, s := range sounds {
-		soundEntries = append(soundEntries, sound.SoundEntry{
-			AnimationID: s.AnimationID,
-			Probability: s.Probability,
-			Loop:        s.Loop,
-			Data:        s.Data,
-		})
-	}
-
-	soundEntry := sound.PickSound(soundEntries)
-	if soundEntry == nil {
-		return
-	}
-
-	if err := player.PlayRawPCM(soundEntry.Data); err != nil {
-		log.Printf("sound play failed: %v", err)
-	}
-}
-
-func handleSetVolume(payload json.RawMessage) *ipc.Response {
-	var p ipc.SetVolumePayload
-	if err := json.Unmarshal(payload, &p); err != nil {
-		return &ipc.Response{OK: false, Error: "invalid payload: " + err.Error()}
-	}
-
-	soundMu.Lock()
-	if soundPlayer != nil {
-		soundPlayer.SetVolume(p.Volume)
-	}
-	soundMu.Unlock()
-
-	// Also save to settings
-	cfg.Volume = p.Volume
-	if err := cfg.Save("clod-pet-settings.json"); err != nil {
-		log.Printf("warning: could not save settings: %v", err)
-	}
-
-	return &ipc.Response{OK: true}
+	writeJSON(w, resp)
 }

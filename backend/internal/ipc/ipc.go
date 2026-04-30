@@ -3,23 +3,25 @@ package ipc
 import (
 	"clod-pet/backend/internal/engine"
 	"encoding/json"
-	"sync"
 )
 
 type Command string
 
 const (
-	CmdAddPet     Command = "add_pet"
-	CmdRemovePet  Command = "remove_pet"
-	CmdSetPet     Command = "set_pet"
-	CmdDragPet    Command = "drag_pet"
-	CmdDropPet    Command = "drop_pet"
-	CmdGetStatus  Command = "get_status"
-	CmdSetVolume  Command = "set_volume"
-	CmdSetScale   Command = "set_scale"
-	CmdStepPet    Command = "step_pet"
-	CmdBorderPet  Command = "border_pet"
-	CmdGetPet     Command = "get_pet"
+	CmdAddPet      Command = "add_pet"
+	CmdRemovePet   Command = "remove_pet"
+	CmdDragPet     Command = "drag_pet"
+	CmdDropPet     Command = "drop_pet"
+	CmdGetStatus   Command = "get_status"
+	CmdSetVolume   Command = "set_volume"
+	CmdSetScale    Command = "set_scale"
+	CmdStepPet     Command = "step_pet"
+	CmdBorderPet   Command = "border_pet"
+	CmdGetPet      Command = "get_pet"
+	CmdGetSettings Command = "get_settings"
+	CmdSetSettings Command = "set_settings"
+	CmdListPets    Command = "list_pets"
+	CmdListActive  Command = "list_active"
 )
 
 type Request struct {
@@ -53,12 +55,13 @@ type DropPetPayload struct {
 }
 
 type StepPetPayload struct {
-	PetID     string              `json:"pet_id"`
+	PetID     string               `json:"pet_id"`
 	BorderCtx engine.BorderContext `json:"border_ctx"`
+	Gravity   bool                 `json:"gravity,omitempty"`
 }
 
 type BorderPetPayload struct {
-	PetID     string              `json:"pet_id"`
+	PetID     string               `json:"pet_id"`
 	Direction engine.BorderContext `json:"direction"`
 }
 
@@ -82,32 +85,55 @@ type PetState struct {
 	NextAnimID int     `json:"next_anim_id,omitempty"`
 }
 
+type SpawnInfo struct {
+	ID          int `json:"id"`
+	Probability int `json:"probability"`
+}
+
 type PetInfo struct {
-	PetID      string `json:"pet_id"`
-	Title      string `json:"title"`
-	PetName    string `json:"pet_name"`
-	TilesX     int    `json:"tiles_x"`
-	TilesY     int    `json:"tiles_y"`
-	PngBase64  string `json:"png_base64"`
-	FrameW     int    `json:"frame_w"`
-	FrameH     int    `json:"frame_h"`
+	Title     string      `json:"title"`
+	PetName   string      `json:"pet_name"`
+	TilesX    int         `json:"tiles_x"`
+	TilesY    int         `json:"tiles_y"`
+	PngBase64 string      `json:"png_base64"`
+	FrameW    int         `json:"frame_w"`
+	FrameH    int         `json:"frame_h"`
+	Spawns    []SpawnInfo `json:"spawns"`
+	AnimCount int         `json:"anim_count"`
+}
+
+type Service interface {
+	AddPet(petPath string, spawnID int) (string, error)
+	RemovePet(petID string)
+	StepPet(petID string, borderCtx engine.BorderContext, gravity bool) (*PetState, error)
+	DragPet(petID string, x, y float64) error
+	DropPet(petID string) error
+	ValidatePetExists(petID string) error
+	Status() map[string]int
+	UpdateVolume(volume float64) error
+	UpdateScale(scale float64) error
+	Settings() map[string]interface{}
+	SetSettings(settings map[string]interface{}) error
+	ListPets() ([]string, error)
+	ListActive() ([]map[string]interface{}, error)
+	Pet(petID string) (json.RawMessage, error)
+	PetsDir() string
+	LoadPet(petPath string) (*PetInfo, error)
 }
 
 type Handler struct {
-	mu     sync.RWMutex
-	engines map[string]*engine.Engine
+	svc Service
 }
 
-func NewHandler() *Handler {
-	return &Handler{
-		engines: make(map[string]*engine.Engine),
-	}
+func NewHandler(svc Service) *Handler {
+	return &Handler{svc: svc}
+}
+
+func (h *Handler) Service() Service {
+	return h.svc
 }
 
 func (h *Handler) Handle(req *Request) *Response {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	switch req.Command {
 	case CmdAddPet:
 		return h.handleAddPet(req.Payload)
@@ -125,6 +151,18 @@ func (h *Handler) Handle(req *Request) *Response {
 		return h.handleBorderPet(req.Payload)
 	case CmdGetPet:
 		return h.handleGetPet(req.Payload)
+	case CmdSetVolume:
+		return h.handleSetVolume(req.Payload)
+	case CmdSetScale:
+		return h.handleSetScale(req.Payload)
+	case CmdGetSettings:
+		return h.handleGetSettings()
+	case CmdSetSettings:
+		return h.handleSetSettings(req.Payload)
+	case CmdListPets:
+		return h.handleListPets()
+	case CmdListActive:
+		return h.handleListActive()
 	default:
 		return errorResponse("unknown command: " + string(req.Command))
 	}
@@ -136,15 +174,12 @@ func (h *Handler) handleAddPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	// Use pet_path as unique ID for now
-	e := engine.NewEngine(nil)
-	if err := e.Start(p.SpawnID); err != nil {
-		return errorResponse("start failed: " + err.Error())
+	petID, err := h.svc.AddPet(p.PetPath, p.SpawnID)
+	if err != nil {
+		return errorResponse(err.Error())
 	}
 
-	h.engines[p.PetPath] = e
-
-	data, _ := json.Marshal(map[string]string{"pet_id": p.PetPath})
+	data, _ := json.Marshal(map[string]string{"pet_id": petID})
 	return successResponse(data)
 }
 
@@ -154,7 +189,7 @@ func (h *Handler) handleRemovePet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	delete(h.engines, p.PetID)
+	h.svc.RemovePet(p.PetID)
 	return successResponse(nil)
 }
 
@@ -164,13 +199,9 @@ func (h *Handler) handleDragPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	e, ok := h.engines[p.PetID]
-	if !ok {
-		return errorResponse("pet not found: " + p.PetID)
+	if err := h.svc.DragPet(p.PetID, p.X, p.Y); err != nil {
+		return errorResponse(err.Error())
 	}
-
-	e.SetDrag()
-	e.SetPosition(p.X, p.Y)
 	return successResponse(nil)
 }
 
@@ -180,12 +211,9 @@ func (h *Handler) handleDropPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	e, ok := h.engines[p.PetID]
-	if !ok {
-		return errorResponse("pet not found: " + p.PetID)
+	if err := h.svc.DropPet(p.PetID); err != nil {
+		return errorResponse(err.Error())
 	}
-
-	e.SetFall()
 	return successResponse(nil)
 }
 
@@ -195,34 +223,15 @@ func (h *Handler) handleStepPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	e, ok := h.engines[p.PetID]
-	if !ok {
-		return errorResponse("pet not found: " + p.PetID)
-	}
-
-	step, err := e.Step(p.BorderCtx)
+	state, err := h.svc.StepPet(p.PetID, p.BorderCtx, p.Gravity)
 	if err != nil {
-		return errorResponse("step failed: " + err.Error())
+		return errorResponse(err.Error())
 	}
-	if step == nil {
+	if state == nil {
 		return successResponse(nil)
 	}
 
-	if step.NextAnimID > 0 {
-		e.TransitionTo(step.NextAnimID)
-	}
-
-	data, _ := json.Marshal(PetState{
-		PetID:      p.PetID,
-		FrameIndex: step.FrameIndex,
-		X:          step.X,
-		Y:          step.Y,
-		OffsetY:    step.OffsetY,
-		Opacity:    step.Opacity,
-		IntervalMs: step.IntervalMs,
-		FlipH:      step.ShouldFlip,
-		NextAnimID: step.NextAnimID,
-	})
+	data, _ := json.Marshal(state)
 	return successResponse(data)
 }
 
@@ -232,16 +241,15 @@ func (h *Handler) handleBorderPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	_, ok := h.engines[p.PetID]
-	if !ok {
-		return errorResponse("pet not found: " + p.PetID)
+	if err := h.svc.ValidatePetExists(p.PetID); err != nil {
+		return errorResponse(err.Error())
 	}
-
 	return successResponse(nil)
 }
 
 func (h *Handler) handleGetStatus() *Response {
-	data, _ := json.Marshal(map[string]int{"pet_count": len(h.engines)})
+	status := h.svc.Status()
+	data, _ := json.Marshal(status)
 	return successResponse(data)
 }
 
@@ -253,8 +261,70 @@ func (h *Handler) handleGetPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	// Return placeholder - actual pet loading handled separately
-	data, _ := json.Marshal(map[string]string{"pet_path": p.PetPath})
+	data, err := h.svc.Pet(p.PetPath)
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+	return successResponse(data)
+}
+
+func (h *Handler) handleSetVolume(payload json.RawMessage) *Response {
+	var p SetVolumePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return errorResponse("invalid payload: " + err.Error())
+	}
+
+	if err := h.svc.UpdateVolume(p.Volume); err != nil {
+		return errorResponse(err.Error())
+	}
+	return successResponse(nil)
+}
+
+func (h *Handler) handleSetScale(payload json.RawMessage) *Response {
+	var p SetScalePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return errorResponse("invalid payload: " + err.Error())
+	}
+
+	if err := h.svc.UpdateScale(p.Scale); err != nil {
+		return errorResponse(err.Error())
+	}
+	return successResponse(nil)
+}
+
+func (h *Handler) handleGetSettings() *Response {
+	settings := h.svc.Settings()
+	data, _ := json.Marshal(settings)
+	return successResponse(data)
+}
+
+func (h *Handler) handleSetSettings(payload json.RawMessage) *Response {
+	var settings map[string]interface{}
+	if err := json.Unmarshal(payload, &settings); err != nil {
+		return errorResponse("invalid payload: " + err.Error())
+	}
+
+	if err := h.svc.SetSettings(settings); err != nil {
+		return errorResponse(err.Error())
+	}
+	return successResponse(nil)
+}
+
+func (h *Handler) handleListPets() *Response {
+	pets, err := h.svc.ListPets()
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+	data, _ := json.Marshal(pets)
+	return successResponse(data)
+}
+
+func (h *Handler) handleListActive() *Response {
+	active, err := h.svc.ListActive()
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+	data, _ := json.Marshal(active)
 	return successResponse(data)
 }
 

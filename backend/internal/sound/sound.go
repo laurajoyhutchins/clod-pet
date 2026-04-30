@@ -34,7 +34,7 @@ func NewPlayer(sampleRate int, volume float64) (*Player, error) {
 	}, nil
 }
 
-func (p *Player) PlayMP3(base64Data string) error {
+func (p *Player) PlayBase64PCM(base64Data string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -63,7 +63,7 @@ func (p *Player) playPCM(r io.Reader) {
 	player.Play()
 }
 
-func (p *Player) Stop() {
+func (p *Player) Release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -71,7 +71,7 @@ func (p *Player) Stop() {
 	// This is a no-op for now
 }
 
-func (p *Player) SetVolume(v float64) {
+func (p *Player) UpdateVolume(v float64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

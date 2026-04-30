@@ -10,13 +10,13 @@ import (
 const xmlNamespace = "https://esheep.petrucci.ch/"
 
 type xmlRoot struct {
-	XMLName    xml.Name       `xml:"animations"`
-	Header     xmlHeader      `xml:"header"`
-	Image      xmlImage       `xml:"image"`
-	Spawns     xmlSpawns      `xml:"spawns"`
-	Animations xmlAnimations  `xml:"animations"`
-	Children   xmlChildren    `xml:"childs"`
-	Sounds     xmlSounds      `xml:"sounds"`
+	XMLName    xml.Name      `xml:"animations"`
+	Header     xmlHeader     `xml:"header"`
+	Image      xmlImage      `xml:"image"`
+	Spawns     xmlSpawns     `xml:"spawns"`
+	Animations xmlAnimations `xml:"animations"`
+	Children   xmlChildren   `xml:"childs"`
+	Sounds     xmlSounds     `xml:"sounds"`
 }
 
 type xmlHeader struct {
@@ -30,8 +30,10 @@ type xmlHeader struct {
 }
 
 type xmlImage struct {
-	TilesX       int    `xml:"tilesx,attr"`
-	TilesY       int    `xml:"tilesy,attr"`
+	TilesX       int    `xml:"tilesx"`
+	TilesY       int    `xml:"tilesy"`
+	TilesXAttr   int    `xml:"tilesx,attr"`
+	TilesYAttr   int    `xml:"tilesy,attr"`
 	PngBase64    string `xml:"png"`
 	Transparency string `xml:"transparency"`
 }
@@ -41,10 +43,10 @@ type xmlSpawns struct {
 }
 
 type xmlSpawn struct {
-	ID          int    `xml:"id,attr"`
-	Probability int    `xml:"probability,attr"`
-	X           string `xml:"x"`
-	Y           string `xml:"y"`
+	ID          int     `xml:"id,attr"`
+	Probability int     `xml:"probability,attr"`
+	X           string  `xml:"x"`
+	Y           string  `xml:"y"`
 	Next        xmlNext `xml:"next"`
 }
 
@@ -53,11 +55,11 @@ type xmlAnimations struct {
 }
 
 type xmlAnimation struct {
-	ID       int          `xml:"id,attr"`
-	Name     string       `xml:"name"`
-	Start    xmlMovement  `xml:"start"`
-	End      *xmlMovement `xml:"end"`
-	Sequence xmlSequence  `xml:"sequence"`
+	ID       int             `xml:"id,attr"`
+	Name     string          `xml:"name"`
+	Start    xmlMovement     `xml:"start"`
+	End      *xmlMovement    `xml:"end"`
+	Sequence xmlSequence     `xml:"sequence"`
 	Border   *xmlTransitions `xml:"border"`
 	Gravity  *xmlTransitions `xml:"gravity"`
 }
@@ -71,10 +73,10 @@ type xmlMovement struct {
 }
 
 type xmlSequence struct {
-	Frames       []int       `xml:"frame"`
-	Nexts        []xmlNext   `xml:"next"`
-	Repeat       string      `xml:"repeat,attr"`
-	RepeatFrom   int         `xml:"repeatfrom,attr"`
+	Frames     []int     `xml:"frame"`
+	Nexts      []xmlNext `xml:"next"`
+	Repeat     string    `xml:"repeat,attr"`
+	RepeatFrom int       `xml:"repeatfrom,attr"`
 }
 
 type xmlTransitions struct {
@@ -92,9 +94,9 @@ type xmlChildren struct {
 }
 
 type xmlChild struct {
-	AnimationID int    `xml:"animationid,attr"`
-	X           string `xml:"x"`
-	Y           string `xml:"y"`
+	AnimationID int     `xml:"animationid,attr"`
+	X           string  `xml:"x"`
+	Y           string  `xml:"y"`
 	Next        xmlNext `xml:"next"`
 }
 
@@ -143,16 +145,16 @@ type Movement struct {
 }
 
 type Animation struct {
-	ID          int
-	Name        string
-	Start       Movement
-	End         Movement
-	Frames      []int
+	ID           int
+	Name         string
+	Start        Movement
+	End          Movement
+	Frames       []int
 	SequenceNext []NextAnimation
-	BorderNext  []NextAnimation
-	GravityNext []NextAnimation
-	Repeat      string
-	RepeatFrom  int
+	BorderNext   []NextAnimation
+	GravityNext  []NextAnimation
+	Repeat       string
+	RepeatFrom   int
 }
 
 type NextAnimation struct {
@@ -201,6 +203,15 @@ func LoadPet(dir string) (*Pet, error) {
 		return nil, fmt.Errorf("decode sprite png: %w", err)
 	}
 
+	tilesX := root.Image.TilesX
+	if tilesX == 0 {
+		tilesX = root.Image.TilesXAttr
+	}
+	tilesY := root.Image.TilesY
+	if tilesY == 0 {
+		tilesY = root.Image.TilesYAttr
+	}
+
 	pet := &Pet{
 		Header: Header{
 			Author:      root.Header.Author,
@@ -212,8 +223,8 @@ func LoadPet(dir string) (*Pet, error) {
 			Icon:        iconData,
 		},
 		Image: Image{
-			TilesX:       root.Image.TilesX,
-			TilesY:       root.Image.TilesY,
+			TilesX:       tilesX,
+			TilesY:       tilesY,
 			PngData:      pngData,
 			Transparency: root.Image.Transparency,
 		},
@@ -233,17 +244,17 @@ func LoadPet(dir string) (*Pet, error) {
 
 	for _, xa := range root.Animations.Animations {
 		anim := Animation{
-			ID:   xa.ID,
-			Name: xa.Name,
-			Start: parseMovement(xa.Start),
-			Repeat: xa.Sequence.Repeat,
+			ID:         xa.ID,
+			Name:       xa.Name,
+			Start:      parseMovement(xa.Start),
+			Repeat:     xa.Sequence.Repeat,
 			RepeatFrom: xa.Sequence.RepeatFrom,
 		}
 
 		if xa.End != nil {
 			anim.End = parseMovement(*xa.End)
 		} else {
-			anim.End = anim.Start.Clone()
+			anim.End = anim.Start.Copy()
 		}
 
 		anim.Frames = xa.Sequence.Frames
@@ -323,6 +334,6 @@ func parseMovement(xm xmlMovement) Movement {
 	}
 }
 
-func (m Movement) Clone() Movement {
+func (m Movement) Copy() Movement {
 	return m
 }

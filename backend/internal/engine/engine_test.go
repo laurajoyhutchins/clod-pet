@@ -16,28 +16,28 @@ func testPet() *pet.Pet {
 		},
 		Animations: map[int]pet.Animation{
 			1: {
-				ID:   1,
-				Name: "walk",
-				Start: pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				End:   pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				Frames:      []int{0, 1},
-				Repeat:      "10",
-				RepeatFrom:  0,
+				ID:         1,
+				Name:       "walk",
+				Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+				End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+				Frames:     []int{0, 1},
+				Repeat:     "10",
+				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
-					{ID: 2, Probability: 50},
-					{ID: 1, Probability: 50},
+					{ID: 2, Probability: 50, Only: "none"},
+					{ID: 1, Probability: 50, Only: "none"},
 				},
 			},
 			2: {
-				ID:   2,
-				Name: "sit",
-				Start: pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "300"},
-				End:   pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "300"},
-				Frames:      []int{2, 3},
-				Repeat:      "5",
-				RepeatFrom:  0,
+				ID:         2,
+				Name:       "sit",
+				Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "300"},
+				End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "300"},
+				Frames:     []int{2, 3},
+				Repeat:     "5",
+				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
-					{ID: 1, Probability: 100},
+					{ID: 1, Probability: 100, Only: "none"},
 				},
 			},
 		},
@@ -51,7 +51,7 @@ func TestNewEngineIdle(t *testing.T) {
 		t.Errorf("state = %v, want %v", e.state, StateIdle)
 	}
 
-	result, err := e.Step(ContextNone)
+	result, err := e.Step(ContextNone, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestEngineStart(t *testing.T) {
 		t.Errorf("currentAnim = %d, want 1", e.currentAnim)
 	}
 
-	x, y := e.GetPosition()
+	x, y := e.Position()
 	if x != 100 {
 		t.Errorf("X = %v, want 100", x)
 	}
@@ -104,7 +104,7 @@ func TestEngineStepProducesFrames(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextNone)
+	result, err := e.Step(ContextNone, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestEngineStepCyclesFrames(t *testing.T) {
 
 	expected := []int{0, 1, 0, 1, 0, 1}
 	for i, want := range expected {
-		result, err := e.Step(ContextNone)
+		result, err := e.Step(ContextNone, false)
 		if err != nil {
 			t.Fatalf("Step %d error: %v", i, err)
 		}
@@ -151,11 +151,11 @@ func TestEngineStepAccumulatesPosition(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	_, _ = e.Step(ContextNone)
-	_, _ = e.Step(ContextNone)
-	_, _ = e.Step(ContextNone)
+	_, _ = e.Step(ContextNone, false)
+	_, _ = e.Step(ContextNone, false)
+	_, _ = e.Step(ContextNone, false)
 
-	x, _ := e.GetPosition()
+	x, _ := e.Position()
 	want := 100.0 + (-2)*3
 	if math.Abs(x-want) > 0.01 {
 		t.Errorf("X = %v, want %v", x, want)
@@ -218,7 +218,7 @@ func TestEngineSetPosition(t *testing.T) {
 	e.Start(1)
 
 	e.SetPosition(500, 600)
-	x, y := e.GetPosition()
+	x, y := e.Position()
 	if math.Abs(x-500) > 0.01 {
 		t.Errorf("X = %v, want 500", x)
 	}
@@ -227,19 +227,79 @@ func TestEngineSetPosition(t *testing.T) {
 	}
 }
 
+func TestBorderMatches(t *testing.T) {
+	tests := []struct {
+		only string
+		ctx  BorderContext
+		want bool
+	}{
+		{"none", ContextNone, true},
+		{"none", ContextTaskbar, true},
+		{"taskbar", ContextTaskbar, true},
+		{"taskbar", ContextNone, false},
+		{"window", ContextWindow, true},
+		{"window", ContextTaskbar, false},
+		{"vertical", ContextVertical, true},
+		{"vertical", ContextHorizontal, false},
+		{"horizontal", ContextHorizontal, true},
+		{"horizontal", ContextVertical, false},
+		{"horizontal+", ContextHorizontal, true},
+	}
+
+	for _, tc := range tests {
+		got := borderMatches(tc.only, tc.ctx)
+		if got != tc.want {
+			t.Errorf("borderMatches(%q, %v) = %v, want %v", tc.only, tc.ctx, got, tc.want)
+		}
+	}
+}
+
+func TestWeightedPick(t *testing.T) {
+	candidates := []pet.NextAnimation{
+		{ID: 1, Probability: 80},
+		{ID: 2, Probability: 20},
+	}
+
+	for i := 0; i < 100; i++ {
+		result := weightedPick(candidates)
+		if result != 1 && result != 2 {
+			t.Errorf("weightedPick returned %d, want 1 or 2", result)
+		}
+	}
+}
+
+func TestWeightedPickEmpty(t *testing.T) {
+	result := weightedPick([]pet.NextAnimation{})
+	if result != 0 {
+		t.Errorf("weightedPick(empty) = %d, want 0", result)
+	}
+}
+
+func TestWeightedPickZeroProbability(t *testing.T) {
+	candidates := []pet.NextAnimation{
+		{ID: 1, Probability: 0},
+		{ID: 2, Probability: 0},
+	}
+
+	result := weightedPick(candidates)
+	if result != 0 {
+		t.Errorf("weightedPick(zero prob) = %d, want 0", result)
+	}
+}
+
 func TestEngineStepTransitionTriggers(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
-		ID:   1,
-		Name: "walk",
-		Start: pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:   pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		Frames:      []int{0, 1},
-		Repeat:      "2",
-		RepeatFrom:  0,
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0, 1},
+		Repeat:     "2",
+		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
-					{ID: 2, Probability: 100, Only: "none"},
-				},
+			{ID: 2, Probability: 100, Only: "none"},
+		},
 	}
 
 	e := NewEngine(p)
@@ -247,7 +307,7 @@ func TestEngineStepTransitionTriggers(t *testing.T) {
 
 	var transitionID int
 	for i := 0; i < 10; i++ {
-		result, err := e.Step(ContextNone)
+		result, err := e.Step(ContextNone, false)
 		if err != nil {
 			t.Fatalf("Step %d error: %v", i, err)
 		}
@@ -270,13 +330,13 @@ func TestEngineStepTransitionTriggers(t *testing.T) {
 func TestEngineBorderTransition(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
-		ID:   1,
-		Name: "walk",
-		Start: pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:   pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		Frames:      []int{0},
-		Repeat:      "1",
-		RepeatFrom:  0,
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "taskbar"},
 		},
@@ -285,7 +345,7 @@ func TestEngineBorderTransition(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextTaskbar)
+	result, err := e.Step(ContextTaskbar, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -300,13 +360,13 @@ func TestEngineBorderTransition(t *testing.T) {
 func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
-		ID:   1,
-		Name: "walk",
-		Start: pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:   pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		Frames:      []int{0},
-		Repeat:      "1",
-		RepeatFrom:  0,
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "window"},
 		},
@@ -315,7 +375,7 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextTaskbar)
+	result, err := e.Step(ContextTaskbar, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -333,7 +393,7 @@ func TestEngineInvalidAnimation(t *testing.T) {
 	e.Start(1)
 
 	e.TransitionTo(999)
-	result, err := e.Step(ContextNone)
+	result, err := e.Step(ContextNone, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -345,20 +405,20 @@ func TestEngineInvalidAnimation(t *testing.T) {
 func TestEngineNoFrames(t *testing.T) {
 	p := testPet()
 	p.Animations[3] = pet.Animation{
-		ID:   3,
-		Name: "empty",
-		Start: pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:   pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		Frames:      []int{},
-		Repeat:      "1",
-		RepeatFrom:  0,
+		ID:         3,
+		Name:       "empty",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{},
+		Repeat:     "1",
+		RepeatFrom: 0,
 	}
 
 	e := NewEngine(p)
 	e.Start(1)
 	e.TransitionTo(3)
 
-	result, err := e.Step(ContextNone)
+	result, err := e.Step(ContextNone, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -370,22 +430,22 @@ func TestEngineNoFrames(t *testing.T) {
 func TestEngineOpacityLerp(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
-		ID:   1,
-		Name: "fade",
-		Start: pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 0.0, Interval: "100"},
-		End:   pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		Frames:      []int{0},
-		Repeat:      "10",
-		RepeatFrom:  0,
+		ID:         1,
+		Name:       "fade",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 0.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "10",
+		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
-			{ID: 1, Probability: 100},
+			{ID: 1, Probability: 100, Only: "none"},
 		},
 	}
 
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextNone)
+	result, err := e.Step(ContextNone, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -401,23 +461,23 @@ func TestEngineOpacityLerp(t *testing.T) {
 func TestEngineIntervalEvaluation(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
-		ID:   1,
-		Name: "walk",
-		Start: pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:   pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-		Frames:      []int{0},
-		Repeat:      "2",
-		RepeatFrom:  0,
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+		Frames:     []int{0},
+		Repeat:     "2",
+		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
-			{ID: 1, Probability: 100},
+			{ID: 1, Probability: 100, Only: "none"},
 		},
 	}
 
 	e := NewEngine(p)
 	e.Start(1)
 
-	_, _ = e.Step(ContextNone)
-	result, err := e.Step(ContextNone)
+	_, _ = e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}

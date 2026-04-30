@@ -6,5 +6,10 @@
   "Scale": 1,
   "MultiScreenEnabled": true,
   "CurrentPet": "esheep64",
-  "LastUpdate": null
+  "LastUpdate": null,
+  "llm": {
+    "provider": "ollama",
+    "base_url": "http://localhost:11434",
+    "model": "llama3"
+  }
 }

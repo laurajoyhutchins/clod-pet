@@ -12,7 +12,7 @@ type LastUpdate struct {
 }
 
 type Config struct {
-	Volume            float64      `json:"Volume"`
+	Volume             float64      `json:"Volume"`
 	WinForeGround     bool         `json:"WinForeGround"`
 	StealTaskbarFocus bool         `json:"StealTaskbarFocus"`
 	AutostartPets     int          `json:"AutostartPets"`
@@ -28,7 +28,7 @@ func DefaultConfig() *Config {
 		Scale:              1.0,
 		MultiScreenEnabled: true,
 		AutostartPets:      1,
-		CurrentPet:         "esheep64",
+		CurrentPet:        "esheep64",
 	}
 }
 
