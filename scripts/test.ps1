@@ -1,14 +1,12 @@
 # ClodPet Test Script
-# Run with: powershell -ExecutionPolicy Bypass -File test.ps1
+# Run with: powershell -ExecutionPolicy Bypass -File scripts/test.ps1
 
 $ErrorActionPreference = "Continue"
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
 $backendDir = Join-Path $repoRoot "backend"
 $frontendDir = Join-Path $repoRoot "frontend"
 $logFile = Join-Path $env:TEMP "clodpet-test.log"
-
-$totalPassed = 0
-$totalFailed = 0
 
 function Log($msg) {
     $timestamp = Get-Date -Format "o"
@@ -17,31 +15,35 @@ function Log($msg) {
     $line | Out-File -FilePath $logFile -Append -Encoding utf8
 }
 
-function Test-Backend {
-    Write-Host "`n" + ("=" * 60) -ForegroundColor Cyan
-    Write-Host "Running Backend Tests (Go)" -ForegroundColor Cyan
+function Write-Section($title) {
+    Write-Host ""
     Write-Host ("=" * 60) -ForegroundColor Cyan
+    Write-Host $title -ForegroundColor Cyan
+    Write-Host ("=" * 60) -ForegroundColor Cyan
+}
+
+function Test-Backend {
+    Write-Section "Running Backend Go Tests"
 
     Push-Location $backendDir
 
     Log "Starting Go backend tests..."
 
-    # Run tests with verbose output and coverage
     $output = go test -v -cover ./... 2>&1
     $exitCode = $LASTEXITCODE
 
-    # Display output
     $output | ForEach-Object { Write-Host $_ }
 
-    # Count passed/failed tests
     $passed = ($output | Select-String "PASS:" | Measure-Object).Count
     $failed = ($output | Select-String "FAIL:" | Measure-Object).Count
 
     if ($exitCode -eq 0) {
-        Write-Host "`n✓ All backend tests passed!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "All backend tests passed!" -ForegroundColor Green
         Log "Backend tests: ALL PASSED"
     } else {
-        Write-Host "`n✗ Some backend tests failed!" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Some backend tests failed!" -ForegroundColor Red
         Log "Backend tests: FAILED"
     }
 
@@ -55,19 +57,15 @@ function Test-Backend {
 }
 
 function Test-Frontend {
-    Write-Host "`n" + ("=" * 60) -ForegroundColor Cyan
-    Write-Host "Running Frontend Tests (Jest)" -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
+    Write-Section "Running Frontend Jest Tests"
 
     Push-Location $frontendDir
 
     Log "Starting frontend tests..."
 
-    # Run jest with --verbose flag
     $output = npm test -- --verbose 2>&1
     $exitCode = $LASTEXITCODE
 
-    # Display output (last 50 lines to avoid clutter)
     $output | Select-Object -Last 50 | ForEach-Object { Write-Host $_ }
 
     if ($exitCode -eq 0) {
@@ -88,9 +86,7 @@ function Test-Frontend {
 }
 
 function Test-FrontendE2E {
-    Write-Host "`n" + ("=" * 60) -ForegroundColor Cyan
-    Write-Host "Running Frontend E2E Tests" -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
+    Write-Section "Running Frontend E2E Tests"
 
     Push-Location $frontendDir
 
@@ -102,10 +98,12 @@ function Test-FrontendE2E {
     $output | Select-Object -Last 50 | ForEach-Object { Write-Host $_ }
 
     if ($exitCode -eq 0) {
-        Write-Host "`n✓ All E2E tests passed!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "All E2E tests passed!" -ForegroundColor Green
         Log "E2E tests: ALL PASSED"
     } else {
-        Write-Host "`n✗ Some E2E tests failed!" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Some E2E tests failed!" -ForegroundColor Red
         Log "E2E tests: FAILED"
     }
 
@@ -153,12 +151,10 @@ function Show-Summary {
     Write-Host "Log saved to: $logFile" -ForegroundColor Cyan
 }
 
-# Clear log
 if (Test-Path $logFile) { Remove-Item $logFile }
 
 Log "=== Starting ClodPet test suite ==="
 
-# Parse arguments
 $runBackend = $true
 $runFrontend = $true
 $runE2E = $false
@@ -182,7 +178,6 @@ if ($args.Count -gt 0) {
     }
 }
 
-# Run tests
 $backendResult = $null
 $frontendResult = $null
 $e2eResult = $null
@@ -201,7 +196,6 @@ if ($runE2E) {
 
 Show-Summary $backendResult $frontendResult $e2eResult
 
-# Exit with proper code
 $anyFailed = ($backendResult -and $backendResult.ExitCode -ne 0) -or
              ($frontendResult -and $frontendResult.ExitCode -ne 0) -or
              ($e2eResult -and $e2eResult.ExitCode -ne 0)
