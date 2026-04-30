@@ -1,4 +1,5 @@
-const api = window.clodPet.control;
+(function() {
+const api = (window as any).clodPet.control;
 
 let settings: any = {};
 let pets: string[] = [];
@@ -31,7 +32,7 @@ async function initControlPanel() {
     await refreshActivePets();
     await refreshDiagnostics();
     updateStatus("Connected", "success");
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 }
@@ -68,7 +69,7 @@ async function refreshActivePets() {
     activePets = activePets || [];
     renderActivePets();
     renderPetTracker();
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error loading pets: " + err.message, "error");
   }
 }
@@ -137,7 +138,7 @@ async function renderPetTracker() {
       html += `</div>`;
     });
     content.innerHTML = html;
-  } catch (err) {
+  } catch (err: any) {
     content.innerHTML = "Error updating tracker: " + err.message;
   }
 }
@@ -150,7 +151,7 @@ async function removePet(petId: string) {
     await api.removePet(petId);
     updateStatus("Pet removed", "success");
     await refreshActivePets();
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 }
@@ -163,7 +164,7 @@ async function addPet() {
     await api.addPet(petName);
     updateStatus(`Added ${petName}`, "success");
     await refreshActivePets();
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 }
@@ -206,7 +207,7 @@ async function refreshDiagnostics() {
       "Backend stderr:",
       backend.lastStderr || "(empty)",
     ].join("\n");
-  } catch (err) {
+  } catch (err: any) {
     summary.innerHTML = "";
     addDiagnosticRow(summary, "Diagnostics", "failed");
     log.textContent = err.message;
@@ -224,22 +225,22 @@ function addDiagnosticRow(container: HTMLElement, label: string, value: string) 
   container.appendChild(valueEl);
 }
 
-el("volume").addEventListener("input", async (e) => {
+el("volume").addEventListener("input", async (e: Event) => {
   const vol = parseFloat((e.target as HTMLInputElement).value);
   el("volume-value").textContent = Math.round(vol * 100) + "%";
   try {
     await api.setVolume(vol);
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 });
 
-el("scale").addEventListener("input", async (e) => {
+el("scale").addEventListener("input", async (e: Event) => {
   const scale = parseFloat((e.target as HTMLInputElement).value);
   el("scale-value").textContent = scale.toFixed(1) + "x";
   try {
     await api.setScale(scale);
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 });
@@ -247,16 +248,16 @@ el("scale").addEventListener("input", async (e) => {
 el("add-pet-btn").addEventListener("click", addPet);
 el("refresh-diagnostics-btn").addEventListener("click", refreshDiagnostics);
 
-el("pet-select").addEventListener("change", async (e) => {
+el("pet-select").addEventListener("change", async (e: Event) => {
   try {
     await api.setSettings({ CurrentPet: (e.target as HTMLSelectElement).value });
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 });
 
 ["multi-screen", "win-foreground", "steal-focus"].forEach((id) => {
-  el(id).addEventListener("change", async (e) => {
+  el(id).addEventListener("change", async (e: Event) => {
     const keyMap: Record<string, string> = {
       "multi-screen": "MultiScreenEnabled",
       "win-foreground": "WinForeGround",
@@ -264,16 +265,16 @@ el("pet-select").addEventListener("change", async (e) => {
     };
     try {
       await api.setSettings({ [keyMap[id]]: (e.target as HTMLInputElement).checked });
-    } catch (err) {
+    } catch (err: any) {
       updateStatus("Error: " + err.message, "error");
     }
   });
 });
 
-el("autostart").addEventListener("change", async (e) => {
+el("autostart").addEventListener("change", async (e: Event) => {
   try {
     await api.setSettings({ AutostartPets: parseInt((e.target as HTMLInputElement).value, 10) });
-  } catch (err) {
+  } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
 });
@@ -288,3 +289,4 @@ window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
   api.reportError("control-panel", reason.message, reason.stack);
 });
+})();

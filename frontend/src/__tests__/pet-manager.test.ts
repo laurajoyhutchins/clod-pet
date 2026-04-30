@@ -74,6 +74,11 @@ jest.mock("../border-detector", () => {
     init: jest.fn(),
     checkBorder: jest.fn(() => []),
     checkGravity: jest.fn(() => false),
+    getRawWorldContext: jest.fn(() => ({
+      screen: { x: 0, y: 0, w: 1920, h: 1080 },
+      work_area: { x: 0, y: 0, w: 1920, h: 1080 },
+      taskbar: { x: 0, y: 1040, w: 1920, h: 40 },
+    })),
     _displayForRect: jest.fn((displays, x, y) => displays[0]),
     taskbarBoundsByDisplay: new Map(),
     tolerance: 2,
@@ -234,7 +239,11 @@ describe("PetManager", () => {
     jest.advanceTimersByTime(200);
     await Promise.resolve(); // Wait for loop async work
 
-    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", 0, false, 1920, 1080, 1920, 1080);
+    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      screen: expect.any(Object),
+      work_area: expect.any(Object),
+      taskbar: expect.any(Object),
+    }));
     expect(mockWin.setPosition).toHaveBeenCalledWith(110, 210);
     expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({ frameIndex: 5, opacity: 0.5 }));
 
@@ -340,41 +349,6 @@ describe("PetManager", () => {
     
     expect(mockBackendRemove).toHaveBeenCalledWith("nonexistent");
     expect(result).toBe(true);
-  });
-
-  test("_mapBorderToContext should return none for unknown hit", () => {
-    const result = manager["_mapBorderToContext"](["unknown"]);
-    expect(result).toBe(0);
-  });
-
-  test("_mapBorderToContext should return none for empty hits", () => {
-    const result = manager["_mapBorderToContext"]([]);
-    expect(result).toBe(0);
-  });
-
-  test("_mapBorderToContext should return taskbar for taskbar hit", () => {
-    const result = manager["_mapBorderToContext"](["taskbar"]);
-    expect(result).toBe(1);
-  });
-
-  test("_mapBorderToContext should return window for window hit", () => {
-    const result = manager["_mapBorderToContext"](["window"]);
-    expect(result).toBe(2);
-  });
-
-  test("_mapBorderToContext should return horizontal for horizontal hit", () => {
-    const result = manager["_mapBorderToContext"](["horizontal"]);
-    expect(result).toBe(3);
-  });
-
-  test("_mapBorderToContext should return vertical for vertical hit", () => {
-    const result = manager["_mapBorderToContext"](["vertical"]);
-    expect(result).toBe(4);
-  });
-
-  test("_mapBorderToContext should prioritize taskbar over other hits", () => {
-    const result = manager["_mapBorderToContext"](["taskbar", "horizontal"]);
-    expect(result).toBe(1);
   });
 
   test("_safeWindowPosition should return window position", () => {

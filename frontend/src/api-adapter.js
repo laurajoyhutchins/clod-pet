@@ -45,6 +45,13 @@ class ApiAdapter {
         const resp = await this.client.addPet(petPath, spawnId);
         return resp.payload;
     }
+    async chat(messages) {
+        const resp = await this.client.chat(messages);
+        return resp.payload;
+    }
+    async streamChat(messages, onEvent) {
+        return this.client.streamChat(messages, onEvent);
+    }
     async removePet(petId) {
         const resp = await this.client.removePet(petId);
         return resp.ok;
@@ -57,15 +64,10 @@ class ApiAdapter {
         const resp = await this.client.setScale(scale);
         return resp.payload;
     }
-    async stepPet(petId, borderCtx, gravity, screenW = 0, screenH = 0, areaW = 0, areaH = 0) {
+    async stepPet(petId, world) {
         const resp = await this.client.request("step_pet", {
             pet_id: petId,
-            border_ctx: borderCtx,
-            gravity,
-            screen_w: screenW,
-            screen_h: screenH,
-            area_w: areaW,
-            area_h: areaH,
+            world,
         });
         return resp.payload;
     }

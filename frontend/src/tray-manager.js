@@ -24,6 +24,10 @@ class TrayManager {
                 label: "Options",
                 click: () => this.onCommand("options"),
             },
+            {
+                label: "Chat",
+                click: () => this.onCommand("chat"),
+            },
             { type: "separator" },
             {
                 label: "Quit",

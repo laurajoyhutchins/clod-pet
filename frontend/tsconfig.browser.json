@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "include": ["control-panel.ts", "src/pet-renderer.ts", "src/globals.d.ts"]
+  "include": ["control-panel.ts", "chat.ts", "src/pet-renderer.ts", "src/globals.d.ts"]
 }

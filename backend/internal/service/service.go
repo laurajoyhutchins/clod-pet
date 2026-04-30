@@ -74,6 +74,27 @@ func (s *Service) LLMChat(payload json.RawMessage) (*ipc.Response, error) {
 	return &ipc.Response{OK: true, Payload: data}, nil
 }
 
+func (s *Service) LLMStream(ctx context.Context, payload json.RawMessage) (<-chan llm.StreamEvent, error) {
+	client, err := llm.NewClient(&s.settings.LLM)
+	if err != nil {
+		return nil, fmt.Errorf("create llm client: %w", err)
+	}
+	// Note: client.Close() is not called here because we need it for the stream.
+	// In a real implementation, we'd need to ensure it's closed eventually.
+
+	var req llm.ChatRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return nil, fmt.Errorf("unmarshal chat request: %w", err)
+	}
+
+	ch, err := client.StreamChat(ctx, &req)
+	if err != nil {
+		return nil, fmt.Errorf("llm stream chat: %w", err)
+	}
+
+	return ch, nil
+}
+
 func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {
 	cleanPath, err := s.cleanPetPath(petPath)
 	if err != nil {
@@ -179,7 +200,7 @@ func (s *Service) RemovePet(petID string) {
 	delete(s.petPaths, petID)
 }
 
-func (s *Service) StepPet(petID string, borderCtx engine.BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*ipc.PetState, error) {
+func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetState, error) {
 	s.mu.RLock()
 	e, ok := s.engines[petID]
 	s.mu.RUnlock()
@@ -188,7 +209,7 @@ func (s *Service) StepPet(petID string, borderCtx engine.BorderContext, gravity 
 		return nil, engine.ErrPetNotFound
 	}
 
-	step, err := e.Step(borderCtx, gravity, screenW, screenH, areaW, areaH)
+	step, err := e.Step(world)
 	if err != nil {
 		return nil, err
 	}

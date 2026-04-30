@@ -63,7 +63,7 @@ clod-pet/
 |       |-- api-adapter.ts       # Backend API payload adapter
 |       |-- window-manager.ts    # BrowserWindow management
 |       |-- tray-manager.ts      # System tray menu
-|       |-- border-detector.ts   # Per-display screen edge detection
+|       |-- border-detector.ts   # Per-display screen geometry provider
 |       |-- preload.ts           # Context bridge (ipcRenderer)
 |       `-- pet-renderer.ts      # Canvas sprite sheet renderer
 |-- pets/                     # Pet data directories

@@ -142,7 +142,7 @@ func TestServerStepPet(t *testing.T) {
 		t.Fatalf("decode add response: %v", err)
 	}
 
-	stepReq := Request{Command: CmdStepPet, Payload: mustMarshal(StepPetPayload{PetID: "step-pet", BorderCtx: engine.ContextNone})}
+	stepReq := Request{Command: CmdStepPet, Payload: mustMarshal(StepPetPayload{PetID: "step-pet", World: engine.WorldContext{}})}
 	stepResp, err := http.Post(ts.URL+"/api", "application/json", jsonReader(stepReq))
 	if err != nil {
 		t.Fatalf("step pet request failed: %v", err)
