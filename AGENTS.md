@@ -7,10 +7,11 @@ cd frontend && npm install && npm start
 Compiles the TypeScript frontend, starts Electron, and spawns the Go backend automatically.
 
 ## Project structure
-- `backend/` — Go animation engine (HTTP API on `:8080`)
-- `frontend/` — TypeScript + Electron desktop shell
+- `backend/` — Go animation engine & LLM provider (HTTP API on `:8080`)
+- `frontend/` — TypeScript + Electron desktop shell & Chat UI
 - `pets/` — Pet definitions (XML sprite sheets)
 - `docs/` — MkDocs documentation (Diataxis)
+- `scripts/` — Lifecycle & build scripts (PowerShell)
 
 ## Commands
 | Action | Command |
@@ -49,18 +50,37 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - `PORT` — backend HTTP port (default `8080`)
 - `PETS_DIR` — pet definitions path (default `../pets`)
 - `SETTINGS_PATH` — settings JSON path (default `clod-pet-settings.json`)
+- `VERBOSE` — enable debug logging (default `false`)
 
 ## Backend
 - Entry: `backend/main.go`
-- Internal packages: `pet` (XML parser), `engine` (state machine), `expression` (evaluator), `ipc` (HTTP handlers), `service` (orchestration), `settings`, `sound`
-- Tests: Go built-in testing with coverage reporting (run with `go test -v -cover ./...`)
+- Internal packages: 
+  - `pet`: XML parser for animation definitions
+  - `engine`: Animation state machine and world context
+  - `expression`: Mathematical expression evaluator for XML
+  - `ipc`: HTTP/JSON command handlers and streaming SSE
+  - `llm`: AI provider integration (OpenAI, Anthropic, Gemini, Ollama)
+  - `service`: Orchestration of pets, settings, and AI
+  - `settings`: Configuration persistence
+  - `sound`: SFX playback via `beep`
+- API Spec: `backend/api-spec.yaml`
+- Tests: Go built-in testing (run with `go test -v -cover ./...`)
 
 ## Frontend
 - Source entry: `frontend/main.ts`; Electron runtime entry: generated `frontend/main.js`
 - Build: `cd frontend && npm run build:ts`
 - Jest config in `package.json` (`testEnvironment: "node"`)
 - Coverage excludes `preload.js`, `pet-renderer.js`
-- Key TypeScript modules: `backend-manager` (spawns Go process), `api-adapter`, `backend-client`, `pet-manager`, `window-manager`, `tray-manager`, `border-detector`
+- Key TypeScript modules: 
+  - `backend-manager`: Spawns and monitors the Go process
+  - `api-adapter`: High-level wrapper for backend communication
+  - `backend-client`: Low-level HTTP/SSE client
+  - `chat-manager`: Manages the AI chat window and lifecycle
+  - `pet-manager`: Orchestrates multiple pet instances
+  - `window-manager`: Low-level Electron window control
+  - `tray-manager`: System tray icon and menu
+  - `border-detector`: Screen boundary detection for pet physics
+- UI: `index.html` (Main), `chat.html` (AI Chat), `control-panel.html` (Settings)
 
 ## Pet format
 - Directory per pet under `pets/` (e.g., `pets/esheep64/`)
@@ -68,6 +88,6 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - XML supports expressions: `screenW`, `random`, `imageH`, etc.
 
 ## Notes
-- Backend and frontend communicate via HTTP JSON (not Electron IPC)
+- Backend and frontend communicate via HTTP JSON and SSE (not Electron IPC)
 - `repl.js` and `test-flow.js` are helper scripts (gitignored)
 - No CI/CD configured

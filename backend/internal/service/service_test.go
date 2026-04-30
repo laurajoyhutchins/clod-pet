@@ -334,12 +334,21 @@ func TestListActive(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg, nil)
 
+	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	if err != nil {
+		t.Fatalf("AddPet failed: %v", err)
+	}
+
 	active, err := svc.ListActive()
 	if err != nil {
 		t.Fatalf("ListActive failed: %v", err)
 	}
-	// May be empty if no pets loaded
-	_ = active
+	if len(active) != 1 {
+		t.Errorf("expected 1 active pet, got %d", len(active))
+	}
+	if active[0]["pet_id"] != petID {
+		t.Errorf("expected pet_id %s, got %v", petID, active[0]["pet_id"])
+	}
 }
 
 func TestPet(t *testing.T) {
