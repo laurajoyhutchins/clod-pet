@@ -59,11 +59,14 @@ Advance the pet's animation by one frame.
 ```json
 {
   "pet_id": "../pets/esheep64",
-  "border_ctx": 0
+  "border_ctx": 0,
+  "gravity": false
 }
 ```
 
 `border_ctx`: `0` = none, `1` = taskbar, `2` = window, `3` = horizontal, `4` = vertical
+
+`gravity`: `true` if the pet is above the work area and should fall
 
 **Response:**
 ```json
@@ -83,7 +86,7 @@ Advance the pet's animation by one frame.
 }
 ```
 
-`next_anim_id > 0` means a transition is triggered.
+`next_anim_id > 0` means a transition is triggered (either from border hit, gravity, or sequence completion).
 
 ### `remove_pet`
 
@@ -120,6 +123,17 @@ Notify the pet that it hit a screen border.
 ```json
 { "pet_id": "../pets/esheep64", "border_ctx": 1 }
 ```
+
+### `set_volume`
+
+Set the audio volume for sound playback.
+
+**Payload:**
+```json
+{ "volume": 0.5 }
+```
+
+`volume`: Float between 0.0 (mute) and 1.0 (full volume). Persisted to settings.
 
 ## Endpoints outside `/api`
 

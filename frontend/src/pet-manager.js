@@ -145,10 +145,12 @@ class PetManager {
                     frameIndex: result.frame_index,
                     x: result.x,
                     y: result.y,
+                    offsetY: result.offset_y,
                     flipH: result.flip_h,
                 };
                 if (!petEntry.win.isDestroyed()) {
-                    petEntry.win.setPosition(Math.round(result.x ?? 0), Math.round(result.y ?? 0));
+                    const finalY = (result.y ?? 0) + (result.offset_y ?? 0);
+                    petEntry.win.setPosition(Math.round(result.x ?? 0), Math.round(finalY));
                     petEntry.win.webContents.send("pet:frame", {
                         frameIndex: result.frame_index,
                         flipH: result.flip_h,

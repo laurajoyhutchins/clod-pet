@@ -81,6 +81,16 @@ describe("BackendClient", () => {
     await expect(promise).rejects.toThrow("something went wrong");
   });
 
+  test("should throw unknown error on failed request without error message", async () => {
+    const mockBody = JSON.stringify({ ok: false });
+
+    const promise = client.request("test_cmd", {});
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+
+    await expect(promise).rejects.toThrow("unknown error");
+  });
+
   test("should throw error on invalid JSON response", async () => {
     const promise = client.request("test_cmd", {});
     dataCallback!(Buffer.from("invalid json"));
@@ -119,6 +129,40 @@ describe("BackendClient", () => {
     });
 
     await expect(client.request("test", {})).rejects.toThrow("connection refused");
+    expect(client.connected).toBe(false);
+  });
+
+  test("request should handle HTTP error responses", async () => {
+    const mockRes = {
+      statusCode: 500,
+      on: jest.fn((event: string, cb: Function) => {
+        if (event === "data") cb("");
+        if (event === "end") cb();
+      }),
+    };
+    mockRequest.mockImplementation((url: any, opts: any, callback: any) => {
+      if (callback) callback(mockRes);
+      return mockReq;
+    });
+
+    await expect(client.request("test", {})).rejects.toThrow("invalid response");
+    expect(client.connected).toBe(false);
+  });
+
+  test("requestRaw should handle non-200 status code with requireHttpOk", async () => {
+    const mockRes = {
+      statusCode: 404,
+      on: jest.fn((event: string, cb: Function) => {
+        if (event === "data") cb(Buffer.from("not found"));
+        if (event === "end") cb();
+      }),
+    };
+    mockRequest.mockImplementation((url: any, opts: any, callback: any) => {
+      if (callback) callback(mockRes);
+      return mockReq;
+    });
+
+    await expect(client.requestRaw("/any")).rejects.toThrow("backend returned HTTP 404");
     expect(client.connected).toBe(false);
   });
 

@@ -62,6 +62,11 @@ describe("BackendManager", () => {
     expect(manager.url).toBeNull();
   });
 
+  test("should respect preferSource option", () => {
+    const m = new BackendManager({ preferSource: false });
+    expect(m.preferSource).toBe(false);
+  });
+
   test("should set pets dir", () => {
     expect(manager.petsDir).toContain("pets");
   });
@@ -81,6 +86,23 @@ describe("BackendManager", () => {
       })
     );
     expect(url).toMatch(/http:\/\/localhost:\d+/);
+  });
+
+  test("should start backend using exe if requested", async () => {
+    const fs = require("fs");
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    const originalEnv = process.env.CLOD_PET_BACKEND_MODE;
+    process.env.CLOD_PET_BACKEND_MODE = "exe";
+    
+    await manager.start();
+    
+    expect(spawn).toHaveBeenCalledWith(
+      expect.stringContaining("clod-pet.exe"),
+      [],
+      expect.any(Object)
+    );
+    
+    process.env.CLOD_PET_BACKEND_MODE = originalEnv;
   });
 
   test("should stop backend process", () => {
@@ -111,6 +133,22 @@ describe("BackendManager", () => {
     await manager.start();
     if (stderrCallback) stderrCallback(Buffer.from("error output"));
     // Should not throw
+  });
+
+  test("appendRecent should truncate long output", async () => {
+    let stdoutCallback: ((chunk: Buffer) => void) | undefined;
+    mockProcess.stdout.on.mockImplementation((event, cb) => {
+      if (event === "data") stdoutCallback = cb;
+    });
+    
+    await manager.start();
+    if (stdoutCallback) {
+        stdoutCallback(Buffer.from("a".repeat(5000)));
+        stdoutCallback(Buffer.from("b".repeat(5000)));
+    }
+    expect(manager.lastStdout.length).toBe(8000);
+    expect(manager.lastStdout.startsWith("a")).toBe(true);
+    expect(manager.lastStdout.endsWith("b")).toBe(true);
   });
 
   test("getDiagnostics should return correct info", () => {
@@ -190,6 +228,43 @@ describe("BackendManager", () => {
       };
       if (typeof cb === "function") cb(mockRes);
       return { on: jest.fn() } as any;
+    });
+
+    await expect((manager as any)._waitForReady(3, 10)).rejects.toThrow("failed to start");
+    expect(callCount).toBeGreaterThanOrEqual(3);
+  });
+
+  test("_findFreePort should throw error if no port found", async () => {
+    const net = require("net");
+    const mockServer: any = {
+      listen: jest.fn(),
+      on: jest.fn(),
+      close: jest.fn().mockImplementation(cb => cb()),
+    };
+    (net.createServer as jest.Mock).mockReturnValue(mockServer);
+
+    mockServer.listen.mockImplementation((port, host, cb) => {
+        // Trigger error after the current execution block so .on('error') is registered
+        setImmediate(() => {
+            const errorCall = mockServer.on.mock.calls.find(c => c[0] === "error");
+            if (errorCall) errorCall[1](new Error("EADDRINUSE"));
+        });
+    });
+
+    await expect(manager["_findFreePort"](8080, 2)).rejects.toThrow("no free port found");
+  });
+
+  test("_waitForReady should handle network errors", async () => {
+    let callCount = 0;
+    mockGet.mockImplementation((url: any, cb?: any) => {
+      callCount++;
+      const mockReq = {
+        on: jest.fn((event, cb) => {
+          if (event === "error") setTimeout(() => cb(new Error("conn refused")), 0);
+          return mockReq;
+        })
+      };
+      return mockReq as any;
     });
 
     await expect((manager as any)._waitForReady(3, 10)).rejects.toThrow("failed to start");
