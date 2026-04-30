@@ -1,0 +1,21 @@
+site_name: Clod Pet
+site_description: A desktop pet application with a Go backend and Electron frontend.
+repo_url: https://github.com/yourname/clod-pet
+
+theme:
+  name: mkdocs
+  highlightjs: true
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - Get started: tutorials/get-started.md
+  - How-to guides:
+      - Add a custom pet: howto/add-custom-pet.md
+  - Reference:
+      - IPC API: reference/ipc-api.md
+      - animations.xml: reference/animations-xml.md
+      - Expression language: reference/expressions.md
+  - Explanation:
+      - Architecture: explanation/architecture.md
+      - Animation engine: explanation/animation-engine.md
