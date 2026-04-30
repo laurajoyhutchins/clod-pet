@@ -39,7 +39,7 @@ A spawn determines where the pet appears:
 </spawns>
 ```
 
-- `x`, `y` — [expressions](../explanation/expressions.md) for spawn position
+- `x`, `y` — [expressions](../reference/expressions.md) for spawn position
 - `<next>` — animation ID to transition into after spawning
 
 ## Step 4: Define at least one animation
