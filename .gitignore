@@ -2,7 +2,10 @@ node_modules/
 dist/
 site/
 backend/backend.exe
+backend/clod-pet-backend.exe
+backend/clod-pet-test.exe
+backend/clod-pet.exe*
+backend/*.log
 *.log
-input.txt
-test-flow.js
-repl.js
+clod-pet.cmd
+scripts/*.log

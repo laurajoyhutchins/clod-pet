@@ -7,8 +7,25 @@ In this tutorial you will start the application and watch a pet walk across your
 - Go 1.21+
 - Node.js 18+
 - npm
+- Windows SDK (optional, for code signing)
 
 ## Step 1: Install dependencies
+
+**Recommended:** Use the install script for automatic setup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install.ps1
+```
+
+This script will:
+- Create a self-signed certificate for code signing
+- Build the Go backend
+- Sign the executable (if Windows SDK is installed)
+- Add Windows Defender exclusion
+- Install frontend dependencies
+- Create Start Menu shortcut
+
+**Manual install (alternative):**
 
 ```bash
 cd frontend
@@ -17,7 +34,14 @@ npm install
 
 ## Step 2: Start the application
 
+**If you used the install script:**
+- Use the Start Menu shortcut "ClodPet", or
+- Run `npm start` in the frontend directory
+
+**Manual start:**
+
 ```bash
+cd frontend
 npm start
 ```
 
