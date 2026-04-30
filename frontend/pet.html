@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'">
+  <title>Pet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: transparent; overflow: hidden; width: 100%; height: 100%; }
+    canvas { display: block; pointer-events: none; }
+    #click-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      cursor: grab;
+    }
+    #click-layer.dragging { cursor: grabbing; }
+  </style>
+</head>
+<body>
+  <canvas id="sprite"></canvas>
+  <div id="click-layer"></div>
+  <script src="src/pet-renderer.js"></script>
+</body>
+</html>
