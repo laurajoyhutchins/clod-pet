@@ -1,0 +1,14 @@
+{
+  "name": "clod-pet",
+  "version": "0.1.0",
+  "description": "Desktop pet app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env NODE_ENV=development electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "cross-env": "^7.0.3"
+  }
+}
