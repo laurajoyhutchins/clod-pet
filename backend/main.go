@@ -42,6 +42,7 @@ func main() {
 	mux.HandleFunc("/api/describe", describeHandler())
 	mux.HandleFunc("/api/version", versionHandler(petsDir, settingsPath))
 	mux.HandleFunc("/api/llm/stream", llmStreamHandler(svc))
+	mux.HandleFunc("/api/llm/health", llmHealthHandler(svc))
 
 	fmt.Printf("Backend starting on port %s\n", port)
 	server := &http.Server{
@@ -227,6 +228,16 @@ func healthHandler(svc *service.Service) http.HandlerFunc {
 		status := svc.Status()
 		if status["pet_count"] == 0 {
 			writeJSON(w, map[string]interface{}{"ok": true, "status": "degraded", "message": "no pets loaded"})
+			return
+		}
+		writeJSON(w, map[string]interface{}{"ok": true, "status": "ok"})
+	}
+}
+
+func llmHealthHandler(svc *service.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := svc.LLMHealth(r.Context()); err != nil {
+			writeJSON(w, map[string]interface{}{"ok": false, "status": "error", "message": err.Error()})
 			return
 		}
 		writeJSON(w, map[string]interface{}{"ok": true, "status": "ok"})

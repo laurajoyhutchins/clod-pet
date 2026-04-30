@@ -54,6 +54,11 @@ func (c *geminiClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 	return &ChatResponse{Content: content, Model: c.model}, nil
 }
 
+func (c *geminiClient) Health(ctx context.Context) error {
+	_, err := c.client.Models.Get(ctx, c.model, nil)
+	return err
+}
+
 func (c *geminiClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan StreamEvent, error) {
 	ch := make(chan StreamEvent)
 

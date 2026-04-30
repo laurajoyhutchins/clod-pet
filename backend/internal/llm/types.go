@@ -1,6 +1,9 @@
 package llm
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type Message struct {
 	Role    string `json:"role"`
@@ -27,6 +30,7 @@ type Client interface {
 	Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
 	StreamChat(ctx context.Context, req *ChatRequest) (<-chan StreamEvent, error)
 	ProviderName() string
+	Health(ctx context.Context) error
 	Close() error
 }
 
@@ -35,4 +39,21 @@ type ProviderConfig struct {
 	APIKey   string `json:"api_key,omitempty"`
 	BaseURL  string `json:"base_url,omitempty"`
 	Model    string `json:"model,omitempty"`
+}
+
+func (c *ProviderConfig) Validate() error {
+	switch c.Provider {
+	case "openai", "anthropic", "gemini", "ollama":
+		// OK
+	case "":
+		return fmt.Errorf("provider is required")
+	default:
+		return fmt.Errorf("unsupported provider: %s", c.Provider)
+	}
+
+	if (c.Provider == "openai" || c.Provider == "anthropic" || c.Provider == "gemini") && c.APIKey == "" {
+		return fmt.Errorf("API key is required for %s provider", c.Provider)
+	}
+
+	return nil
 }

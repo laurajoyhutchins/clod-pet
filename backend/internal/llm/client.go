@@ -3,9 +3,13 @@ package llm
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 func NewClient(cfg *ProviderConfig) (Client, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	switch cfg.Provider {
 	case "openai":
 		return newOpenAIClient(cfg)
@@ -30,4 +34,23 @@ func mergeMessages(req *ChatRequest) string {
 
 func passthroughContext(ctx context.Context) context.Context {
 	return ctx
+}
+
+// WithRetry attempts to execute a function with retries for non-streaming requests.
+func WithRetry(ctx context.Context, attempts int, delay time.Duration, fn func() (*ChatResponse, error)) (*ChatResponse, error) {
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		resp, err := fn()
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(delay):
+			delay *= 2 // Exponential backoff
+		}
+	}
+	return nil, fmt.Errorf("after %d attempts, last error: %w", attempts, lastErr)
 }

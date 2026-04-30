@@ -1,10 +1,13 @@
 {
   "Volume": 0.3,
   "WinForeGround": true,
-  "StealTaskbarFocus": false,
+  "StealTaskbarFocus": true,
   "AutostartPets": 1,
   "Scale": 1,
   "MultiScreenEnabled": true,
   "CurrentPet": "esheep64",
+  "LLM": {
+    "provider": ""
+  },
   "LastUpdate": null
 }
