@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
@@ -61,7 +62,9 @@ func (s *Service) LLMChat(payload json.RawMessage) (*ipc.Response, error) {
 		return nil, fmt.Errorf("unmarshal chat request: %w", err)
 	}
 
-	resp, err := client.Chat(context.Background(), &req)
+	resp, err := llm.WithRetry(context.Background(), 3, 1*time.Second, func() (*llm.ChatResponse, error) {
+		return client.Chat(context.Background(), &req)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("llm chat: %w", err)
 	}
@@ -93,6 +96,16 @@ func (s *Service) LLMStream(ctx context.Context, payload json.RawMessage) (<-cha
 	}
 
 	return ch, nil
+}
+
+func (s *Service) LLMHealth(ctx context.Context) error {
+	client, err := llm.NewClient(&s.settings.LLM)
+	if err != nil {
+		return fmt.Errorf("create llm client: %w", err)
+	}
+	defer client.Close()
+
+	return client.Health(ctx)
 }
 
 func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {

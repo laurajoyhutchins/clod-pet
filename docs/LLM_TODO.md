@@ -11,19 +11,19 @@ Add LLM chat functionality to clod-pet for AI-powered pet interactions.
   - [x] Anthropic
   - [x] Gemini
   - [x] Ollama
-- [ ] Add streaming support for real-time responses
+- [x] Add streaming support for real-time responses
 - [ ] Add proper error handling and retries
 - [ ] Add configuration validation
 
 ### Phase 2: API
 - [x] `/api/llm/chat` endpoint
-- [ ] Add `/api/llm/stream` endpoint for streaming
+- [x] Add `/api/llm/stream` endpoint for streaming
 - [ ] Add health check for LLM provider connectivity
 
 ### Phase 3: Frontend
-- [ ] Add chat UI component
+- [x] Add chat UI component
 - [ ] Add settings panel for LLM configuration
-- [ ] Add streaming response display
+- [x] Add streaming response display
 
 ### Phase 4: Testing
 - [ ] Add unit tests for all providers

@@ -82,6 +82,23 @@ func (c *openaiClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 	return &ChatResponse{Content: result.Choices[0].Message.Content, Model: c.model}, nil
 }
 
+func (c *openaiClient) Health(ctx context.Context) error {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/models", nil)
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("openai health: HTTP %s", resp.Status)
+	}
+	return nil
+}
+
 func (c *openaiClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan StreamEvent, error) {
 	ch := make(chan StreamEvent)
 	go func() {

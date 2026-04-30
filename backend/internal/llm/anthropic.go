@@ -73,6 +73,19 @@ func (c *anthropicClient) Chat(ctx context.Context, req *ChatRequest) (*ChatResp
 	return &ChatResponse{Content: content, Model: c.model}, nil
 }
 
+func (c *anthropicClient) Health(ctx context.Context) error {
+	// Anthropic doesn't have a simple health check, so we do a minimal request
+	params := anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: int64(1),
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock("Hi")),
+		},
+	}
+	_, err := c.client.Messages.New(ctx, params)
+	return err
+}
+
 func (c *anthropicClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan StreamEvent, error) {
 	ch := make(chan StreamEvent)
 

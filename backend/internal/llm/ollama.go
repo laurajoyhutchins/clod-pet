@@ -70,6 +70,22 @@ func (c *ollamaClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 	return &ChatResponse{Content: result.Message.Content, Model: c.model}, nil
 }
 
+func (c *ollamaClient) Health(ctx context.Context) error {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/api/tags", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("ollama health: HTTP %s", resp.Status)
+	}
+	return nil
+}
+
 func (c *ollamaClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan StreamEvent, error) {
 	ch := make(chan StreamEvent)
 	go func() {
