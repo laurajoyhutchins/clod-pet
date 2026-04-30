@@ -562,3 +562,104 @@ func TestEngineIntervalEvaluation(t *testing.T) {
 		t.Errorf("IntervalMs = %d, want between 100 and 200", result.IntervalMs)
 	}
 }
+
+func TestEngineFlipAction(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "flip-anim",
+		Action:     "flip",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+		SequenceNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100, Only: "none"},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+
+	if e.flipH {
+		t.Errorf("flipH = %v, want false (start state)", e.flipH)
+	}
+
+	result, err := e.Step(ContextNone, false)
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result.NextAnimID != 2 {
+		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
+	}
+	if !e.flipH {
+		t.Errorf("flipH = %v, want true after flip action", e.flipH)
+	}
+}
+
+func TestEngineMirroredMovement(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "10",
+		RepeatFrom: 0,
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetPosition(100, 200)
+
+	// Normal movement (flipH = false)
+	_, _ = e.Step(ContextNone, false)
+	x, _ := e.Position()
+	if math.Abs(x-98) > 0.01 {
+		t.Errorf("X = %v, want 98", x)
+	}
+
+	// Mirrored movement (flipH = true)
+	e.flipH = true
+	_, _ = e.Step(ContextNone, false)
+	x, _ = e.Position()
+	if math.Abs(x-100) > 0.01 {
+		t.Errorf("X = %v, want 100 (98 + 2)", x)
+	}
+}
+
+func TestEngineBorderTriggeredOnce(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "10",
+		RepeatFrom: 0,
+		BorderNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100, Only: "taskbar"},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+
+	// First collision
+	result, _ := e.Step(ContextTaskbar, false)
+	if result.NextAnimID != 2 {
+		t.Errorf("First step NextAnimID = %d, want 2", result.NextAnimID)
+	}
+
+	// Stay in same animation (simulated by not calling TransitionTo)
+	// Second step with same collision should NOT trigger transition again
+	result, _ = e.Step(ContextTaskbar, false)
+	if result.NextAnimID != 0 {
+		t.Errorf("Second step NextAnimID = %d, want 0", result.NextAnimID)
+	}
+}
+
+

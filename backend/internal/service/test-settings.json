@@ -1,0 +1,10 @@
+{
+  "Volume": 0.9,
+  "WinForeGround": true,
+  "StealTaskbarFocus": true,
+  "AutostartPets": 5,
+  "Scale": 3,
+  "MultiScreenEnabled": false,
+  "CurrentPet": "other-pet",
+  "LastUpdate": null
+}

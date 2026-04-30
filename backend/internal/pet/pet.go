@@ -75,6 +75,7 @@ type xmlMovement struct {
 type xmlSequence struct {
 	Frames     []int     `xml:"frame"`
 	Nexts      []xmlNext `xml:"next"`
+	Action     string    `xml:"action"`
 	Repeat     string    `xml:"repeat,attr"`
 	RepeatFrom int       `xml:"repeatfrom,attr"`
 }
@@ -147,6 +148,7 @@ type Movement struct {
 type Animation struct {
 	ID           int
 	Name         string
+	Action       string
 	Start        Movement
 	End          Movement
 	Frames       []int
@@ -246,6 +248,7 @@ func LoadPet(dir string) (*Pet, error) {
 		anim := Animation{
 			ID:         xa.ID,
 			Name:       xa.Name,
+			Action:     xa.Sequence.Action,
 			Start:      parseMovement(xa.Start),
 			Repeat:     xa.Sequence.Repeat,
 			RepeatFrom: xa.Sequence.RepeatFrom,
