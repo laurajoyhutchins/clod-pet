@@ -290,10 +290,10 @@ func TestClamp(t *testing.T) {
 
 func TestNewEnv(t *testing.T) {
 	env := NewEnv()
-	if env.Random < 0 || env.Random >= 100 {
+	if env.Random < 0 || env.Random >= RandomMax {
 		t.Errorf("Random out of range: %v", env.Random)
 	}
-	if env.RandS < 0 || env.RandS >= 100 {
+	if env.RandS < 0 || env.RandS >= RandomMax {
 		t.Errorf("RandS out of range: %v", env.RandS)
 	}
 }
@@ -306,10 +306,10 @@ func TestRegenerateRandom(t *testing.T) {
 	if env.Random == old {
 		t.Log("Random value unchanged after RegenerateRandom (low probability collision)")
 	}
-	if env.Random < 0 || env.Random >= 100 {
+	if env.Random < 0 || env.Random >= RandomMax {
 		t.Errorf("Random out of range: %v", env.Random)
 	}
-	if env.RandS < 0 || env.RandS >= 100 {
+	if env.RandS < 0 || env.RandS >= RandomMax {
 		t.Errorf("RandS out of range after RegenerateRandom: %v", env.RandS)
 	}
 }

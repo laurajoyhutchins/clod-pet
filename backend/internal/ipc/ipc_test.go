@@ -2,187 +2,23 @@ package ipc
 
 import (
 	"encoding/json"
-	"sync"
 	"testing"
 
 	"clod-pet/backend/internal/engine"
-	"clod-pet/backend/internal/pet"
 )
 
-func testPetDef() *pet.Pet {
-	return &pet.Pet{
-		Header: pet.Header{Title: "Test", PetName: "test"},
-		Image:  pet.Image{TilesX: 4, TilesY: 4},
-		Spawns: []pet.Spawn{
-			{ID: 1, Probability: 100, X: "100", Y: "200", NextAnimID: 1},
-		},
-		Animations: map[int]pet.Animation{
-			1: {
-				ID:         1,
-				Name:       "walk",
-				Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				Frames:     []int{0, 1},
-				Repeat:     "10",
-				RepeatFrom: 0,
-				SequenceNext: []pet.NextAnimation{
-					{ID: 1, Probability: 100, Only: "none"},
-				},
-			},
-		},
-		Sounds: make(map[int][]pet.Sound),
-	}
-}
-
 type mockService struct {
-	mu      sync.Mutex
-	engines map[string]*engine.Engine
+	*commonMockService
 }
 
 func newMockService() *mockService {
-	return &mockService{engines: make(map[string]*engine.Engine)}
+	return &mockService{newCommonMockService("test", "Test")}
 }
 
 func (m *mockService) addEngine(id string) {
 	e := engine.NewEngine(testPetDef())
 	e.Start(1)
 	m.engines[id] = e
-}
-
-func (m *mockService) AddPet(petPath string, spawnID int) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	e := engine.NewEngine(testPetDef())
-	e.Start(1)
-	m.engines[petPath] = e
-	return petPath, nil
-}
-
-func (m *mockService) RemovePet(petID string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.engines, petID)
-}
-
-func (m *mockService) StepPet(petID string, borderCtx engine.BorderContext, gravity bool) (*PetState, error) {
-	m.mu.Lock()
-	e, ok := m.engines[petID]
-	m.mu.Unlock()
-	if !ok {
-		return nil, engine.ErrPetNotFound
-	}
-
-	step, err := e.Step(borderCtx, gravity)
-	if err != nil {
-		return nil, err
-	}
-	if step == nil {
-		return nil, nil
-	}
-
-	if step.NextAnimID > 0 {
-		e.TransitionTo(step.NextAnimID)
-	}
-
-	return &PetState{
-		PetID:      petID,
-		FrameIndex: step.FrameIndex,
-		X:          step.X,
-		Y:          step.Y,
-		OffsetY:    step.OffsetY,
-		Opacity:    step.Opacity,
-		IntervalMs: step.IntervalMs,
-		FlipH:      step.ShouldFlip,
-		NextAnimID: step.NextAnimID,
-	}, nil
-}
-
-func (m *mockService) DragPet(petID string, x, y float64) error {
-	m.mu.Lock()
-	e, ok := m.engines[petID]
-	m.mu.Unlock()
-	if !ok {
-		return engine.ErrPetNotFound
-	}
-	e.SetDrag()
-	e.SetPosition(x, y)
-	return nil
-}
-
-func (m *mockService) DropPet(petID string) error {
-	m.mu.Lock()
-	e, ok := m.engines[petID]
-	m.mu.Unlock()
-	if !ok {
-		return engine.ErrPetNotFound
-	}
-	e.SetFall()
-	return nil
-}
-
-func (m *mockService) ValidatePetExists(petID string) error {
-	m.mu.Lock()
-	_, ok := m.engines[petID]
-	m.mu.Unlock()
-	if !ok {
-		return engine.ErrPetNotFound
-	}
-	return nil
-}
-
-func (m *mockService) Status() map[string]int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return map[string]int{"pet_count": len(m.engines)}
-}
-
-func (m *mockService) UpdateVolume(volume float64) error {
-	return nil
-}
-
-func (m *mockService) UpdateScale(scale float64) error {
-	return nil
-}
-
-func (m *mockService) Settings() map[string]interface{} {
-	return map[string]interface{}{"Volume": 0.3, "Scale": 1.0, "CurrentPet": "test"}
-}
-
-func (m *mockService) SetSettings(settings map[string]interface{}) error {
-	return nil
-}
-
-func (m *mockService) ListPets() ([]string, error) {
-	return []string{"test"}, nil
-}
-
-func (m *mockService) ListActive() ([]map[string]interface{}, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	active := make([]map[string]interface{}, 0, len(m.engines))
-	for petID := range m.engines {
-		active = append(active, map[string]interface{}{"pet_id": petID})
-	}
-	return active, nil
-}
-
-func (m *mockService) Pet(petID string) (json.RawMessage, error) {
-	return json.Marshal(map[string]string{"pet_id": petID})
-}
-
-func (m *mockService) PetsDir() string {
-	return "../pets"
-}
-
-func (m *mockService) LoadPet(petPath string) (*PetInfo, error) {
-	return &PetInfo{
-		Title:     "Test",
-		PetName:   "test",
-		TilesX:    4,
-		TilesY:    4,
-		AnimCount: 1,
-	}, nil
 }
 
 func TestHandleGetStatus(t *testing.T) {
