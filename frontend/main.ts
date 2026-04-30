@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 import logger = require("./src/logger");
 import BackendManager = require("./src/backend-manager");
 import PetManager = require("./src/pet-manager");
@@ -28,6 +28,31 @@ async function createPet(petPath = "../pets/esheep64", opts: { throwOnError?: bo
     log.error("Failed to add pet:", err);
     if (opts.throwOnError) throw err;
     return null;
+  }
+}
+
+async function handleAutoScaling() {
+  try {
+    const settings = await petManager.backendClient.getSettings();
+    // Only auto-scale if the scale is exactly 1.0 (default) 
+    // and hasn't been manually adjusted or if we want to be proactive.
+    // For now, let's only do it if it's 1.0.
+    if (settings && settings.Scale === 1.0) {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const height = primaryDisplay.bounds.height;
+      
+      let recommendedScale = 1.0;
+      if (height >= 2160) recommendedScale = 2.0;
+      else if (height >= 1440) recommendedScale = 1.5;
+      
+      if (recommendedScale !== 1.0) {
+        log.info(`Auto-scaling: screen height ${height}px, setting scale to ${recommendedScale}x`);
+        await petManager.backendClient.setScale(recommendedScale);
+        petManager.setScale(recommendedScale);
+      }
+    }
+  } catch (err) {
+    log.warn("Auto-scaling failed:", err.message);
   }
 }
 
@@ -65,7 +90,10 @@ function setupControlPanelHandlers() {
   ipcMain.handle("control:list-pets", () => petManager.backendClient.listPets());
   ipcMain.handle("control:list-active", () => petManager.backendClient.listActive());
   ipcMain.handle("control:set-volume", (_event, volume) => petManager.backendClient.setVolume(volume));
-  ipcMain.handle("control:set-scale", (_event, scale) => petManager.backendClient.setScale(scale));
+  ipcMain.handle("control:set-scale", async (_event, scale) => {
+    await petManager.backendClient.setScale(scale);
+    petManager.setScale(scale);
+  });
   ipcMain.handle("control:add-pet", async (_event, petName) => {
     if (!petName || typeof petName !== "string") {
       throw new Error("pet name is required");
@@ -105,6 +133,8 @@ app.whenReady().then(async () => {
   petManager = new PetManager(backendUrl);
   await petManager.init();
   setupControlPanelHandlers();
+
+  await handleAutoScaling();
 
   const preloadPath = path.join(__dirname, "src", "preload.js");
   chatManager = new ChatManager(preloadPath);

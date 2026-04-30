@@ -335,6 +335,7 @@ func (s *Service) Settings() map[string]interface{} {
 		"StealTaskbarFocus":  s.settings.StealTaskbarFocus,
 		"AutostartPets":      s.settings.AutostartPets,
 		"Scale":              s.settings.Scale,
+		"ShowAdvancedSettings": s.settings.ShowAdvancedSettings,
 		"MultiScreenEnabled": s.settings.MultiScreenEnabled,
 		"CurrentPet":         s.settings.CurrentPet,
 	}
@@ -352,6 +353,11 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 	if v, ok := settings["Scale"]; ok {
 		if scale, ok := v.(float64); ok {
 			s.settings.Scale = scale
+		}
+	}
+	if v, ok := settings["ShowAdvancedSettings"]; ok {
+		if show, ok := v.(bool); ok {
+			s.settings.ShowAdvancedSettings = show
 		}
 	}
 	if v, ok := settings["WinForeGround"]; ok {

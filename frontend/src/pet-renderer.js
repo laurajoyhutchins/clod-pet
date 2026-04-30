@@ -8,6 +8,7 @@ class SpriteRenderer {
         this.tilesY = 1;
         this.tileW = 0;
         this.tileH = 0;
+        this.scale = 1.0;
     }
     loadSpriteSheet(pngData, tilesX, tilesY) {
         return new Promise((resolve, reject) => {
@@ -24,6 +25,9 @@ class SpriteRenderer {
             img.src = pngData;
         });
     }
+    setScale(scale) {
+        this.scale = scale;
+    }
     drawFrame(frameIndex, flipH = false) {
         if (!this.image)
             return;
@@ -31,15 +35,17 @@ class SpriteRenderer {
         const row = Math.floor(frameIndex / this.tilesX);
         const sx = col * this.tileW;
         const sy = row * this.tileH;
-        this.canvas.width = Math.ceil(this.tileW);
-        this.canvas.height = Math.ceil(this.tileH);
+        const dw = this.tileW * this.scale;
+        const dh = this.tileH * this.scale;
+        this.canvas.width = Math.ceil(dw);
+        this.canvas.height = Math.ceil(dh);
         this.ctx.imageSmoothingEnabled = false;
         this.ctx.save();
         if (flipH) {
-            this.ctx.translate(this.tileW, 0);
+            this.ctx.translate(dw, 0);
             this.ctx.scale(-1, 1);
         }
-        this.ctx.drawImage(this.image, sx, sy, this.tileW, this.tileH, 0, 0, this.tileW, this.tileH);
+        this.ctx.drawImage(this.image, sx, sy, this.tileW, this.tileH, 0, 0, dw, dh);
         this.ctx.restore();
     }
     setOpacity(alpha) {
@@ -57,6 +63,8 @@ async function initPetRenderer() {
         const petId = params.get('petId');
         const data = await window.clodPet.invoke("get-pet-init", petId);
         console.log("[pet-renderer] Received init data, loading sprite...");
+        if (data.scale)
+            renderer.setScale(data.scale);
         await renderer.loadSpriteSheet(data.pngBase64, data.tilesX, data.tilesY);
         renderer.drawFrame(0);
         console.log("[pet-renderer] Pet initialized successfully");
@@ -68,6 +76,9 @@ async function initPetRenderer() {
 const removeFrameListener = window.clodPet.on("pet:frame", (data) => {
     renderer.drawFrame(data.frameIndex, data.flipH);
     renderer.setOpacity(data.opacity);
+});
+const removeScaleListener = window.clodPet.on("pet:scale", (scale) => {
+    renderer.setScale(scale);
 });
 clickLayer.addEventListener("pointerdown", (e) => {
     isDragging = true;
@@ -93,6 +104,7 @@ clickLayer.addEventListener("pointerup", (e) => {
 });
 window.addEventListener("beforeunload", () => {
     removeFrameListener();
+    removeScaleListener();
 });
 initPetRenderer();
 window.addEventListener("error", (event) => {

@@ -222,12 +222,25 @@
       <span>100%</span>
     </div>
 
-    <label for="scale" style="margin-top: 12px;">Scale</label>
-    <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
-    <div class="range-label">
-      <span>0.5x</span>
-      <span id="scale-value">1.0x</span>
-      <span>3.0x</span>
+    <div style="margin-top: 16px;">
+      <label class="checkbox-label">
+        <input type="checkbox" id="show-advanced"> Show advanced settings
+      </label>
+    </div>
+
+    <div id="advanced-settings" style="display: none; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+      <label for="scale">Scale</label>
+      <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
+      <div class="range-label">
+        <span>0.5x</span>
+        <span id="scale-value">1.0x</span>
+        <span>3.0x</span>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <label for="autostart">Autostart pets</label>
+        <input type="number" id="autostart" min="0" max="10" value="1">
+      </div>
     </div>
 
     <div style="margin-top: 16px;">
@@ -240,11 +253,6 @@
       <label class="checkbox-label">
         <input type="checkbox" id="steal-focus"> Steal focus (drag)
       </label>
-    </div>
-
-    <div style="margin-top: 12px;">
-      <label for="autostart">Autostart pets</label>
-      <input type="number" id="autostart" min="0" max="10" value="1">
     </div>
   </div>
 
