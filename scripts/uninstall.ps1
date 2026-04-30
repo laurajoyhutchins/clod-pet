@@ -2,7 +2,8 @@
 # Run with: powershell -ExecutionPolicy Bypass -File uninstall.ps1
 
 $ErrorActionPreference = "Continue"
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
 
 Write-Host "Uninstalling ClodPet..." -ForegroundColor Yellow
 
@@ -46,7 +47,7 @@ catch {
 # Optional: Remove self-signed cert
 $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object {
     $_.Subject -like "*ClodPet*"
-}
+} | Select-Object -First 1
 if ($cert) {
     try {
         Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force
