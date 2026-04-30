@@ -16,6 +16,7 @@ nav:
       - IPC API: reference/ipc-api.md
       - animations.xml: reference/animations-xml.md
       - Expression language: reference/expressions.md
+      - Scripts: reference/scripts.md
   - Explanation:
       - Architecture: explanation/architecture.md
       - Animation engine: explanation/animation-engine.md
