@@ -138,6 +138,7 @@ class BackendClient {
             throw new Error("no reader");
         const decoder = new TextDecoder();
         let buffer = "";
+        let currentEvent = "";
         while (true) {
             const { done, value } = await reader.read();
             if (done)
@@ -146,15 +147,26 @@ class BackendClient {
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
             for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                    const content = line.slice(6).replace(/\\n/g, "\n");
-                    onEvent({ content });
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    currentEvent = "";
+                    continue;
                 }
-                else if (line.startsWith("event: done")) {
-                    onEvent({ done: true });
+                if (trimmed.startsWith("event: ")) {
+                    currentEvent = trimmed.slice(7);
+                    if (currentEvent === "done") {
+                        onEvent({ done: true });
+                    }
                 }
-                else if (line.startsWith("event: error")) {
-                    // next line should be data
+                else if (trimmed.startsWith("data: ")) {
+                    const data = trimmed.slice(6);
+                    if (currentEvent === "error") {
+                        onEvent({ error: data });
+                    }
+                    else if (currentEvent !== "done") {
+                        const content = data.replace(/\\n/g, "\n");
+                        onEvent({ content });
+                    }
                 }
             }
         }

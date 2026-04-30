@@ -18,9 +18,15 @@ class BackendManager {
         this.readyTimer = null;
     }
     async start() {
-        const port = await this._findFreePort(8080);
+        let port = await this._findFreePort(8080);
         if (!port)
             throw new Error("unable to find a free backend port");
+        // Double check if port is actually free (sometimes _findFreePort races)
+        let isTaken = await this._isPortTaken(port);
+        if (isTaken) {
+            log.warn(`Port ${port} still appears taken, trying next...`);
+            port = await this._findFreePort(port + 1);
+        }
         const backendPath = path.join(__dirname, "..", "..", "backend");
         const backendExe = path.join(backendPath, "clod-pet.exe");
         const backendMode = process.env.CLOD_PET_BACKEND_MODE || "";
@@ -64,7 +70,18 @@ class BackendManager {
             this.process.removeAllListeners();
             this.process.stdout.removeAllListeners();
             this.process.stderr.removeAllListeners();
-            this.process.kill("SIGTERM");
+            if (process.platform === "win32") {
+                // Use taskkill to ensure child processes (like the actual backend binary) are killed
+                try {
+                    (0, child_process_1.spawn)("taskkill", ["/F", "/T", "/PID", this.process.pid.toString()]);
+                }
+                catch (err) {
+                    log.error("taskkill error:", err);
+                }
+            }
+            else {
+                this.process.kill("SIGTERM");
+            }
             this.process = null;
         }
     }
@@ -76,7 +93,7 @@ class BackendManager {
             lastStderr: this.lastStderr,
             lastError: this.lastError,
             exitCode: this.exitCode,
-            running: Boolean(this.process && this.process.exitCode === null),
+            running: Boolean(this.process && (this.process.exitCode === null || this.process.exitCode === undefined)),
         };
     }
     _findFreePort(startPort, maxAttempts = 10) {
@@ -85,7 +102,8 @@ class BackendManager {
             let attempts = 0;
             const tryPort = () => {
                 const server = require("net").createServer();
-                server.listen(port, "127.0.0.1", () => server.close(() => resolve(port)));
+                // Don't specify host to check availability on all interfaces
+                server.listen(port, () => server.close(() => resolve(port)));
                 server.on("error", () => {
                     attempts++;
                     if (attempts >= maxAttempts)
@@ -97,6 +115,23 @@ class BackendManager {
                 });
             };
             tryPort();
+        });
+    }
+    _isPortTaken(port) {
+        return new Promise((resolve) => {
+            const server = require("net").createServer();
+            server.once("error", (err) => {
+                if (err.code === "EADDRINUSE")
+                    resolve(true);
+                else
+                    resolve(false);
+            });
+            server.once("listening", () => {
+                server.close();
+                resolve(false);
+            });
+            // Don't specify host to check availability on all interfaces
+            server.listen(port);
         });
     }
     _waitForReady(maxRetries = 20, interval = 500) {
