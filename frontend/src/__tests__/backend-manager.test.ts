@@ -11,12 +11,25 @@ jest.mock("http", () => ({
   request: jest.fn(),
 }));
 
-jest.mock("net", () => ({
-  createServer: jest.fn(() => ({
-    listen: jest.fn((port: any, host: any, cb: any) => cb()),
-    close: jest.fn((cb: any) => cb()),
-  })),
-}));
+jest.mock("net", () => {
+  const EventEmitter = require("events");
+  return {
+    createServer: jest.fn(() => {
+      const server = new EventEmitter();
+      (server as any).listen = jest.fn((port: any, host: any, cb: any) => {
+        const callback = typeof host === "function" ? host : cb;
+        setImmediate(() => {
+          if (callback) callback();
+          server.emit("listening");
+        });
+      });
+      (server as any).close = jest.fn((cb: any) => {
+        if (cb) cb();
+      });
+      return server;
+    }),
+  };
+});
 
 jest.mock("fs", () => ({
   existsSync: jest.fn(() => false),
@@ -106,11 +119,29 @@ describe("BackendManager", () => {
   });
 
   test("should stop backend process", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "linux" });
+    
     manager.process = mockProcess;
     manager.stop();
     
-    expect(mockProcess.kill).toHaveBeenCalled();
+    expect(mockProcess.kill).toHaveBeenCalledWith("SIGTERM");
     expect(manager.process).toBeNull();
+    
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  });
+
+  test("should use taskkill on windows", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    
+    manager.process = { ...mockProcess, pid: 1234 };
+    manager.stop();
+    
+    expect(spawn).toHaveBeenCalledWith("taskkill", ["/F", "/T", "/PID", "1234"]);
+    expect(manager.process).toBeNull();
+    
+    Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
   test("should handle stdout data", async () => {
@@ -203,14 +234,14 @@ describe("BackendManager", () => {
   test("_findFreePort should return a port", async () => {
     const net = require("net");
     const mockServer = {
-      listen: jest.fn((port, host, cb) => cb()),
+      listen: jest.fn((port, cb) => cb()),
       close: jest.fn((cb) => cb()),
     };
     (net.createServer as jest.Mock).mockReturnValue(mockServer);
 
     const port = await (manager as any)._findFreePort(8080);
     expect(port).toBeDefined();
-    expect(mockServer.listen).toHaveBeenCalledWith(8080, "127.0.0.1", expect.any(Function));
+    expect(mockServer.listen).toHaveBeenCalledWith(8080, expect.any(Function));
   });
 
   test("_waitForReady should timeout after max retries", async () => {
@@ -230,7 +261,7 @@ describe("BackendManager", () => {
       return { on: jest.fn() } as any;
     });
 
-    await expect((manager as any)._waitForReady(3, 10)).rejects.toThrow("failed to start");
+    await expect((manager as any)._waitForReady(3, 10)).rejects.toThrow("backend failed to start");
     expect(callCount).toBeGreaterThanOrEqual(3);
   });
 
@@ -243,7 +274,7 @@ describe("BackendManager", () => {
     };
     (net.createServer as jest.Mock).mockReturnValue(mockServer);
 
-    mockServer.listen.mockImplementation((port, host, cb) => {
+    mockServer.listen.mockImplementation((port, cb) => {
         // Trigger error after the current execution block so .on('error') is registered
         setImmediate(() => {
             const errorCall = mockServer.on.mock.calls.find(c => c[0] === "error");

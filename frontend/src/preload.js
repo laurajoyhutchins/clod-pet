@@ -20,8 +20,8 @@ electron_1.contextBridge.exposeInMainWorld("clodPet", {
         removePet: (petId) => electron_1.ipcRenderer.invoke("control:remove-pet", petId),
         setVolume: (volume) => electron_1.ipcRenderer.invoke("control:set-volume", volume),
         setScale: (scale) => electron_1.ipcRenderer.invoke("control:set-scale", scale),
-        diagnostics: () => electron_1.ipcRenderer.invoke("get-diagnostics"),
-        reportError: (source, message, stack) => electron_1.ipcRenderer.send("report-renderer-error", { source, message, stack }),
+        diagnostics: () => electron_1.ipcRenderer.invoke("control:diagnostics"),
+        reportError: (source, message, stack) => electron_1.ipcRenderer.invoke("control:renderer-error", { source, message, stack }),
         streamChat: (messages, onEvent) => {
             const channel = `llm-stream-${Math.random().toString(36).slice(2)}`;
             electron_1.ipcRenderer.send("llm-stream-start", { messages, channel });

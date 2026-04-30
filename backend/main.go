@@ -41,7 +41,9 @@ func main() {
 	mux.HandleFunc("/api/health", healthHandler(svc))
 	mux.HandleFunc("/api/describe", describeHandler())
 	mux.HandleFunc("/api/version", versionHandler(petsDir, settingsPath))
+	mux.HandleFunc("/api/llm/stream", llmStreamHandler(svc))
 
+	fmt.Printf("Backend starting on port %s\n", port)
 	server := &http.Server{
 		Addr:              ":" + port,
 		Handler:           cors.Default().Handler(mux),
@@ -224,7 +226,6 @@ func healthHandler(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		status := svc.Status()
 		if status["pet_count"] == 0 {
-			w.WriteHeader(http.StatusBadRequest)
 			writeJSON(w, map[string]interface{}{"ok": true, "status": "degraded", "message": "no pets loaded"})
 			return
 		}

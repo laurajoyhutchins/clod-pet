@@ -19,8 +19,8 @@ contextBridge.exposeInMainWorld("clodPet", {
     removePet: (petId: string) => ipcRenderer.invoke("control:remove-pet", petId),
     setVolume: (volume: number) => ipcRenderer.invoke("control:set-volume", volume),
     setScale: (scale: number) => ipcRenderer.invoke("control:set-scale", scale),
-    diagnostics: () => ipcRenderer.invoke("get-diagnostics"),
-    reportError: (source: string, message: string, stack?: string) => ipcRenderer.send("report-renderer-error", { source, message, stack }),
+    diagnostics: () => ipcRenderer.invoke("control:diagnostics"),
+    reportError: (source: string, message: string, stack?: string) => ipcRenderer.invoke("control:renderer-error", { source, message, stack }),
     streamChat: (messages: any[], onEvent: (event: any) => void) => {
       const channel = `llm-stream-${Math.random().toString(36).slice(2)}`;
       ipcRenderer.send("llm-stream-start", { messages, channel });
@@ -32,6 +32,5 @@ contextBridge.exposeInMainWorld("clodPet", {
       };
       ipcRenderer.on(channel, handler);
     },
-    },
-    });
-
+  },
+});
