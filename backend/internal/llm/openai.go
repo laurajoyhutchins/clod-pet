@@ -1,11 +1,14 @@
 package llm
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 )
 
 type openaiClient struct {
@@ -27,7 +30,7 @@ func newOpenAIClient(cfg *ProviderConfig) (Client, error) {
 		apiKey:  cfg.APIKey,
 		baseURL: baseURL,
 		model:   cfg.Model,
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 60 * time.Second},
 	}, nil
 }
 
@@ -39,8 +42,14 @@ func (c *openaiClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 		"messages": req.Messages,
 		"stream":   false,
 	}
-	data, _ := json.Marshal(body)
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(data))
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal openai request: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
@@ -49,6 +58,9 @@ func (c *openaiClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("openai: HTTP %s", resp.Status)
+	}
 
 	var result struct {
 		Choices []struct {
@@ -75,8 +87,16 @@ func (c *openaiClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 			"messages": req.Messages,
 			"stream":   true,
 		}
-		data, _ := json.Marshal(body)
-		httpReq, _ := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(data))
+		data, err := json.Marshal(body)
+		if err != nil {
+			ch <- StreamEvent{Error: fmt.Errorf("marshal openai request: %w", err)}
+			return
+		}
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(data))
+		if err != nil {
+			ch <- StreamEvent{Error: err}
+			return
+		}
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
@@ -86,20 +106,49 @@ func (c *openaiClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 			return
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			ch <- StreamEvent{Error: fmt.Errorf("openai: HTTP %s", resp.Status)}
+			return
+		}
 
-		buf := make([]byte, 4096)
-		for {
-			n, err := resp.Body.Read(buf)
-			if n > 0 {
-				ch <- StreamEvent{Content: string(buf[:n])}
+		scanner := bufio.NewScanner(resp.Body)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, ":") || !strings.HasPrefix(line, "data:") {
+				continue
 			}
-			if err != nil {
+			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if data == "[DONE]" {
 				ch <- StreamEvent{Done: true}
 				return
 			}
+			var event struct {
+				Choices []struct {
+					Delta struct {
+						Content string `json:"content"`
+					} `json:"delta"`
+				} `json:"choices"`
+			}
+			if err := json.Unmarshal([]byte(data), &event); err != nil {
+				ch <- StreamEvent{Error: err}
+				return
+			}
+			for _, choice := range event.Choices {
+				if choice.Delta.Content != "" {
+					ch <- StreamEvent{Content: choice.Delta.Content}
+				}
+			}
 		}
+		if err := scanner.Err(); err != nil {
+			ch <- StreamEvent{Error: err}
+			return
+		}
+		ch <- StreamEvent{Done: true}
 	}()
 	return ch, nil
 }
 
-func (c *openaiClient) Close() error { return nil }
+func (c *openaiClient) Close() error {
+	c.client.CloseIdleConnections()
+	return nil
+}

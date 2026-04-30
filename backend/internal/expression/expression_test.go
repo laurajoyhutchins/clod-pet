@@ -301,12 +301,16 @@ func TestNewEnv(t *testing.T) {
 func TestRegenerateRandom(t *testing.T) {
 	env := NewEnv()
 	old := env.Random
+	env.RandS = -1
 	env.RegenerateRandom()
 	if env.Random == old {
 		t.Log("Random value unchanged after RegenerateRandom (low probability collision)")
 	}
 	if env.Random < 0 || env.Random >= 100 {
 		t.Errorf("Random out of range: %v", env.Random)
+	}
+	if env.RandS < 0 || env.RandS >= 100 {
+		t.Errorf("RandS out of range after RegenerateRandom: %v", env.RandS)
 	}
 }
 

@@ -244,6 +244,8 @@ func TestBorderMatches(t *testing.T) {
 		{"horizontal", ContextHorizontal, true},
 		{"horizontal", ContextVertical, false},
 		{"horizontal+", ContextHorizontal, true},
+		{"horizontal+", ContextTaskbar, true},
+		{"horizontal+", ContextVertical, false},
 	}
 
 	for _, tc := range tests {
@@ -251,6 +253,17 @@ func TestBorderMatches(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("borderMatches(%q, %v) = %v, want %v", tc.only, tc.ctx, got, tc.want)
 		}
+	}
+}
+
+func TestLoadAnimationCopiesFrames(t *testing.T) {
+	p := testPet()
+	e := NewEngine(p)
+	e.Start(1)
+
+	e.animFrames[0] = 99
+	if got := p.Animations[1].Frames[0]; got != 0 {
+		t.Errorf("pet animation frame mutated through engine: got %d, want 0", got)
 	}
 }
 

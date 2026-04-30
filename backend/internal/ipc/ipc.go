@@ -179,8 +179,7 @@ func (h *Handler) handleAddPet(payload json.RawMessage) *Response {
 		return errorResponse(err.Error())
 	}
 
-	data, _ := json.Marshal(map[string]string{"pet_id": petID})
-	return successResponse(data)
+	return marshalSuccess(map[string]string{"pet_id": petID})
 }
 
 func (h *Handler) handleRemovePet(payload json.RawMessage) *Response {
@@ -231,8 +230,7 @@ func (h *Handler) handleStepPet(payload json.RawMessage) *Response {
 		return successResponse(nil)
 	}
 
-	data, _ := json.Marshal(state)
-	return successResponse(data)
+	return marshalSuccess(state)
 }
 
 func (h *Handler) handleBorderPet(payload json.RawMessage) *Response {
@@ -249,8 +247,7 @@ func (h *Handler) handleBorderPet(payload json.RawMessage) *Response {
 
 func (h *Handler) handleGetStatus() *Response {
 	status := h.svc.Status()
-	data, _ := json.Marshal(status)
-	return successResponse(data)
+	return marshalSuccess(status)
 }
 
 func (h *Handler) handleGetPet(payload json.RawMessage) *Response {
@@ -294,8 +291,7 @@ func (h *Handler) handleSetScale(payload json.RawMessage) *Response {
 
 func (h *Handler) handleGetSettings() *Response {
 	settings := h.svc.Settings()
-	data, _ := json.Marshal(settings)
-	return successResponse(data)
+	return marshalSuccess(settings)
 }
 
 func (h *Handler) handleSetSettings(payload json.RawMessage) *Response {
@@ -315,8 +311,7 @@ func (h *Handler) handleListPets() *Response {
 	if err != nil {
 		return errorResponse(err.Error())
 	}
-	data, _ := json.Marshal(pets)
-	return successResponse(data)
+	return marshalSuccess(pets)
 }
 
 func (h *Handler) handleListActive() *Response {
@@ -324,12 +319,19 @@ func (h *Handler) handleListActive() *Response {
 	if err != nil {
 		return errorResponse(err.Error())
 	}
-	data, _ := json.Marshal(active)
-	return successResponse(data)
+	return marshalSuccess(active)
 }
 
 func successResponse(payload json.RawMessage) *Response {
 	return &Response{OK: true, Payload: payload}
+}
+
+func marshalSuccess(v interface{}) *Response {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return errorResponse("marshal response: " + err.Error())
+	}
+	return successResponse(data)
 }
 
 func errorResponse(msg string) *Response {

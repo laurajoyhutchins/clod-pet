@@ -9,16 +9,16 @@ import (
 )
 
 type Env struct {
-	ScreenW  float64
-	ScreenH  float64
-	AreaW    float64
-	AreaH    float64
-	ImageW   float64
-	ImageH   float64
-	ImageX   float64
-	ImageY   float64
-	Random   float64
-	RandS    float64
+	ScreenW float64
+	ScreenH float64
+	AreaW   float64
+	AreaH   float64
+	ImageW  float64
+	ImageH  float64
+	ImageX  float64
+	ImageY  float64
+	Random  float64
+	RandS   float64
 }
 
 func Eval(expr string, env *Env) (float64, error) {
@@ -127,6 +127,7 @@ func NewEnv() *Env {
 
 func (e *Env) RegenerateRandom() {
 	e.Random = float64(rand.Intn(100))
+	e.RandS = float64(rand.Intn(100))
 }
 
 func Clamp(v, min, max float64) float64 {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"clod-pet/backend/internal/engine"
@@ -47,7 +48,10 @@ func (s *Service) PetsDir() string {
 }
 
 func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {
-	cleanPath := filepath.Clean(petPath)
+	cleanPath, err := s.cleanPetPath(petPath)
+	if err != nil {
+		return nil, err
+	}
 	p, err := pet.LoadPet(cleanPath)
 	if err != nil {
 		return nil, err
@@ -87,10 +91,12 @@ func (s *Service) AddPet(petPath string, spawnID int) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cleanPath := filepath.Clean(petPath)
+	cleanPath, err := s.cleanPetPath(petPath)
+	if err != nil {
+		return "", err
+	}
 	petDef, exists := s.petStore[cleanPath]
 	if !exists {
-		var err error
 		petDef, err = pet.LoadPet(cleanPath)
 		if err != nil {
 			return "", err
@@ -110,6 +116,45 @@ func (s *Service) AddPet(petPath string, spawnID int) (string, error) {
 
 	s.playSoundForPet(petDef, e.CurrentAnim())
 	return petID, nil
+}
+
+func (s *Service) cleanPetPath(petPath string) (string, error) {
+	if strings.TrimSpace(petPath) == "" {
+		return "", fmt.Errorf("pet path is required")
+	}
+
+	base, err := filepath.Abs(filepath.Clean(s.petsDir))
+	if err != nil {
+		return "", fmt.Errorf("resolve pets dir: %w", err)
+	}
+
+	candidate := filepath.Clean(petPath)
+	if !filepath.IsAbs(candidate) {
+		absCandidate, err := filepath.Abs(candidate)
+		if err != nil {
+			return "", fmt.Errorf("resolve pet path: %w", err)
+		}
+		if !pathWithin(absCandidate, base) {
+			candidate = filepath.Join(base, candidate)
+		}
+	}
+
+	candidate, err = filepath.Abs(candidate)
+	if err != nil {
+		return "", fmt.Errorf("resolve pet path: %w", err)
+	}
+	if !pathWithin(candidate, base) {
+		return "", fmt.Errorf("pet path must be inside pets directory")
+	}
+	return candidate, nil
+}
+
+func pathWithin(path, base string) bool {
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel))
 }
 
 func (s *Service) RemovePet(petID string) {
@@ -336,7 +381,10 @@ func (s *Service) Pet(petID string) (json.RawMessage, error) {
 		Spawns:    spawns,
 	}
 
-	data, _ := json.Marshal(petInfo)
+	data, err := json.Marshal(petInfo)
+	if err != nil {
+		return nil, fmt.Errorf("marshal pet info: %w", err)
+	}
 	return data, nil
 }
 

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type ollamaClient struct {
@@ -22,7 +24,7 @@ func newOllamaClient(cfg *ProviderConfig) (Client, error) {
 	return &ollamaClient{
 		baseURL: baseURL,
 		model:   cfg.Model,
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 60 * time.Second},
 	}, nil
 }
 
@@ -34,8 +36,14 @@ func (c *ollamaClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 		"messages": req.Messages,
 		"stream":   false,
 	}
-	data, _ := json.Marshal(body)
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(data))
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal ollama request: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(httpReq)
@@ -43,6 +51,9 @@ func (c *ollamaClient) Chat(ctx context.Context, req *ChatRequest) (*ChatRespons
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("ollama: HTTP %s", resp.Status)
+	}
 
 	var result struct {
 		Message struct {
@@ -64,8 +75,16 @@ func (c *ollamaClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 			"messages": req.Messages,
 			"stream":   true,
 		}
-		data, _ := json.Marshal(body)
-		httpReq, _ := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(data))
+		data, err := json.Marshal(body)
+		if err != nil {
+			ch <- StreamEvent{Error: fmt.Errorf("marshal ollama request: %w", err)}
+			return
+		}
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(data))
+		if err != nil {
+			ch <- StreamEvent{Error: err}
+			return
+		}
 		httpReq.Header.Set("Content-Type", "application/json")
 
 		resp, err := c.client.Do(httpReq)
@@ -74,6 +93,10 @@ func (c *ollamaClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 			return
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			ch <- StreamEvent{Error: fmt.Errorf("ollama: HTTP %s", resp.Status)}
+			return
+		}
 
 		decoder := json.NewDecoder(resp.Body)
 		for {
@@ -103,4 +126,7 @@ func (c *ollamaClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 	return ch, nil
 }
 
-func (c *ollamaClient) Close() error { return nil }
+func (c *ollamaClient) Close() error {
+	c.client.CloseIdleConnections()
+	return nil
+}
