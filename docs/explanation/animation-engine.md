@@ -55,11 +55,18 @@ The `only` attribute filters transitions by border context. `none` means "always
 
 ### Border transitions (`<border><next>`)
 
-Triggered when the pet hits a screen edge and `border_ctx` is non-zero. The frontend detects screen boundaries and passes the context to each step.
+Triggered when the pet hits a screen edge and `border_ctx` is non-zero. The TypeScript frontend detects screen boundaries per display and passes the context to each step.
 
 ### Gravity transitions (`<gravity><next>`)
 
-Triggered when the pet is at a vertical boundary (e.g., falls off a window sill).
+Triggered when the pet is above the work area and gravity is detected (`gravity: true` in step_pet payload). The frontend's `BorderDetector.checkGravity()` returns true when the pet's Y position is above the work area bottom for the display containing the pet.
+
+Example XML:
+```xml
+<gravity>
+  <next probability="100">fall</next>
+</gravity>
+```
 
 ## Weighted selection
 

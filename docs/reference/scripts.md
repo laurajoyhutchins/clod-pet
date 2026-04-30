@@ -50,6 +50,16 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 1. Builds Go backend to `backend/clod-pet-backend.exe`
 2. Installs/updates frontend npm dependencies
 
+The frontend npm scripts run the TypeScript compiler before launching or testing:
+
+| npm script | Description |
+|------------|-------------|
+| `npm run build:ts` | Compile Electron/main/preload TypeScript and browser-script TypeScript |
+| `npm start` | Compile TypeScript, then launch Electron |
+| `npm run dev` | Compile TypeScript, then launch Electron with `NODE_ENV=development` |
+| `npm test` | Compile TypeScript, then run frontend unit tests |
+| `npm run test:e2e` | Run frontend E2E tests that spawn the Go backend |
+
 ---
 
 ## test.ps1

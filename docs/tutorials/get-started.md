@@ -23,6 +23,7 @@ This script will:
 - Sign the executable (if Windows SDK is installed)
 - Add Windows Defender exclusion
 - Install frontend dependencies
+- Compile the frontend TypeScript when the app starts
 - Create Start Menu shortcut
 
 **Manual install (alternative):**
@@ -45,6 +46,8 @@ cd frontend
 npm start
 ```
 
+`npm start` compiles the frontend TypeScript and then launches Electron.
+
 You will see:
 1. A system tray icon appear
 2. The Go backend start on port 8080
@@ -66,7 +69,7 @@ Select **Quit** from the tray menu. The Go backend process terminates automatica
 
 ## What happens under the hood
 
-1. `frontend/main.js` spawns the Go binary as a child process
+1. `frontend/main.ts` compiles to `frontend/main.js`, which Electron runs
 2. The Go backend reads `pets/esheep64/animations.xml` — a sprite sheet and 77 animation definitions
 3. `addPet()` loads the pet data, creates a transparent `BrowserWindow`
 4. The animation loop polls `/api` every 200ms for the next frame

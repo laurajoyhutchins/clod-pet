@@ -4,11 +4,11 @@
 ```bash
 cd frontend && npm install && npm start
 ```
-Starts Electron frontend, which spawns the Go backend automatically.
+Compiles the TypeScript frontend, starts Electron, and spawns the Go backend automatically.
 
 ## Project structure
 - `backend/` — Go animation engine (HTTP API on `:8080`)
-- `frontend/` — Electron desktop shell
+- `frontend/` — TypeScript + Electron desktop shell
 - `pets/` — Pet definitions (XML sprite sheets)
 - `docs/` — MkDocs documentation (Diataxis)
 
@@ -56,10 +56,11 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - Tests: Go built-in testing with coverage reporting (run with `go test -v -cover ./...`)
 
 ## Frontend
-- Entry: `frontend/main.js`
+- Source entry: `frontend/main.ts`; Electron runtime entry: generated `frontend/main.js`
+- Build: `cd frontend && npm run build:ts`
 - Jest config in `package.json` (`testEnvironment: "node"`)
 - Coverage excludes `preload.js`, `pet-renderer.js`
-- Key modules: `backend-manager` (spawns Go process), `pet-manager`, `window-manager`, `tray-manager`, `border-detector`
+- Key TypeScript modules: `backend-manager` (spawns Go process), `api-adapter`, `backend-client`, `pet-manager`, `window-manager`, `tray-manager`, `border-detector`
 
 ## Pet format
 - Directory per pet under `pets/` (e.g., `pets/esheep64/`)

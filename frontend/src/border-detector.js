@@ -1,70 +1,89 @@
-const { screen } = require("electron");
-
+"use strict";
+const electron_1 = require("electron");
 class BorderDetector {
-  constructor() {
-    this.taskbarBounds = null;
-  }
-
-  async init() {
-    this._detectTaskbar();
-  }
-
-  _detectTaskbar() {
-    const displays = screen.getAllDisplays();
-    for (const display of displays) {
-      const workArea = display.workArea;
-      const bounds = display.bounds;
-
-      if (workArea.y > bounds.y) {
-        this.taskbarBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: workArea.y - bounds.y };
-      } else if (workArea.x > bounds.x) {
-        this.taskbarBounds = { x: bounds.x, y: workArea.y, width: bounds.width - workArea.x, height: workArea.height };
-      } else if (workArea.width < bounds.width) {
-        this.taskbarBounds = { x: workArea.x + workArea.width, y: workArea.y, width: bounds.width - workArea.width, height: workArea.height };
-      } else {
-        this.taskbarBounds = { x: bounds.x, y: bounds.y + bounds.height - (bounds.height - workArea.height), width: bounds.width, height: bounds.height - workArea.height };
-      }
+    constructor(tolerance = 2) {
+        this.taskbarBoundsByDisplay = new Map();
+        this.tolerance = tolerance;
     }
-  }
-
-  checkBorder(x, y, width, height) {
-    const displays = screen.getAllDisplays();
-    const results = [];
-
-    for (const display of displays) {
-      const wa = display.workArea;
-      const b = display.bounds;
-
-      const onTop = y <= b.y + 2;
-      const onBottom = y + height >= b.y + b.height - 2;
-      const onLeft = x <= b.x + 2;
-      const onRight = x + width >= b.x + b.width - 2;
-      const onTaskbar = this._onTaskbar(x, y, width, height);
-
-      if (onTop || onBottom) results.push("horizontal");
-      if (onLeft || onRight) results.push("vertical");
-      if (onTaskbar) results.push("taskbar");
+    async init() {
+        this._detectTaskbar();
     }
-
-    return results;
-  }
-
-  checkGravity(x, y, width, height) {
-    const displays = screen.getAllDisplays();
-    for (const display of displays) {
-      const wa = display.workArea;
-      if (y + height < wa.y + wa.height - 2) {
-        return true;
-      }
+    _detectTaskbar() {
+        const displays = electron_1.screen.getAllDisplays();
+        this.taskbarBoundsByDisplay.clear();
+        displays.forEach((display, index) => {
+            const workArea = display.workArea;
+            const bounds = display.bounds;
+            let taskbarBounds = null;
+            if (workArea.y > bounds.y) {
+                taskbarBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: workArea.y - bounds.y };
+            }
+            else if (workArea.x > bounds.x) {
+                taskbarBounds = { x: bounds.x, y: workArea.y, width: workArea.x - bounds.x, height: workArea.height };
+            }
+            else if (workArea.width < bounds.width) {
+                taskbarBounds = { x: workArea.x + workArea.width, y: workArea.y, width: bounds.width - workArea.width, height: workArea.height };
+            }
+            else {
+                taskbarBounds = { x: bounds.x, y: bounds.y + workArea.height, width: bounds.width, height: bounds.height - workArea.height };
+            }
+            if (taskbarBounds && taskbarBounds.width > 0 && taskbarBounds.height > 0) {
+                const displayId = display.id ?? index;
+                this.taskbarBoundsByDisplay.set(displayId, taskbarBounds);
+            }
+        });
     }
-    return false;
-  }
-
-  _onTaskbar(x, y, width, height) {
-    if (!this.taskbarBounds) return false;
-    const tb = this.taskbarBounds;
-    return !(x + width < tb.x || x > tb.x + tb.width || y + height < tb.y || y > tb.y + tb.height);
-  }
+    checkBorder(x, y, width, height) {
+        const displays = electron_1.screen.getAllDisplays();
+        const results = [];
+        const display = this._displayForRect(displays, x, y, width, height);
+        if (!display)
+            return results;
+        const b = display.bounds;
+        const tolerance = this.tolerance;
+        const onTop = y <= b.y + tolerance;
+        const onBottom = y + height >= b.y + b.height - tolerance;
+        const onLeft = x <= b.x + tolerance;
+        const onRight = x + width >= b.x + b.width - tolerance;
+        const onTaskbar = this._onTaskbar(x, y, width, height, display);
+        if (onTop || onBottom)
+            results.push("horizontal");
+        if (onLeft || onRight)
+            results.push("vertical");
+        if (onTaskbar)
+            results.push("taskbar");
+        return results;
+    }
+    checkGravity(x, y, width, height) {
+        const displays = electron_1.screen.getAllDisplays();
+        const display = this._displayForRect(displays, x, y, width, height);
+        if (!display || !display.workArea)
+            return false;
+        const wa = display.workArea;
+        return y + height < wa.y + wa.height - this.tolerance;
+    }
+    _onTaskbar(x, y, width, height, display) {
+        const displayId = display?.id ?? this._displayIndex(display);
+        const tb = displayId !== null ? this.taskbarBoundsByDisplay.get(displayId) : null;
+        if (!tb)
+            return false;
+        return !(x + width < tb.x || x > tb.x + tb.width || y + height < tb.y || y > tb.y + tb.height);
+    }
+    _displayForRect(displays, x, y, width, height) {
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        return displays.find((display) => (display.bounds
+            && centerX >= display.bounds.x
+            && centerX <= display.bounds.x + display.bounds.width
+            && centerY >= display.bounds.y
+            && centerY <= display.bounds.y + display.bounds.height)) || displays[0] || null;
+    }
+    _displayIndex(display) {
+        if (!display)
+            return null;
+        const displays = electron_1.screen.getAllDisplays();
+        const index = displays.indexOf(display);
+        return index >= 0 ? index : null;
+    }
 }
-
 module.exports = BorderDetector;

@@ -1,6 +1,6 @@
 # Clod Pet
 
-A desktop pet application. Go backend handles animation logic; Electron frontend renders transparent sprite windows.
+A desktop pet application. Go backend handles animation logic; the TypeScript/Electron frontend renders transparent sprite windows.
 
 ## Documentation (Diataxis)
 
@@ -13,11 +13,13 @@ A desktop pet application. Go backend handles animation logic; Electron frontend
 
 ```bash
 # Full install (recommended)
-powershell -ExecutionPolicy Bypass -File install.ps1
+powershell -ExecutionPolicy Bypass -File scripts/install.ps1
 
 # Or manually:
 cd frontend && npm install && npm start
 ```
+
+`npm start` compiles the frontend TypeScript first, then launches Electron. The emitted `.js` files are runtime artifacts used by Electron and browser windows; edit the `.ts` files.
 
 ### Scripts
 
@@ -36,36 +38,38 @@ A minimal MCP (Model Context Protocol) server implementation is available in `..
 
 ```
 clod-pet/
-├── backend/                  # Go animation engine
-│   ├── main.go               # HTTP server + API routes
-│   └── internal/
-│       ├── pet/              # XML parser (animations.xml)
-│       ├── engine/           # Animation state machine
-│       ├── expression/       # Expression evaluator (screenW, random, etc.)
-│       ├── ipc/              # HTTP JSON protocol types & handlers
-│       ├── settings/         # JSON config persistence
-│       └── sound/            # Audio playback
-├── frontend/                 # Electron desktop shell
-│   ├── main.js               # Entry point, wires modules together
-│   ├── pet.html              # Transparent pet window template
-│   ├── index.html            # Options UI
-│   └── src/
-│       ├── backend-manager.js   # Backend process lifecycle
-│       ├── pet-manager.js       # Pet creation, loop, IPC handlers
-│       ├── backend-client.js    # HTTP client for backend API
-│       ├── window-manager.js    # BrowserWindow management
-│       ├── tray-manager.js      # System tray menu
-│       ├── border-detector.js   # Screen edge detection
-│       ├── preload.js           # Context bridge (ipcRenderer)
-│       └── pet-renderer.js      # Canvas sprite sheet renderer
-├── pets/                     # Pet data directories
-│   └── esheep64/
-│       └── animations.xml    # Sprite sheet + animation definitions
-├── dist/                     # Built Electron executables
-├── scripts/                  # PowerShell automation scripts
-│   ├── install.ps1           # Full install script
-│   ├── build.ps1             # Quick build script
-│   ├── test.ps1              # Test runner script
-│   └── uninstall.ps1         # Uninstall script
-├── docs/                     # This documentation
+|-- backend/                  # Go animation engine
+|   |-- main.go               # HTTP server + API routes
+|   `-- internal/
+|       |-- pet/              # XML parser (animations.xml)
+|       |-- engine/           # Animation state machine
+|       |-- expression/       # Expression evaluator (screenW, random, etc.)
+|       |-- ipc/              # HTTP JSON protocol types & handlers
+|       |-- settings/         # JSON config persistence
+|       `-- sound/            # Audio playback
+|-- frontend/                 # TypeScript + Electron desktop shell
+|   |-- main.ts               # Source entry point
+|   |-- main.js               # Generated Electron entry point
+|   |-- control-panel.ts      # Source for the options UI renderer
+|   |-- control-panel.js      # Generated browser script
+|   |-- pet.html              # Transparent pet window template
+|   |-- control-panel.html    # Options UI
+|   |-- tsconfig.json         # Main/preload TypeScript build
+|   |-- tsconfig.browser.json # Browser-script TypeScript build
+|   `-- src/
+|       |-- backend-manager.ts   # Backend process lifecycle
+|       |-- pet-manager.ts       # Pet creation, loop, IPC handlers
+|       |-- backend-client.ts    # HTTP client for backend API
+|       |-- api-adapter.ts       # Backend API payload adapter
+|       |-- window-manager.ts    # BrowserWindow management
+|       |-- tray-manager.ts      # System tray menu
+|       |-- border-detector.ts   # Per-display screen edge detection
+|       |-- preload.ts           # Context bridge (ipcRenderer)
+|       `-- pet-renderer.ts      # Canvas sprite sheet renderer
+|-- pets/                     # Pet data directories
+|   `-- esheep64/
+|       `-- animations.xml    # Sprite sheet + animation definitions
+|-- dist/                     # Built Electron executables
+|-- scripts/                  # PowerShell automation scripts
+`-- docs/                     # This documentation
 ```

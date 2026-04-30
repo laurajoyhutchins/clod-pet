@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clod Pet - Control Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #eee;
+      padding: 20px;
+      min-width: 350px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e94560; border-radius: 3px; }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 5px;
+      color: #e94560;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h1::before {
+      content: "🐾";
+      font-size: 24px;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      opacity: 0.6;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: 0.7;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn {
+      background: #e94560;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #c73e54; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-secondary { background: #533483; }
+    .btn-secondary:hover { background: #6a42a1; }
+    .btn-small { padding: 4px 10px; font-size: 11px; }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #e94560;
+      margin-bottom: 8px;
+    }
+
+    .range-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      color: #eee;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+
+    input[type="checkbox"] {
+      accent-color: #e94560;
+      width: 16px;
+      height: 16px;
+    }
+
+    .pet-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .pet-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .pet-title {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .pet-id {
+      font-size: 11px;
+      opacity: 0.5;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+      opacity: 0.5;
+      font-size: 13px;
+    }
+
+    .add-pet-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .add-pet-row select { flex: 1; margin-bottom: 0; }
+
+    .status {
+      font-size: 11px;
+      opacity: 0.6;
+      text-align: center;
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .status.success { color: #4ade80; }
+    .status.error { color: #f87171; }
+
+    .diagnostics-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+
+    .diag-label {
+      opacity: 0.55;
+    }
+
+    .diag-value {
+      overflow-wrap: anywhere;
+    }
+
+    .diag-log {
+      max-height: 120px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.35;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <h1>Clod Pet</h1>
+  <div class="subtitle">Control your desktop pets</div>
+
+  <!-- Active Pets -->
+  <div class="card">
+    <div class="card-title">
+      <span>Active Pets</span>
+      <span id="pet-count" style="font-size: 11px; opacity: 0.7;">0 pets</span>
+    </div>
+    <div id="active-pets">
+      <div class="empty-state">No pets active</div>
+    </div>
+  </div>
+
+  <!-- Add New Pet -->
+  <div class="card">
+    <div class="card-title">Add New Pet</div>
+    <div class="add-pet-row">
+      <select id="pet-select"></select>
+      <button class="btn" id="add-pet-btn">Add</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="card-title">Settings</div>
+
+    <label>Volume</label>
+    <input type="range" id="volume" min="0" max="1" step="0.1" value="0.3">
+    <div class="range-label">
+      <span>🔇</span>
+      <span id="volume-value">30%</span>
+      <span>🔊</span>
+    </div>
+
+    <label>Scale</label>
+    <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
+    <div class="range-label">
+      <span>Small</span>
+      <span id="scale-value">1.0x</span>
+      <span>Large</span>
+    </div>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="multi-screen">
+      Enable Multi-Screen
+    </label>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="win-foreground">
+      Always On Top
+    </label>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="steal-focus">
+      Steal Taskbar Focus
+    </label>
+
+    <label>Autostart Pets</label>
+    <input type="number" id="autostart" min="0" max="10" step="1" value="1">
+  </div>
+
+  <!-- Diagnostics -->
+  <div class="card">
+    <div class="card-title">
+      <span>Diagnostics</span>
+      <button class="btn btn-secondary btn-small" id="refresh-diagnostics-btn">Refresh</button>
+    </div>
+    <div class="diagnostics-grid" id="diagnostics-summary">
+      <span class="diag-label">Status</span>
+      <span class="diag-value">Loading...</span>
+    </div>
+    <div class="diag-log" id="diagnostics-log">No diagnostics yet.</div>
+  </div>
+
+  <div class="status" id="status">Loading...</div>
+
+  <script src="control-panel.js"></script>
+</body>
+</html>

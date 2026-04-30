@@ -1,75 +1,125 @@
+"use strict";
 const http = require("http");
-
-const BACKEND_URL = "http://localhost:8080";
-
 class BackendClient {
-  constructor() {
-    this.connected = false;
-  }
-
-  async request(command, payload = {}) {
-    return new Promise((resolve, reject) => {
-      const data = JSON.stringify({ command, payload });
-      const req = http.request(`${BACKEND_URL}/api`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }, (res) => {
-        let body = "";
-        res.on("data", (chunk) => body += chunk);
-        res.on("end", () => {
-          try {
-            const result = JSON.parse(body);
-            if (result.ok) {
-              this.connected = true;
-              resolve(result.payload);
-            } else {
-              reject(new Error(result.error || "unknown error"));
-            }
-          } catch {
-            reject(new Error("invalid response"));
-          }
-        });
-      });
-
-      req.on("error", (err) => {
+    constructor(baseUrl = "http://localhost:8080", opts = {}) {
+        this.baseUrl = baseUrl;
         this.connected = false;
-        reject(err);
-      });
-
-      req.write(data);
-      req.end();
-    });
-  }
-
-  async addPet(petId, spawnId) {
-    return this.request("add_pet", { pet_id: petId, spawn_id: spawnId });
-  }
-
-  async removePet(petId) {
-    return this.request("remove_pet", { pet_id: petId });
-  }
-
-  async dragPet(petId, x, y) {
-    return this.request("drag_pet", { pet_id: petId, x, y });
-  }
-
-  async dropPet(petId) {
-    return this.request("drop_pet", { pet_id: petId });
-  }
-
-  async setVolume(volume) {
-    return this.request("set_volume", { volume });
-  }
-
-  async setScale(scale) {
-    return this.request("set_scale", { scale });
-  }
-
-  async getStatus() {
-    return this.request("get_status");
-  }
+        this.timeoutMs = opts.timeoutMs ?? 5000;
+    }
+    get isConnected() {
+        return this.connected;
+    }
+    async request(command, payload = {}) {
+        const result = await this._requestJson("/api", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command, payload }),
+            requireOk: true,
+        });
+        return result;
+    }
+    async requestRaw(path, method = "GET") {
+        return this._requestJson(path, { method, requireHttpOk: true });
+    }
+    _requestJson(path, opts = {}) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            let timer;
+            const finish = (fn, value) => {
+                if (settled)
+                    return;
+                settled = true;
+                if (timer)
+                    clearTimeout(timer);
+                fn(value);
+            };
+            const req = http.request(`${this.baseUrl}${path}`, {
+                method: opts.method || "GET",
+                headers: opts.headers,
+            }, (res) => {
+                let body = "";
+                res.on("data", (chunk) => body += chunk);
+                res.on("end", () => {
+                    if (opts.requireHttpOk && res.statusCode !== 200) {
+                        this.connected = false;
+                        finish(reject, new Error(`backend returned HTTP ${res.statusCode}`));
+                        return;
+                    }
+                    try {
+                        const result = JSON.parse(body);
+                        if (opts.requireOk && !result.ok) {
+                            this.connected = false;
+                            finish(reject, new Error(result.error || "unknown error"));
+                            return;
+                        }
+                        this.connected = true;
+                        finish(resolve, result);
+                    }
+                    catch {
+                        finish(reject, new Error("invalid response"));
+                    }
+                });
+            });
+            timer = setTimeout(() => {
+                this.connected = false;
+                req.destroy(new Error(`backend request timed out after ${this.timeoutMs}ms`));
+                finish(reject, new Error(`backend request timed out after ${this.timeoutMs}ms`));
+            }, this.timeoutMs);
+            req.on("error", (err) => {
+                this.connected = false;
+                finish(reject, err);
+            });
+            if (opts.body)
+                req.write(opts.body);
+            req.end();
+        });
+    }
+    async health() {
+        return this.requestRaw("/api/health", "GET");
+    }
+    async version() {
+        return this.requestRaw("/api/version", "GET");
+    }
+    async loadPet(petPath) {
+        return this._requestJson("/api/pet/load", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pet_path: petPath }),
+            requireOk: true,
+        });
+    }
+    async removePet(petId) {
+        return this.request("remove_pet", { pet_id: petId });
+    }
+    async dragPet(petId, x, y) {
+        return this.request("drag_pet", { pet_id: petId, x, y });
+    }
+    async dropPet(petId) {
+        return this.request("drop_pet", { pet_id: petId });
+    }
+    async setVolume(volume) {
+        return this.request("set_volume", { volume });
+    }
+    async setScale(scale) {
+        return this.request("set_scale", { scale });
+    }
+    async getStatus() {
+        return this.request("get_status");
+    }
+    async getSettings() {
+        return this.request("get_settings");
+    }
+    async setSettings(settings) {
+        return this.request("set_settings", settings);
+    }
+    async listPets() {
+        return this.request("list_pets");
+    }
+    async listActive() {
+        return this.request("list_active");
+    }
+    async addPet(petPath, spawnId = 0) {
+        return this.request("add_pet", { pet_path: petPath, spawn_id: spawnId });
+    }
 }
-
 module.exports = BackendClient;
