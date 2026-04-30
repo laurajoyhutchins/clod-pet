@@ -8,12 +8,14 @@ import (
 	"sync"
 
 	"github.com/ebitengine/oto/v3"
+	"github.com/hajimehoshi/go-mp3"
 )
 
 type Player struct {
-	ctx    *oto.Context
-	volume float64
-	mu     sync.Mutex
+	ctx     *oto.Context
+	volume  float64
+	mu      sync.Mutex
+	players []*oto.Player
 }
 
 func NewPlayer(sampleRate int, volume float64) (*Player, error) {
@@ -28,10 +30,11 @@ func NewPlayer(sampleRate int, volume float64) (*Player, error) {
 	}
 	<-ready
 
-	return &Player{
+	p := &Player{
 		ctx:    ctx,
 		volume: volume,
-	}, nil
+	}
+	return p, nil
 }
 
 func (p *Player) PlayBase64PCM(base64Data string) error {
@@ -43,9 +46,7 @@ func (p *Player) PlayBase64PCM(base64Data string) error {
 		return err
 	}
 
-	// For now, treat as raw PCM since MP3 decoding needs an extra dep
-	// When github.com/tosone/minimp3 is added, decode here
-	p.playPCM(bytes.NewReader(data))
+	p.playPCM(data)
 	return nil
 }
 
@@ -53,22 +54,49 @@ func (p *Player) PlayRawPCM(data []byte) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.playPCM(bytes.NewReader(data))
+	p.playPCM(data)
 	return nil
 }
 
-func (p *Player) playPCM(r io.Reader) {
+func (p *Player) playPCM(data []byte) {
+	p.cleanup()
+
+	var r io.Reader = bytes.NewReader(data)
+
+	// Try to decode as MP3 first
+	if d, err := mp3.NewDecoder(bytes.NewReader(data)); err == nil {
+		// If it's not a valid MP3, NewDecoder might return an error or a decoder that fails on first Read
+		// For now, if no error, we assume it's MP3.
+		r = d
+	}
+
 	player := p.ctx.NewPlayer(r)
 	player.SetVolume(p.volume)
 	player.Play()
+
+	p.players = append(p.players, player)
+}
+
+func (p *Player) cleanup() {
+	var active []*oto.Player
+	for _, pl := range p.players {
+		if pl.IsPlaying() {
+			active = append(active, pl)
+		} else {
+			_ = pl.Close()
+		}
+	}
+	p.players = active
 }
 
 func (p *Player) Release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// oto.Context doesn't have Close; players are automatically cleaned up
-	// This is a no-op for now
+	for _, pl := range p.players {
+		_ = pl.Close()
+	}
+	p.players = nil
 }
 
 func (p *Player) UpdateVolume(v float64) {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
+	"clod-pet/backend/internal/llm"
 	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/pet"
 	"clod-pet/backend/internal/settings"
@@ -47,6 +49,31 @@ func (s *Service) PetsDir() string {
 	return s.petsDir
 }
 
+func (s *Service) LLMChat(payload json.RawMessage) (*ipc.Response, error) {
+	client, err := llm.NewClient(&s.settings.LLM)
+	if err != nil {
+		return nil, fmt.Errorf("create llm client: %w", err)
+	}
+	defer client.Close()
+
+	var req llm.ChatRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return nil, fmt.Errorf("unmarshal chat request: %w", err)
+	}
+
+	resp, err := client.Chat(context.Background(), &req)
+	if err != nil {
+		return nil, fmt.Errorf("llm chat: %w", err)
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return nil, fmt.Errorf("marshal chat response: %w", err)
+	}
+
+	return &ipc.Response{OK: true, Payload: data}, nil
+}
+
 func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {
 	cleanPath, err := s.cleanPetPath(petPath)
 	if err != nil {
@@ -55,18 +82,6 @@ func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {
 	p, err := pet.LoadPet(cleanPath)
 	if err != nil {
 		return nil, err
-	}
-
-	frameW := 0
-	frameH := 0
-	if len(p.Animations) > 0 {
-		for _, anim := range p.Animations {
-			if len(anim.Frames) > 0 {
-				frameW = p.Image.TilesX
-				frameH = p.Image.TilesY
-				break
-			}
-		}
 	}
 
 	spawns := make([]ipc.SpawnInfo, len(p.Spawns))
@@ -80,8 +95,8 @@ func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {
 		TilesX:    p.Image.TilesX,
 		TilesY:    p.Image.TilesY,
 		PngBase64: base64.StdEncoding.EncodeToString(p.Image.PngData),
-		FrameW:    frameW,
-		FrameH:    frameH,
+		FrameW:    p.FrameW,
+		FrameH:    p.FrameH,
 		Spawns:    spawns,
 		AnimCount: len(p.Animations),
 	}, nil

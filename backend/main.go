@@ -173,6 +173,7 @@ func healthHandler(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		status := svc.Status()
 		if status["pet_count"] == 0 {
+			w.WriteHeader(http.StatusBadRequest)
 			writeJSON(w, map[string]interface{}{"ok": true, "status": "degraded", "message": "no pets loaded"})
 			return
 		}

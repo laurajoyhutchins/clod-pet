@@ -198,3 +198,7 @@ func (m *commonMockService) LoadPet(petPath string) (*PetInfo, error) {
 		AnimCount: 1,
 	}, nil
 }
+
+func (m *commonMockService) LLMChat(payload json.RawMessage) (*Response, error) {
+	return &Response{OK: true}, nil
+}

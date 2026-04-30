@@ -30,7 +30,7 @@ func newGeminiClient(cfg *ProviderConfig) (Client, error) {
 
 	model := cfg.Model
 	if model == "" {
-		model = "gemini-2.5-flash"
+		model = "gemini-1.5-flash"
 	}
 
 	return &geminiClient{client: client, model: model}, nil
