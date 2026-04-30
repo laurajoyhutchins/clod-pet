@@ -335,6 +335,33 @@ func TestEvalMixedOps(t *testing.T) {
 	}
 }
 
+func TestEvalIntError(t *testing.T) {
+	_, err := EvalInt("unknown", &Env{})
+	if err == nil {
+		t.Error("EvalInt(unknown) expected error, got nil")
+	}
+}
+
+func TestEvalOperatorErrors(t *testing.T) {
+	env := &Env{}
+	badExprs := []string{
+		"1+unknown",
+		"unknown+1",
+		"1-unknown",
+		"unknown-1",
+		"1*unknown",
+		"unknown*1",
+		"1/unknown",
+		"unknown/1",
+	}
+	for _, expr := range badExprs {
+		_, err := Eval(expr, env)
+		if err == nil {
+			t.Errorf("Eval(%q) expected error, got nil", expr)
+		}
+	}
+}
+
 func TestEvalFloatLiteral(t *testing.T) {
 	got, err := Eval("3.14", &Env{})
 	if err != nil {

@@ -235,6 +235,147 @@ func TestResponseHelpers(t *testing.T) {
 	}
 }
 
+func TestHandleAddPet(t *testing.T) {
+	svc := newMockService()
+	h := NewHandler(svc)
+
+	addPayload, _ := json.Marshal(AddPetPayload{PetPath: "new-pet", SpawnID: 1})
+	resp := h.Handle(&Request{
+		Command: CmdAddPet,
+		Payload: addPayload,
+	})
+
+	if !resp.OK {
+		t.Fatalf("resp.OK = false, want true, error: %s", resp.Error)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal(resp.Payload, &result); err != nil {
+		t.Fatalf("unmarshal payload error: %v", err)
+	}
+	if result["pet_id"] != "new-pet" {
+		t.Errorf("pet_id = %s, want new-pet", result["pet_id"])
+	}
+}
+
+func TestHandleSetVolume(t *testing.T) {
+	svc := newMockService()
+	h := NewHandler(svc)
+
+	payload, _ := json.Marshal(SetVolumePayload{Volume: 0.5})
+	resp := h.Handle(&Request{
+		Command: CmdSetVolume,
+		Payload: payload,
+	})
+
+	if !resp.OK {
+		t.Errorf("resp.OK = false, want true, error: %s", resp.Error)
+	}
+}
+
+func TestHandleSetScale(t *testing.T) {
+	svc := newMockService()
+	h := NewHandler(svc)
+
+	payload, _ := json.Marshal(SetScalePayload{Scale: 1.5})
+	resp := h.Handle(&Request{
+		Command: CmdSetScale,
+		Payload: payload,
+	})
+
+	if !resp.OK {
+		t.Errorf("resp.OK = false, want true, error: %s", resp.Error)
+	}
+}
+
+func TestHandleGetSettings(t *testing.T) {
+	svc := newMockService()
+	h := NewHandler(svc)
+
+	resp := h.Handle(&Request{Command: CmdGetSettings})
+	if !resp.OK {
+		t.Fatalf("resp.OK = false, want true")
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(resp.Payload, &settings); err != nil {
+		t.Fatalf("unmarshal payload error: %v", err)
+	}
+	if settings["Volume"] != 0.3 {
+		t.Errorf("Volume = %v, want 0.3", settings["Volume"])
+	}
+}
+
+func TestHandleSetSettings(t *testing.T) {
+	svc := newMockService()
+	h := NewHandler(svc)
+
+	payload, _ := json.Marshal(map[string]interface{}{"Volume": 0.7})
+	resp := h.Handle(&Request{
+		Command: CmdSetSettings,
+		Payload: payload,
+	})
+
+	if !resp.OK {
+		t.Errorf("resp.OK = false, want true, error: %s", resp.Error)
+	}
+}
+
+func TestHandleListPets(t *testing.T) {
+	svc := newMockService()
+	h := NewHandler(svc)
+
+	resp := h.Handle(&Request{Command: CmdListPets})
+	if !resp.OK {
+		t.Fatalf("resp.OK = false, want true")
+	}
+
+	var pets []string
+	if err := json.Unmarshal(resp.Payload, &pets); err != nil {
+		t.Fatalf("unmarshal payload error: %v", err)
+	}
+	if len(pets) != 1 || pets[0] != "test" {
+		t.Errorf("pets = %v, want [test]", pets)
+	}
+}
+
+func TestHandleListActive(t *testing.T) {
+	svc := newMockService()
+	svc.addEngine("active-1")
+	h := NewHandler(svc)
+
+	resp := h.Handle(&Request{Command: CmdListActive})
+	if !resp.OK {
+		t.Fatalf("resp.OK = false, want true")
+	}
+
+	var active []map[string]interface{}
+	if err := json.Unmarshal(resp.Payload, &active); err != nil {
+		t.Fatalf("unmarshal payload error: %v", err)
+	}
+	if len(active) != 1 {
+		t.Errorf("len(active) = %d, want 1", len(active))
+	}
+}
+
+func TestHandleInvalidPayloads(t *testing.T) {
+	h := NewHandler(newMockService())
+	invalidPayload := json.RawMessage(`{invalid}`)
+
+	commands := []Command{
+		CmdAddPet, CmdRemovePet, CmdDragPet, CmdDropPet,
+		CmdStepPet, CmdBorderPet, CmdGetPet, CmdSetVolume,
+		CmdSetScale, CmdSetSettings,
+	}
+
+	for _, cmd := range commands {
+		resp := h.Handle(&Request{Command: cmd, Payload: invalidPayload})
+		if resp.OK {
+			t.Errorf("cmd %s: resp.OK = true, want false for invalid payload", cmd)
+		}
+	}
+}
+
 func TestPetStateJSON(t *testing.T) {
 	state := PetState{
 		PetID:      "test",
