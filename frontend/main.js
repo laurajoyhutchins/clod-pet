@@ -1,318 +1,148 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, screen, dialog } = require("electron");
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const electron_1 = require("electron");
+const logger = require("./src/logger");
+const BackendManager = require("./src/backend-manager");
+const PetManager = require("./src/pet-manager");
+const TrayManager = require("./src/tray-manager");
 const path = require("path");
-const { spawn } = require("child_process");
-const http = require("http");
-
-let backendProcess = null;
-let petWindows = new Map();
-let tray = null;
-
-let BACKEND_URL = "http://localhost:8080";
-const PETS_DIR = path.join(__dirname, "..", "pets");
-
-function findFreePort(startPort, maxAttempts = 10) {
-  return new Promise((resolve) => {
-    let port = startPort;
-    let attempts = 0;
-
-    const tryPort = () => {
-      const server = require("net").createServer();
-      server.listen(port, "127.0.0.1", () => {
-        server.close(() => resolve(port));
-      });
-      server.on("error", () => {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          resolve(startPort);
-        } else {
-          port++;
-          tryPort();
+const log = logger.createLogger("main");
+const diagnostics = {
+    startedAt: new Date().toISOString(),
+    lastError: null,
+    rendererErrors: [],
+};
+let backendManager = null;
+let petManager = null;
+let trayManager = null;
+let controlPanelWindow = null;
+let controlPanelHandlersRegistered = false;
+async function createPet(petPath = "../pets/esheep64", opts = {}) {
+    try {
+        return await petManager.loadAndCreatePet(petPath);
+    }
+    catch (err) {
+        diagnostics.lastError = err.message;
+        log.error("Failed to add pet:", err);
+        if (opts.throwOnError)
+            throw err;
+        return null;
+    }
+}
+function showControlPanel() {
+    if (controlPanelWindow) {
+        controlPanelWindow.show();
+        return;
+    }
+    controlPanelWindow = new electron_1.BrowserWindow({
+        width: 360,
+        height: 500,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        icon: path.join(__dirname, "assets", "icon.png"),
+        webPreferences: {
+            preload: path.join(__dirname, "src", "preload.js"),
+        },
+    });
+    controlPanelWindow.loadFile(path.join(__dirname, "control-panel.html"));
+    controlPanelWindow.on("closed", () => {
+        controlPanelWindow = null;
+    });
+}
+function setupControlPanelHandlers() {
+    if (controlPanelHandlersRegistered)
+        return;
+    controlPanelHandlersRegistered = true;
+    electron_1.ipcMain.handle("control:get-settings", () => petManager.backendClient.getSettings());
+    electron_1.ipcMain.handle("control:set-settings", (_event, settings) => petManager.backendClient.setSettings(settings));
+    electron_1.ipcMain.handle("control:list-pets", () => petManager.backendClient.listPets());
+    electron_1.ipcMain.handle("control:list-active", () => petManager.backendClient.listActive());
+    electron_1.ipcMain.handle("control:set-volume", (_event, volume) => petManager.backendClient.setVolume(volume));
+    electron_1.ipcMain.handle("control:set-scale", (_event, scale) => petManager.backendClient.setScale(scale));
+    electron_1.ipcMain.handle("control:add-pet", async (_event, petName) => {
+        if (!petName || typeof petName !== "string") {
+            throw new Error("pet name is required");
         }
-      });
-    };
-    tryPort();
-  });
+        return createPet(`../pets/${petName}`, { throwOnError: true });
+    });
+    electron_1.ipcMain.handle("control:remove-pet", (_event, petId) => petManager.removePet(petId));
+    electron_1.ipcMain.handle("control:diagnostics", async () => getDiagnostics());
+    electron_1.ipcMain.handle("control:renderer-error", (_event, err) => {
+        const entry = { ...err, at: new Date().toISOString() };
+        diagnostics.rendererErrors.unshift(entry);
+        diagnostics.rendererErrors = diagnostics.rendererErrors.slice(0, 20);
+        diagnostics.lastError = `${entry.source}: ${entry.message}`;
+        log.error("renderer error", entry);
+        return true;
+    });
 }
-
-async function startBackend() {
-  const port = await findFreePort(8080);
-  const backendPath = path.join(__dirname, "..", "backend");
-  backendProcess = spawn("go", ["run", "."], {
-    cwd: backendPath,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      PETS_DIR: PETS_DIR,
-    },
-  });
-
-  BACKEND_URL = `http://localhost:${port}`;
-
-  backendProcess.stdout.on("data", (data) => {
-    console.log(`[backend] ${data}`);
-  });
-
-  backendProcess.stderr.on("data", (data) => {
-    console.error(`[backend error] ${data}`);
-  });
-
-  backendProcess.on("error", (err) => {
-    console.error("[backend] spawn error:", err.message);
-  });
-
-  backendProcess.on("close", (code) => {
-    console.error(`[backend] exited with code ${code}`);
-  });
-
-  await waitForBackend();
-}
-
-function waitForBackend(maxRetries = 20, interval = 500) {
-  return new Promise((resolve, reject) => {
-    let retries = 0;
-    const check = () => {
-      http.get(`${BACKEND_URL}/api/health`, (res) => {
-        let body = "";
-        res.on("data", (d) => (body += d));
-        res.on("end", () => resolve());
-      }).on("error", () => {
-        retries++;
-        if (retries >= maxRetries) {
-          reject(new Error("backend failed to start"));
-        } else {
-          setTimeout(check, interval);
-        }
-      });
-    };
-    check();
-  });
-}
-
-function backendRequest(command, payload = {}) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify({ command, payload });
-    const req = http.request(`${BACKEND_URL}/api`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    }, (res) => {
-      let body = "";
-      res.on("data", (chunk) => body += chunk);
-      res.on("end", () => {
+electron_1.app.whenReady().then(async () => {
+    backendManager = new BackendManager({ preferSource: !electron_1.app.isPackaged });
+    const backendUrl = await backendManager.start();
+    petManager = new PetManager(backendUrl);
+    await petManager.init();
+    setupControlPanelHandlers();
+    trayManager = new TrayManager(electron_1.app, (command) => {
+        if (command === "add_pet")
+            createPet();
+        else if (command === "options")
+            showControlPanel();
+        else if (command === "quit")
+            electron_1.app.quit();
+    });
+    trayManager.init();
+    await createPet();
+    showControlPanel();
+    electron_1.app.on("activate", () => createPet());
+});
+async function getDiagnostics() {
+    const backend = backendManager ? backendManager.getDiagnostics() : null;
+    const pets = petManager ? petManager.getDiagnostics() : null;
+    let backendHealth = null;
+    let backendVersion = null;
+    if (petManager) {
         try {
-          const result = JSON.parse(body);
-          resolve(result);
-        } catch {
-          reject(new Error("invalid response"));
+            backendHealth = await petManager.backendClient.health();
         }
-      });
-    });
-    req.on("error", reject);
-    req.write(data);
-    req.end();
-  });
-}
-
-function loadPet(petPath) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify({ pet_path: petPath });
-    const req = http.request(`${BACKEND_URL}/api/pet/load`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    }, (res) => {
-      let body = "";
-      res.on("data", (chunk) => body += chunk);
-      res.on("end", () => {
+        catch (err) {
+            backendHealth = { ok: false, error: err.message };
+        }
         try {
-          resolve(JSON.parse(body));
-        } catch {
-          reject(new Error("invalid response"));
+            backendVersion = await petManager.backendClient.version();
         }
-      });
-    });
-    req.on("error", reject);
-    req.write(data);
-    req.end();
-  });
+        catch (err) {
+            backendVersion = { ok: false, error: err.message };
+        }
+    }
+    return {
+        app: {
+            startedAt: diagnostics.startedAt,
+            packaged: electron_1.app.isPackaged,
+            logDir: logger.getLogDir(),
+            lastError: diagnostics.lastError,
+        },
+        backend,
+        backendHealth,
+        backendVersion,
+        pets,
+        rendererErrors: diagnostics.rendererErrors,
+    };
 }
-
-async function createPetWindow(petPath, petData, spawnId = 1) {
-  const petId = petPath;
-  const workArea = screen.getPrimaryDisplay().workArea;
-  const x = workArea.x + Math.floor(Math.random() * workArea.width);
-  const y = workArea.y + Math.floor(workArea.height * 0.8);
-
-  const win = new BrowserWindow({
-    x,
-    y,
-    width: 64,
-    height: 64,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    show: false,
-    skipTaskbar: true,
-    hasShadow: false,
-    focusable: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, "src", "preload.js"),
-    },
-  });
-
-  win.loadFile("pet.html");
-  win.once("ready-to-show", () => win.show());
-
-  petWindows.set(petId, {
-    win,
-    petData,
-    state: { frameIndex: 0, x, y, flipH: false },
-    interval: null,
-  });
-
-  win.on("closed", () => {
-    backendRequest("remove_pet", { pet_id: petId });
-    if (petWindows.get(petId)?.interval) {
-      clearInterval(petWindows.get(petId).interval);
-    }
-    petWindows.delete(petId);
-  });
-
-  win.webContents.once("dom-ready", () => {
-    win.webContents.send("pet:init", {
-      petId,
-      pngBase64: `data:image/png;base64,${petData.pngBase64}`,
-      tilesX: petData.tiles_x,
-      tilesY: petData.tiles_y,
-    });
-  });
-
-  await backendRequest("add_pet", { pet_path: petPath, spawn_id: spawnId });
-  startPetLoop(petId);
-}
-
-function startPetLoop(petId) {
-  const entry = petWindows.get(petId);
-  if (!entry) return;
-
-  const loop = async () => {
-    const result = await backendRequest("step_pet", {
-      pet_id: petId,
-      border_ctx: 0,
-    });
-
-    if (result.ok && result.payload) {
-      const state = typeof result.payload === "string"
-        ? JSON.parse(result.payload)
-        : result.payload;
-
-      const winEntry = petWindows.get(petId);
-      if (!winEntry) return;
-
-      winEntry.state = {
-        frameIndex: state.frame_index,
-        x: state.x,
-        y: state.y,
-        flipH: state.flip_h,
-      };
-
-      entry.win.setPosition(Math.round(state.x), Math.round(state.y));
-      entry.win.webContents.send("pet:frame", {
-        frameIndex: state.frame_index,
-        flipH: state.flip_h,
-        opacity: state.opacity || 1.0,
-      });
-
-      if (state.next_anim_id > 0) {
-        // transition handled by backend
-      }
-
-      if (state.interval_ms > 0 && winEntry.interval) {
-        clearInterval(winEntry.interval);
-        winEntry.interval = setInterval(loop, state.interval_ms);
-      }
-    }
-  };
-
-  if (entry.interval) clearInterval(entry.interval);
-  entry.interval = setInterval(loop, 200);
-}
-
-async function addPet() {
-  const petRelPath = "../pets/esheep64";
-
-  try {
-    const result = await loadPet(petRelPath);
-    if (result.ok && result.pet) {
-      await createPetWindow(petRelPath, result.pet);
-    }
-  } catch (err) {
-    console.error("Failed to add pet:", err);
-  }
-}
-
-function createTray() {
-  tray = new Tray(path.join(__dirname, "assets", "icon.png") || path.join(__dirname, "icon.png"));
-  tray.setToolTip("Clod Pet");
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Add Pet", click: addPet },
-    { type: "separator" },
-    {
-      label: "Quit",
-      click: () => app.quit(),
-    },
-  ]));
-}
-
-ipcMain.on("pet:drag", (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  for (const [id, entry] of petWindows) {
-    if (entry.win === win) {
-      backendRequest("drag_pet", { pet_id: id, x: 0, y: 0 });
-      break;
-    }
-  }
+process.on("uncaughtException", (err) => {
+    diagnostics.lastError = err.message;
+    log.error("uncaught exception", err);
 });
-
-ipcMain.on("pet:drag:move", (event, data) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  for (const [id, entry] of petWindows) {
-    if (entry.win === win) {
-      backendRequest("drag_pet", { pet_id: id, x: data.x, y: data.y });
-      entry.win.setPosition(Math.round(data.x), Math.round(data.y));
-      break;
-    }
-  }
+process.on("unhandledRejection", (err) => {
+    const error = err instanceof Error ? err : new Error(String(err));
+    diagnostics.lastError = error.message;
+    log.error("unhandled rejection", error);
 });
-
-ipcMain.on("pet:drop", (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  for (const [id, entry] of petWindows) {
-    if (entry.win === win) {
-      backendRequest("drop_pet", { pet_id: id });
-      break;
-    }
-  }
+electron_1.app.on("window-all-closed", () => {
+    if (process.platform !== "darwin")
+        electron_1.app.quit();
 });
-
-app.whenReady().then(async () => {
-  await startBackend();
-  createTray();
-  await addPet();
-
-  app.on("activate", () => {
-    addPet();
-  });
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
-
-app.on("before-quit", () => {
-  if (backendProcess) {
-    backendProcess.kill();
-  }
+electron_1.app.on("before-quit", () => {
+    if (backendManager)
+        backendManager.stop();
 });

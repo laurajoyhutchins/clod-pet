@@ -4,11 +4,31 @@
   "description": "Desktop pet app",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "cross-env NODE_ENV=development electron ."
+    "build:ts": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
+    "start": "npm run build:ts && electron .",
+    "dev": "npm run build:ts && cross-env NODE_ENV=development electron .",
+    "test": "npm run build:ts && jest",
+    "test:watch": "jest --watch",
+    "test:e2e": "jest e2e --runInBand --forceExit --testPathIgnorePatterns=/node_modules/"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "cross-env": "^7.0.3",
     "electron": "^33.0.0",
-    "cross-env": "^7.0.3"
+    "jest": "^29.7.0",
+    "jest-environment-node": "^29.7.0",
+    "typescript": "^6.0.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ],
+    "coveragePathIgnorePatterns": [
+      "node_modules",
+      "src/preload.js",
+      "src/pet-renderer.js"
+    ]
   }
 }
