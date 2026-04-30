@@ -1,6 +1,7 @@
 package pet
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -350,8 +351,8 @@ func TestLoadPetFileNotFound(t *testing.T) {
 	if err == nil {
 		t.Error("LoadPet(/nonexistent) expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "read animations.xml") {
-		t.Errorf("Error = %v, want to contain %q", err, "read animations.xml")
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("Error = %v, want os.ErrNotExist or wrapped version", err)
 	}
 }
 
@@ -363,7 +364,7 @@ func TestLoadPetInvalidXML(t *testing.T) {
 	if err == nil {
 		t.Error("LoadPet(invalid XML) expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "parse xml") {
+	if err != nil && !strings.Contains(err.Error(), "parse xml") {
 		t.Errorf("Error = %v, want to contain %q", err, "parse xml")
 	}
 }
