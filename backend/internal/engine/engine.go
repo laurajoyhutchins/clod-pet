@@ -76,12 +76,15 @@ func NewEngine(p *pet.Pet) *Engine {
 		}
 	}
 
-	return &Engine{
+	engine := &Engine{
 		petDef:       p,
 		animationIDs: animationIDs,
 		state:        StateIdle,
 		env:          expression.NewEnv(),
 	}
+	engine.env.ImageW = 64.0
+	engine.env.ImageH = 64.0
+	return engine
 }
 
 func (e *Engine) Start(spawnID int) error {

@@ -31,9 +31,13 @@ jest.mock("electron", () => ({
   }),
   screen: {
     getPrimaryDisplay: jest.fn(() => ({
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
       workArea: { x: 0, y: 0, width: 1920, height: 1080 },
     })),
-    getAllDisplays: jest.fn(() => []),
+    getAllDisplays: jest.fn(() => [{
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+      workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+    }]),
   },
   ipcMain: {
     on: jest.fn(),
@@ -70,17 +74,20 @@ jest.mock("../border-detector", () => {
     init: jest.fn(),
     checkBorder: jest.fn(() => []),
     checkGravity: jest.fn(() => false),
+    _displayForRect: jest.fn((displays, x, y) => displays[0]),
+    taskbarBoundsByDisplay: new Map(),
+    tolerance: 2,
   }));
 });
 
 import PetManager from "../pet-manager";
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, screen } from "electron";
 
 describe("PetManager", () => {
   let manager: InstanceType<typeof PetManager>;
-  let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock };
+  let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock };
   let mockWindowManager: { createPetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
-  let mockBorderDetector: { init: jest.Mock; checkBorder: jest.Mock; checkGravity: jest.Mock };
+  let mockBorderDetector: { init: jest.Mock; checkBorder: jest.Mock; checkGravity: jest.Mock; _displayForRect: jest.Mock; taskbarBoundsByDisplay: Map<number, any>; tolerance: number };
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -227,7 +234,7 @@ describe("PetManager", () => {
     jest.advanceTimersByTime(200);
     await Promise.resolve(); // Wait for loop async work
 
-    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", 0, false);
+    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", 0, false, 1920, 1080, 1920, 1080);
     expect(mockWin.setPosition).toHaveBeenCalledWith(110, 210);
     expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({ frameIndex: 5, opacity: 0.5 }));
 
