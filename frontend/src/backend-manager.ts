@@ -15,6 +15,7 @@ class BackendManager {
   lastError: string | null;
   exitCode: number | null;
   launch: any;
+  readyTimer: any;
 
   constructor(opts: { preferSource?: boolean } = {}) {
     this.process = null;
@@ -26,6 +27,7 @@ class BackendManager {
     this.lastError = null;
     this.exitCode = null;
     this.launch = null;
+    this.readyTimer = null;
   }
 
   async start() {
@@ -50,19 +52,19 @@ class BackendManager {
 
     this.url = `http://localhost:${port}`;
 
-    this.process.stdout.on("data", (d) => {
+    this.process.stdout.on("data", (d: Buffer) => {
       this.lastStdout = appendRecent(this.lastStdout, d.toString());
       log.debug("backend stdout:", d.toString().trim());
     });
-    this.process.stderr.on("data", (d) => {
+    this.process.stderr.on("data", (d: Buffer) => {
       this.lastStderr = appendRecent(this.lastStderr, d.toString());
       log.warn("backend stderr:", d.toString().trim());
     });
-    this.process.on("error", (err) => {
+    this.process.on("error", (err: Error) => {
       this.lastError = err.message;
       log.error("spawn error:", err);
     });
-    this.process.on("close", (code) => {
+    this.process.on("close", (code: number) => {
       this.exitCode = code;
       log.error("backend exited", { code });
     });
@@ -73,6 +75,10 @@ class BackendManager {
   }
 
   stop() {
+    if (this.readyTimer) {
+      clearTimeout(this.readyTimer);
+      this.readyTimer = null;
+    }
     if (this.process) {
       this.process.removeAllListeners();
       this.process.stdout.removeAllListeners();
@@ -130,7 +136,7 @@ class BackendManager {
       const retryOrFail = () => {
         retries++;
         if (retries >= maxRetries) reject(new Error("backend failed to start"));
-        else setTimeout(check, interval);
+        else this.readyTimer = setTimeout(check, interval);
       };
       check();
     });

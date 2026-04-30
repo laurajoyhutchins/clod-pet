@@ -82,8 +82,8 @@ func NewEngine(p *pet.Pet) *Engine {
 		state:        StateIdle,
 		env:          expression.NewEnv(),
 	}
-	engine.env.ImageW = 64.0
-	engine.env.ImageH = 64.0
+	engine.env.ImageW = float64(p.FrameW)
+	engine.env.ImageH = float64(p.FrameH)
 	return engine
 }
 

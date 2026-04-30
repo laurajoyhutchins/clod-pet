@@ -23,6 +23,7 @@ const (
 	CmdListPets    Command = "list_pets"
 	CmdListActive  Command = "list_active"
 	CmdSetPosition Command = "set_position"
+	CmdLLMChat     Command = "llm_chat"
 )
 
 type Request struct {
@@ -131,6 +132,7 @@ type Service interface {
 	Pet(petID string) (json.RawMessage, error)
 	PetsDir() string
 	LoadPet(petPath string) (*PetInfo, error)
+	LLMChat(payload json.RawMessage) (*Response, error)
 }
 
 type Handler struct {
@@ -177,9 +179,19 @@ func (h *Handler) Handle(req *Request) *Response {
 		return h.handleListActive()
 	case CmdSetPosition:
 		return h.handleSetPosition(req.Payload)
+	case CmdLLMChat:
+		return h.handleLLMChat(req.Payload)
 	default:
 		return errorResponse("unknown command: " + string(req.Command))
 	}
+}
+
+func (h *Handler) handleLLMChat(payload json.RawMessage) *Response {
+	resp, err := h.svc.LLMChat(payload)
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+	return resp
 }
 
 func (h *Handler) handleSetPosition(payload json.RawMessage) *Response {

@@ -26,10 +26,14 @@ func newOpenAIClient(cfg *ProviderConfig) (Client, error) {
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
+	model := cfg.Model
+	if model == "" {
+		model = "gpt-4o"
+	}
 	return &openaiClient{
 		apiKey:  cfg.APIKey,
 		baseURL: baseURL,
-		model:   cfg.Model,
+		model:   model,
 		client:  &http.Client{Timeout: 60 * time.Second},
 	}, nil
 }

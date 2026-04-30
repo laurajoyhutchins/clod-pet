@@ -1,9 +1,12 @@
 package pet
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"image"
+	_ "image/png"
 	"os"
 )
 
@@ -186,6 +189,8 @@ type Pet struct {
 	Animations map[int]Animation
 	Children   []Child
 	Sounds     map[int][]Sound
+	FrameW     int
+	FrameH     int
 }
 
 func LoadPet(dir string) (*Pet, error) {
@@ -205,6 +210,12 @@ func LoadPet(dir string) (*Pet, error) {
 		return nil, fmt.Errorf("decode sprite png: %w", err)
 	}
 
+	// Calculate FrameW and FrameH from image dimensions
+	imgCfg, _, err := image.DecodeConfig(bytes.NewReader(pngData))
+	if err != nil {
+		return nil, fmt.Errorf("decode png config: %w", err)
+	}
+
 	tilesX := root.Image.TilesX
 	if tilesX == 0 {
 		tilesX = root.Image.TilesXAttr
@@ -212,6 +223,13 @@ func LoadPet(dir string) (*Pet, error) {
 	tilesY := root.Image.TilesY
 	if tilesY == 0 {
 		tilesY = root.Image.TilesYAttr
+	}
+
+	if tilesX == 0 {
+		tilesX = 1
+	}
+	if tilesY == 0 {
+		tilesY = 1
 	}
 
 	pet := &Pet{
@@ -232,6 +250,8 @@ func LoadPet(dir string) (*Pet, error) {
 		},
 		Animations: make(map[int]Animation),
 		Sounds:     make(map[int][]Sound),
+		FrameW:     imgCfg.Width / tilesX,
+		FrameH:     imgCfg.Height / tilesY,
 	}
 
 	for _, xs := range root.Spawns.Spawns {

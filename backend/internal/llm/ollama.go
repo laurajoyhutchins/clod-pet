@@ -21,9 +21,13 @@ func newOllamaClient(cfg *ProviderConfig) (Client, error) {
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
+	model := cfg.Model
+	if model == "" {
+		model = "llama3"
+	}
 	return &ollamaClient{
 		baseURL: baseURL,
-		model:   cfg.Model,
+		model:   model,
 		client:  &http.Client{Timeout: 60 * time.Second},
 	}, nil
 }

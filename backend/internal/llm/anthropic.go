@@ -26,7 +26,7 @@ func newAnthropicClient(cfg *ProviderConfig) (Client, error) {
 	client := anthropic.NewClient(opts...)
 	model := cfg.Model
 	if model == "" {
-		model = "claude-sonnet-4-20250514"
+		model = "claude-3-5-sonnet-20240620"
 	}
 
 	return &anthropicClient{client: &client, model: model}, nil

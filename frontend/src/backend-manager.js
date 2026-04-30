@@ -15,6 +15,7 @@ class BackendManager {
         this.lastError = null;
         this.exitCode = null;
         this.launch = null;
+        this.readyTimer = null;
     }
     async start() {
         const port = await this._findFreePort(8080);
@@ -55,6 +56,10 @@ class BackendManager {
         return this.url;
     }
     stop() {
+        if (this.readyTimer) {
+            clearTimeout(this.readyTimer);
+            this.readyTimer = null;
+        }
         if (this.process) {
             this.process.removeAllListeners();
             this.process.stdout.removeAllListeners();
@@ -116,7 +121,7 @@ class BackendManager {
                 if (retries >= maxRetries)
                     reject(new Error("backend failed to start"));
                 else
-                    setTimeout(check, interval);
+                    this.readyTimer = setTimeout(check, interval);
             };
             check();
         });
