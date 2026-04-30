@@ -121,5 +121,43 @@ class BackendClient {
     async addPet(petPath, spawnId = 0) {
         return this.request("add_pet", { pet_path: petPath, spawn_id: spawnId });
     }
+    async chat(messages, stream = false) {
+        return this.request("llm_chat", { messages, stream });
+    }
+    async streamChat(messages, onEvent) {
+        const response = await fetch(`${this.baseUrl}/api/llm/stream`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages, stream: true }),
+        });
+        if (!response.ok) {
+            throw new Error(`stream request failed: ${response.statusText}`);
+        }
+        const reader = response.body?.getReader();
+        if (!reader)
+            throw new Error("no reader");
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done)
+                break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                    const content = line.slice(6).replace(/\\n/g, "\n");
+                    onEvent({ content });
+                }
+                else if (line.startsWith("event: done")) {
+                    onEvent({ done: true });
+                }
+                else if (line.startsWith("event: error")) {
+                    // next line should be data
+                }
+            }
+        }
+    }
 }
 module.exports = BackendClient;

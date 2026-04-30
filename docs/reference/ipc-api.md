@@ -53,27 +53,28 @@ Register a pet with the animation engine.
 
 ### `step_pet`
 
-Advance the pet's animation by one frame.
+Advance the pet's animation by one frame and process physics.
 
 **Payload:**
 ```json
 {
-  "pet_id": "../pets/esheep64",
-  "border_ctx": 0,
-  "gravity": false
+  "pet_id": "pet_1",
+  "world": {
+    "screen": { "x": 0, "y": 0, "w": 1920, "h": 1080 },
+    "work_area": { "x": 0, "y": 0, "w": 1920, "h": 1040 },
+    "taskbar": { "x": 0, "y": 1040, "w": 1920, "h": 40 }
+  }
 }
 ```
 
-`border_ctx`: `0` = none, `1` = taskbar, `2` = window, `3` = horizontal, `4` = vertical
-
-`gravity`: `true` if the pet is above the work area and should fall
+`world`: Raw monitor and taskbar geometry used by the backend engine for collision detection and snapping.
 
 **Response:**
 ```json
 {
   "ok": true,
   "payload": {
-    "pet_id": "../pets/esheep64",
+    "pet_id": "pet_1",
     "frame_index": 2,
     "x": 8.0,
     "y": 0.0,
@@ -86,7 +87,7 @@ Advance the pet's animation by one frame.
 }
 ```
 
-`next_anim_id > 0` means a transition is triggered (either from border hit, gravity, or sequence completion).
+`next_anim_id > 0` means a transition is triggered (either from internal physics hit, or sequence completion).
 
 ### `remove_pet`
 

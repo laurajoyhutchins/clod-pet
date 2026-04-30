@@ -2,6 +2,8 @@ package ipc
 
 import (
 	"clod-pet/backend/internal/engine"
+	"clod-pet/backend/internal/llm"
+	"context"
 	"encoding/json"
 )
 
@@ -57,13 +59,8 @@ type DropPetPayload struct {
 }
 
 type StepPetPayload struct {
-	PetID     string               `json:"pet_id"`
-	BorderCtx engine.BorderContext `json:"border_ctx"`
-	Gravity   bool                 `json:"gravity,omitempty"`
-	ScreenW   float64              `json:"screen_w,omitempty"`
-	ScreenH   float64              `json:"screen_h,omitempty"`
-	AreaW     float64              `json:"area_w,omitempty"`
-	AreaH     float64              `json:"area_h,omitempty"`
+	PetID string              `json:"pet_id"`
+	World engine.WorldContext `json:"world"`
 }
 
 type SetPositionPayload struct {
@@ -117,7 +114,7 @@ type PetInfo struct {
 type Service interface {
 	AddPet(petPath string, spawnID int) (string, error)
 	RemovePet(petID string)
-	StepPet(petID string, borderCtx engine.BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*PetState, error)
+	StepPet(petID string, world engine.WorldContext) (*PetState, error)
 	SetPosition(petID string, x, y float64) error
 	DragPet(petID string, x, y float64) error
 	DropPet(petID string) error
@@ -133,6 +130,7 @@ type Service interface {
 	PetsDir() string
 	LoadPet(petPath string) (*PetInfo, error)
 	LLMChat(payload json.RawMessage) (*Response, error)
+	LLMStream(ctx context.Context, payload json.RawMessage) (<-chan llm.StreamEvent, error)
 }
 
 type Handler struct {
@@ -260,7 +258,7 @@ func (h *Handler) handleStepPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	state, err := h.svc.StepPet(p.PetID, p.BorderCtx, p.Gravity, p.ScreenW, p.ScreenH, p.AreaW, p.AreaH)
+	state, err := h.svc.StepPet(p.PetID, p.World)
 	if err != nil {
 		return errorResponse(err.Error())
 	}

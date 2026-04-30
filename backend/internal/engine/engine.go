@@ -29,6 +29,19 @@ const (
 	StateFalling
 )
 
+type Rect struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	W float64 `json:"w"`
+	H float64 `json:"h"`
+}
+
+type WorldContext struct {
+	Screen   Rect `json:"screen"`
+	WorkArea Rect `json:"work_area"`
+	Taskbar  Rect `json:"taskbar"`
+}
+
 type StepResult struct {
 	FrameIndex  int
 	X           float64
@@ -58,6 +71,7 @@ type Engine struct {
 	animRepeatFrom   int
 	borderTriggered  bool
 	gravityTriggered bool
+	tolerance        float64
 }
 
 func (e *Engine) CurrentAnim() int {
@@ -81,6 +95,7 @@ func NewEngine(p *pet.Pet) *Engine {
 		animationIDs: animationIDs,
 		state:        StateIdle,
 		env:          expression.NewEnv(),
+		tolerance:    2.0,
 	}
 	engine.env.ImageW = float64(p.FrameW)
 	engine.env.ImageH = float64(p.FrameH)
@@ -119,16 +134,19 @@ func (e *Engine) Start(spawnID int) error {
 	return nil
 }
 
-func (e *Engine) Step(borderCtx BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*StepResult, error) {
+func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	if e.state == StateIdle {
 		return nil, nil
 	}
 
-	if screenW > 0 {
-		e.env.ScreenW = screenW
-		e.env.ScreenH = screenH
-		e.env.AreaW = areaW
-		e.env.AreaH = areaH
+	petW := float64(e.petDef.FrameW)
+	petH := float64(e.petDef.FrameH)
+
+	if world.Screen.W > 0 {
+		e.env.ScreenW = world.Screen.W
+		e.env.ScreenH = world.Screen.H
+		e.env.AreaW = world.WorkArea.W
+		e.env.AreaH = world.WorkArea.H
 	}
 
 	anim, ok := e.petDef.Animations[e.currentAnim]
@@ -173,6 +191,13 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool, screenW, screenH, a
 	}
 	e.parentY += curY
 
+	// Internal Border & Gravity Detection
+	borderCtx := e.detectBorder(world, petW, petH)
+	gravity := e.detectGravity(world, petW, petH)
+
+	// Physics Snapping
+	e.applyPhysics(world, petW, petH, borderCtx)
+
 	if borderCtx != ContextNone && !e.borderTriggered {
 		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
 			e.borderTriggered = true
@@ -210,6 +235,84 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool, screenW, screenH, a
 	}
 
 	return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0), nil
+}
+
+func (e *Engine) detectBorder(world WorldContext, width, height float64) BorderContext {
+	if world.Screen.W == 0 {
+		return ContextNone
+	}
+
+	x, y := e.parentX, e.parentY
+	b := world.Screen
+	t := e.tolerance
+
+	onTop := y <= b.Y+t
+	onBottom := y+height >= b.Y+b.H-t
+	onLeft := x <= b.X+t
+	onRight := x+width >= b.X+b.W-t
+	onTaskbar := e.onTaskbar(world.Taskbar, x, y, width, height)
+
+	if onTaskbar {
+		return ContextTaskbar
+	}
+	if onTop || onBottom {
+		return ContextHorizontal
+	}
+	if onLeft || onRight {
+		return ContextVertical
+	}
+
+	return ContextNone
+}
+
+func (e *Engine) detectGravity(world WorldContext, width, height float64) bool {
+	if world.WorkArea.W == 0 {
+		return false
+	}
+
+	bottom := e.parentY + height
+	wa := world.WorkArea
+
+	// If we are above the work area bottom, we fall.
+	if bottom < wa.Y+wa.H-e.tolerance {
+		// But check if we are on the taskbar first
+		if e.onTaskbar(world.Taskbar, e.parentX, e.parentY, width, height) {
+			return false
+		}
+		return true
+	}
+
+	return false
+}
+
+func (e *Engine) onTaskbar(tb Rect, x, y, width, height float64) bool {
+	if tb.W == 0 || tb.H == 0 {
+		return false
+	}
+	t := e.tolerance
+	return !(x+width < tb.X-t || x > tb.X+tb.W+t || y+height < tb.Y-t || y > tb.Y+tb.H+t)
+}
+
+func (e *Engine) applyPhysics(world WorldContext, width, height float64, ctx BorderContext) {
+	if world.Screen.W == 0 {
+		return
+	}
+
+	// Snap to Taskbar top if we are hitting it from above
+	if ctx == ContextTaskbar {
+		tb := world.Taskbar
+		// Only snap if we are roughly at the top of it
+		if e.parentY+height > tb.Y && e.parentY < tb.Y {
+			e.parentY = tb.Y - height
+		}
+	} else if ctx == ContextHorizontal {
+		// Snap to Screen Floor
+		if e.parentY+height >= world.Screen.Y+world.Screen.H-e.tolerance {
+			e.parentY = world.Screen.Y + world.Screen.H - height
+		} else if e.parentY <= world.Screen.Y+e.tolerance {
+			e.parentY = world.Screen.Y
+		}
+	}
 }
 
 func (e *Engine) applyAction(action string) {

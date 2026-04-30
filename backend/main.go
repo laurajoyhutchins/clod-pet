@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -153,6 +154,56 @@ func loadPetHandler(h *ipc.Handler) http.HandlerFunc {
 	}
 }
 
+func llmStreamHandler(svc *service.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeError(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var payload json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			writeError(w, "invalid request: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		ch, err := svc.LLMStream(r.Context(), payload)
+		if err != nil {
+			writeError(w, "stream failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			writeError(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		for event := range ch {
+			if event.Error != nil {
+				fmt.Fprintf(w, "event: error\ndata: %s\n\n", event.Error.Error())
+				flusher.Flush()
+				return
+			}
+			if event.Done {
+				fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+				flusher.Flush()
+				return
+			}
+			if event.Content != "" {
+				// Escape newlines for SSE data format
+				content := strings.ReplaceAll(event.Content, "\n", "\\n")
+				fmt.Fprintf(w, "data: %s\n\n", content)
+				flusher.Flush()
+			}
+		}
+	}
+}
+
 func versionHandler(petsDir, settingsPath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -193,13 +244,14 @@ func describeHandler() http.HandlerFunc {
 				"add_pet", "remove_pet", "drag_pet", "drop_pet",
 				"step_pet", "border_pet", "get_status", "get_pet",
 				"set_volume", "set_scale", "get_settings", "set_settings",
-				"list_pets", "list_active",
+				"list_pets", "list_active", "llm_chat",
 			},
 			"endpoints": []map[string]interface{}{
 				{"path": "/api", "method": "POST", "description": "Generic command endpoint"},
 				{"path": "/api/pet/load", "method": "POST", "description": "Load pet definition"},
 				{"path": "/api/health", "method": "GET", "description": "Health check"},
 				{"path": "/api/describe", "method": "GET", "description": "API description"},
+				{"path": "/api/llm/stream", "method": "POST", "description": "LLM streaming chat"},
 			},
 		}
 		writeJSON(w, description)

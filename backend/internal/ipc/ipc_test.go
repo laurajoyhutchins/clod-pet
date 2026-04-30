@@ -61,7 +61,7 @@ func TestHandleStepPet(t *testing.T) {
 	svc.addEngine("step-test")
 	h := NewHandler(svc)
 
-	stepPayload, _ := json.Marshal(StepPetPayload{PetID: "step-test", BorderCtx: engine.ContextNone})
+	stepPayload, _ := json.Marshal(StepPetPayload{PetID: "step-test", World: engine.WorldContext{}})
 	resp := h.Handle(&Request{
 		Command: CmdStepPet,
 		Payload: stepPayload,
@@ -84,7 +84,7 @@ func TestHandleStepPet(t *testing.T) {
 func TestHandleStepPetNotFound(t *testing.T) {
 	h := NewHandler(newMockService())
 
-	stepPayload, _ := json.Marshal(StepPetPayload{PetID: "nope", BorderCtx: engine.ContextNone})
+	stepPayload, _ := json.Marshal(StepPetPayload{PetID: "nope", World: engine.WorldContext{}})
 	resp := h.Handle(&Request{
 		Command: CmdStepPet,
 		Payload: stepPayload,

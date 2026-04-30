@@ -3,6 +3,7 @@ import logger = require("./src/logger");
 import BackendManager = require("./src/backend-manager");
 import PetManager = require("./src/pet-manager");
 import TrayManager = require("./src/tray-manager");
+import ChatManager = require("./src/chat-manager");
 import path = require("path");
 
 const log = logger.createLogger("main");
@@ -15,6 +16,7 @@ const diagnostics = {
 let backendManager: any = null;
 let petManager: any = null;
 let trayManager: any = null;
+let chatManager: ChatManager;
 let controlPanelWindow: any = null;
 let controlPanelHandlersRegistered = false;
 
@@ -80,6 +82,20 @@ function setupControlPanelHandlers() {
     log.error("renderer error", entry);
     return true;
   });
+
+  ipcMain.on("llm-stream-start", async (event, { messages, channel }) => {
+    try {
+      await petManager.apiAdapter.streamChat(messages, (streamEvent: any) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(channel, streamEvent);
+        }
+      });
+    } catch (err) {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(channel, { error: err.message });
+      }
+    }
+  });
 }
 
 app.whenReady().then(async () => {
@@ -90,9 +106,13 @@ app.whenReady().then(async () => {
   await petManager.init();
   setupControlPanelHandlers();
 
+  const preloadPath = path.join(__dirname, "src", "preload.js");
+  chatManager = new ChatManager(preloadPath);
+
   trayManager = new TrayManager(app, (command) => {
     if (command === "add_pet") createPet();
     else if (command === "options") showControlPanel();
+    else if (command === "chat") chatManager.showChat();
     else if (command === "quit") app.quit();
   });
   trayManager.init();

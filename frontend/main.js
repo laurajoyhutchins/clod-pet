@@ -5,6 +5,7 @@ const logger = require("./src/logger");
 const BackendManager = require("./src/backend-manager");
 const PetManager = require("./src/pet-manager");
 const TrayManager = require("./src/tray-manager");
+const ChatManager = require("./src/chat-manager");
 const path = require("path");
 const log = logger.createLogger("main");
 const diagnostics = {
@@ -15,6 +16,7 @@ const diagnostics = {
 let backendManager = null;
 let petManager = null;
 let trayManager = null;
+let chatManager;
 let controlPanelWindow = null;
 let controlPanelHandlersRegistered = false;
 async function createPet(petPath = "../pets/esheep64", opts = {}) {
@@ -76,6 +78,20 @@ function setupControlPanelHandlers() {
         log.error("renderer error", entry);
         return true;
     });
+    electron_1.ipcMain.on("llm-stream-start", async (event, { messages, channel }) => {
+        try {
+            await petManager.apiAdapter.streamChat(messages, (streamEvent) => {
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send(channel, streamEvent);
+                }
+            });
+        }
+        catch (err) {
+            if (!event.sender.isDestroyed()) {
+                event.sender.send(channel, { error: err.message });
+            }
+        }
+    });
 }
 electron_1.app.whenReady().then(async () => {
     backendManager = new BackendManager({ preferSource: !electron_1.app.isPackaged });
@@ -83,11 +99,15 @@ electron_1.app.whenReady().then(async () => {
     petManager = new PetManager(backendUrl);
     await petManager.init();
     setupControlPanelHandlers();
+    const preloadPath = path.join(__dirname, "src", "preload.js");
+    chatManager = new ChatManager(preloadPath);
     trayManager = new TrayManager(electron_1.app, (command) => {
         if (command === "add_pet")
             createPet();
         else if (command === "options")
             showControlPanel();
+        else if (command === "chat")
+            chatManager.showChat();
         else if (command === "quit")
             electron_1.app.quit();
     });

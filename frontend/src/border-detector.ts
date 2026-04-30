@@ -39,72 +39,6 @@ class BorderDetector {
     });
   }
 
-  checkBorder(x: number, y: number, width: number, height: number) {
-    const displays = screen.getAllDisplays();
-    const results = [];
-    const display = this._displayForRect(displays, x, y, width, height);
-    if (!display) return results;
-
-    const b = display.bounds;
-    const tolerance = this.tolerance;
-
-    const onTop = y <= b.y + tolerance;
-    const onBottom = y + height >= b.y + b.height - tolerance;
-    const onLeft = x <= b.x + tolerance;
-    const onRight = x + width >= b.x + b.width - tolerance;
-    const onTaskbar = this._onTaskbar(x, y, width, height, display);
-
-    if (onTop || onBottom) results.push("horizontal");
-    if (onLeft || onRight) results.push("vertical");
-    if (onTaskbar) results.push("taskbar");
-
-    return results;
-  }
-
-  checkGravity(x: number, y: number, width: number, height: number) {
-    const displays = screen.getAllDisplays();
-    const centerX = x + width / 2;
-    const bottom = y + height;
-    
-    // Find all displays that overlap horizontally with the pet's center
-    const overlappingDisplays = displays.filter(d => 
-      centerX >= d.bounds.x && centerX <= d.bounds.x + d.bounds.width
-    );
-
-    if (overlappingDisplays.length === 0) return false;
-
-    // Find the current display based on the pet's center
-    const centerY = y + height / 2;
-    const currentDisplay = overlappingDisplays.find(d => 
-      centerY >= d.bounds.y && centerY <= d.bounds.y + d.bounds.height
-    ) || overlappingDisplays[0];
-
-    const wa = currentDisplay.workArea;
-    if (!wa) return false;
-
-    // 1. If we are above the work area bottom of the current display, we fall.
-    if (bottom < wa.y + wa.height - this.tolerance) {
-      return true;
-    }
-
-    // 2. If we are touching the taskbar of the current display, we don't fall.
-    if (this._onTaskbar(x, y, width, height, currentDisplay)) {
-      return false;
-    }
-
-    // 3. If there's another display below this one at the current X, we keep falling.
-    const hasDisplayBelow = overlappingDisplays.some(d => d.bounds.y > currentDisplay.bounds.y);
-    return hasDisplayBelow;
-  }
-
-  _onTaskbar(x: number, y: number, width: number, height: number, display?: any) {
-    const displayId = display?.id ?? this._displayIndex(display);
-    const tb = displayId !== null ? this.taskbarBoundsByDisplay.get(displayId) : null;
-    if (!tb) return false;
-    const t = this.tolerance;
-    return !(x + width < tb.x - t || x > tb.x + tb.width + t || y + height < tb.y - t || y > tb.y + tb.height + t);
-  }
-
   _displayForRect(displays: any[], x: number, y: number, width: number, height: number) {
     const centerX = x + width / 2;
     const centerY = y + height / 2;
@@ -122,6 +56,21 @@ class BorderDetector {
     const displays = screen.getAllDisplays();
     const index = displays.indexOf(display);
     return index >= 0 ? index : null;
+  }
+
+  getRawWorldContext(x: number, y: number, width: number, height: number) {
+    const displays = screen.getAllDisplays();
+    const display = this._displayForRect(displays, x, y, width, height);
+    if (!display) return null;
+
+    const displayId = display.id ?? this._displayIndex(display);
+    const taskbar = this.taskbarBoundsByDisplay.get(displayId) || { x: 0, y: 0, width: 0, height: 0 };
+
+    return {
+      screen: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },
+      work_area: { x: display.workArea.x, y: display.workArea.y, w: display.workArea.width, h: display.workArea.height },
+      taskbar: { x: taskbar.x, y: taskbar.y, w: taskbar.width, h: taskbar.height },
+    };
   }
 }
 

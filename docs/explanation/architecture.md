@@ -11,9 +11,10 @@ Clod Pet follows a client-server architecture split across two processes.
 |                    |        JSON response        |                    |
 | - Tray menu        |                             | - Animation state  |
 | - Pet windows      |                             |   machine          |
-| - Sprite rendering |                             | - XML parsing      |
-| - Drag/drop        |                             | - Expression eval  |
-| - Border detection |                             | - Sound playback   |
+| - Sprite rendering |                             | - Physics & Collision|
+| - Drag/drop        |                             | - XML parsing      |
+| - Sensory Provding |                             | - Expression eval  |
+|   (Screen Rects)   |                             | - Sound playback   |
 +-------------------+                             +--------------------+
 ```
 
@@ -21,8 +22,8 @@ Clod Pet follows a client-server architecture split across two processes.
 
 The original desktop pet (eSheep) was a single Windows application. This project separates concerns:
 
-- **Go** owns the animation logic because it is computationally simple, has good XML support, and compiles to a single binary.
-- **TypeScript/Electron** owns window management because transparent frameless windows and cross-platform tray menus are well-supported.
+- **Go** owns the animation logic and physics (gravity, collision, snapping) because it is computationally simple, testable in isolation, and allows for a language-agnostic "headless" engine.
+- **TypeScript/Electron** owns window management and sensory input (monitor bounds, taskbar positions) because transparent frameless windows and native display APIs are well-supported.
 
 The communication layer is HTTP JSON: simple to debug, language-agnostic, and sufficient for 200ms polling intervals.
 
@@ -39,8 +40,8 @@ Electron still loads generated JavaScript (`main.js`, `preload.js`, and browser 
 
 1. **Load** - `POST /api/pet/load` reads `animations.xml`, parses the sprite sheet, and returns base64 PNG plus metadata.
 2. **Add** - `POST /api` with `add_pet` creates an `Engine` instance for the pet and starts at a spawn point.
-3. **Step** - `POST /api` with `step_pet` advances the engine one frame and returns `{frame_index, x, y, flip_h, opacity}`.
-4. **Render** - the Electron renderer, compiled from TypeScript, draws the frame tile from the sprite sheet onto a transparent canvas.
+3. **Step** - `POST /api` with `step_pet` passes raw world geometry (screen/taskbar rects). The engine performs physics calculations and returns `{frame_index, x, y, flip_h, opacity}`.
+4. **Render** - the Electron renderer, compiled from TypeScript, draws the frame tile from the sprite sheet onto a transparent canvas at the coordinates provided by the backend.
 5. **Transition** - when an animation sequence completes, the engine picks the next animation via weighted probability.
 
 ## State machine
@@ -57,9 +58,8 @@ The state determines which animation plays:
 Transitions between animations are triggered by:
 
 - **Sequence completion** - the `<sequence>` finishes its repeats
-- **Border events** - the pet hits a screen edge (`border_ctx` from the frontend's per-display `BorderDetector`)
-- **Gravity events** - the pet falls off a ledge (`gravity: true` from `BorderDetector.checkGravity()`)
-- **User interaction** - click-and-drag
+- **Internal Physics** - the engine detects the pet hit a screen edge or fell off a ledge using raw monitor geometry provided by the frontend.
+- **User interaction** - click-and-drag (front-end notifies backend of state changes)
 
 ## Sound playback
 

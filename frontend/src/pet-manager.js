@@ -6,13 +6,6 @@ const WindowManager = require("./window-manager");
 const BorderDetector = require("./border-detector");
 const logger = require("./logger");
 const log = logger.createLogger("pet-manager");
-const BORDER_CONTEXT = {
-    none: 0,
-    taskbar: 1,
-    window: 2,
-    horizontal: 3,
-    vertical: 4,
-};
 class PetManager {
     constructor(backendUrl) {
         this.backendClient = new ApiAdapter(backendUrl);
@@ -136,40 +129,13 @@ class PetManager {
             try {
                 const [winX, winY] = petEntry.win.getPosition();
                 const [winW, winH] = petEntry.win.getSize();
-                const displays = electron_1.screen.getAllDisplays();
-                const currentDisplay = this.borderDetector._displayForRect(displays, winX, winY, winW, winH) || electron_1.screen.getPrimaryDisplay();
-                const { width: screenW, height: screenH } = currentDisplay.bounds;
-                const { width: areaW, height: areaH, x: areaX, y: areaY } = currentDisplay.workArea;
-                const borderHits = this.borderDetector.checkBorder(winX, winY, winW, winH);
-                const borderCtx = this._mapBorderToContext(borderHits);
-                const gravity = this.borderDetector.checkGravity(winX, winY, winW, winH);
-                const result = await this.backendClient.stepPet(petId, borderCtx, gravity, screenW, screenH, areaW, areaH);
+                const world = this.borderDetector.getRawWorldContext(winX, winY, winW, winH);
+                if (!world)
+                    return;
+                const result = await this.backendClient.stepPet(petId, world);
                 petEntry.stepFailures = 0;
-                let finalX = result.x ?? 0;
-                let finalY = (result.y ?? 0) + (result.offset_y ?? 0);
-                // Snapping logic: if we hit a border, align to it to avoid "sinking"
-                if (borderCtx === BORDER_CONTEXT.taskbar || borderHits.includes("taskbar")) {
-                    // If we hit the taskbar, we might be at top, bottom, left or right.
-                    const tb = this.borderDetector.taskbarBoundsByDisplay.get(currentDisplay.id ?? displays.indexOf(currentDisplay));
-                    if (tb) {
-                        if (winY + winH > tb.y && winY < tb.y)
-                            finalY = tb.y - winH; // Hit top of bottom taskbar
-                        else if (winY < tb.y + tb.height && winY + winH > tb.y + tb.height)
-                            finalY = tb.y + tb.height; // Hit bottom of top taskbar
-                        // (Side taskbars handled by X snapping if needed, but esheep mostly cares about floor)
-                    }
-                }
-                else if (borderHits.includes("horizontal")) {
-                    if (winY <= currentDisplay.bounds.y + this.borderDetector.tolerance)
-                        finalY = currentDisplay.bounds.y;
-                    else if (winY + winH >= currentDisplay.bounds.y + currentDisplay.bounds.height - this.borderDetector.tolerance)
-                        finalY = currentDisplay.bounds.y + currentDisplay.bounds.height - winH;
-                }
-                // If we snapped, sync it back to backend
-                if (Math.abs(finalX - result.x) > 0.1 || Math.abs(finalY - (result.y + result.offset_y)) > 0.1) {
-                    // Note: result.y is the base Y. We want to set base Y to finalY - offset_y
-                    this.backendClient.setPosition(petId, finalX, finalY - (result.offset_y ?? 0));
-                }
+                const finalX = result.x ?? 0;
+                const finalY = (result.y ?? 0) + (result.offset_y ?? 0);
                 petEntry.state = {
                     frameIndex: result.frame_index,
                     x: finalX,
@@ -204,19 +170,6 @@ class PetManager {
         if (entry.interval)
             clearInterval(entry.interval);
         entry.interval = setInterval(loop, 200);
-    }
-    _mapBorderToContext(borderHits) {
-        if (!borderHits || borderHits.length === 0)
-            return BORDER_CONTEXT.none;
-        if (borderHits.includes("taskbar"))
-            return BORDER_CONTEXT.taskbar;
-        if (borderHits.includes("window"))
-            return BORDER_CONTEXT.window;
-        if (borderHits.includes("horizontal"))
-            return BORDER_CONTEXT.horizontal;
-        if (borderHits.includes("vertical"))
-            return BORDER_CONTEXT.vertical;
-        return BORDER_CONTEXT.none;
     }
     _setupIpcHandlers() {
         if (this.ipcHandlersRegistered)
