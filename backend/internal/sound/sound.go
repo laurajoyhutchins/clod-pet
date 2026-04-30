@@ -67,7 +67,8 @@ func (p *Player) Stop() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.ctx.Close()
+	// oto.Context doesn't have Close; players are automatically cleaned up
+	// This is a no-op for now
 }
 
 func (p *Player) SetVolume(v float64) {
