@@ -112,4 +112,87 @@ describe("BackendManager", () => {
     if (stderrCallback) stderrCallback(Buffer.from("error output"));
     // Should not throw
   });
+
+  test("getDiagnostics should return correct info", () => {
+    manager.url = "http://localhost:8080";
+    manager.launch = { cmd: "go", args: ["run", "."] };
+    manager.lastStdout = "test output";
+    manager.lastStderr = "test error";
+    manager.lastError = "test error msg";
+    manager.exitCode = 0;
+
+    const diag = manager.getDiagnostics();
+    expect(diag.url).toBe("http://localhost:8080");
+    expect(diag.launch).toBeDefined();
+    expect(diag.lastStdout).toBe("test output");
+    expect(diag.lastStderr).toBe("test error");
+    expect(diag.lastError).toBe("test error msg");
+    expect(diag.exitCode).toBe(0);
+    expect(diag.running).toBe(false);
+  });
+
+  test("getDiagnostics should report running when process active", () => {
+    manager.process = mockProcess;
+    (manager.process as any).exitCode = null;
+    const diag = manager.getDiagnostics();
+    expect(diag.running).toBe(true);
+  });
+
+  test("should handle spawn error", async () => {
+    let errorCallback: ((err: Error) => void) | undefined;
+    mockProcess.on.mockImplementation((event, cb) => {
+      if (event === "error") errorCallback = cb;
+    });
+
+    await manager.start();
+    expect(() => {
+      if (errorCallback) errorCallback(new Error("spawn failed"));
+    }).not.toThrow();
+    expect(manager.lastError).toBe("spawn failed");
+  });
+
+  test("should handle process exit", async () => {
+    let exitCallback: ((code: number) => void) | undefined;
+    mockProcess.on.mockImplementation((event, cb) => {
+      if (event === "close") exitCallback = cb;
+    });
+
+    await manager.start();
+    if (exitCallback) exitCallback(1);
+    expect(manager.exitCode).toBe(1);
+  });
+
+  test("_findFreePort should return a port", async () => {
+    const net = require("net");
+    const mockServer = {
+      listen: jest.fn((port, host, cb) => cb()),
+      close: jest.fn((cb) => cb()),
+    };
+    (net.createServer as jest.Mock).mockReturnValue(mockServer);
+
+    const port = await (manager as any)._findFreePort(8080);
+    expect(port).toBeDefined();
+    expect(mockServer.listen).toHaveBeenCalledWith(8080, "127.0.0.1", expect.any(Function));
+  });
+
+  test("_waitForReady should timeout after max retries", async () => {
+    let callCount = 0;
+    mockGet.mockImplementation((url: any, cb?: any) => {
+      callCount++;
+      const mockRes = {
+        statusCode: 500,
+        on: jest.fn((event: string, cb: Function) => {
+          if (event === "end") {
+            // Simulate async end event
+            setTimeout(() => cb(), 0);
+          }
+        }),
+      };
+      if (typeof cb === "function") cb(mockRes);
+      return { on: jest.fn() } as any;
+    });
+
+    await expect((manager as any)._waitForReady(3, 10)).rejects.toThrow("failed to start");
+    expect(callCount).toBeGreaterThanOrEqual(3);
+  });
 });

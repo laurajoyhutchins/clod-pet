@@ -137,4 +137,196 @@ describe("BackendClient", () => {
       expect.any(Function)
     );
   });
+
+  test("health should call /api/health with GET", async () => {
+    const mockBody = JSON.stringify({ ok: true, status: "ok" });
+    const promise = client.health();
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      "http://localhost:8080/api/health",
+      expect.objectContaining({ method: "GET" }),
+      expect.any(Function)
+    );
+  });
+
+  test("version should call /api/version with GET", async () => {
+    const mockBody = JSON.stringify({ ok: true, version: "1.0.0" });
+    const promise = client.version();
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      "http://localhost:8080/api/version",
+      expect.objectContaining({ method: "GET" }),
+      expect.any(Function)
+    );
+  });
+
+  test("removePet should call remove_pet command", async () => {
+    const mockBody = JSON.stringify({ ok: true });
+    const promise = client.removePet("pet_1");
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "remove_pet", payload: { pet_id: "pet_1" } })
+    );
+  });
+
+  test("dragPet should call drag_pet command", async () => {
+    const mockBody = JSON.stringify({ ok: true });
+    const promise = client.dragPet("pet_1", 100, 200);
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "drag_pet", payload: { pet_id: "pet_1", x: 100, y: 200 } })
+    );
+  });
+
+  test("dropPet should call drop_pet command", async () => {
+    const mockBody = JSON.stringify({ ok: true });
+    const promise = client.dropPet("pet_1");
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "drop_pet", payload: { pet_id: "pet_1" } })
+    );
+  });
+
+  test("setVolume should call set_volume command", async () => {
+    const mockBody = JSON.stringify({ ok: true });
+    const promise = client.setVolume(0.5);
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "set_volume", payload: { volume: 0.5 } })
+    );
+  });
+
+  test("setScale should call set_scale command", async () => {
+    const mockBody = JSON.stringify({ ok: true });
+    const promise = client.setScale(2.0);
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "set_scale", payload: { scale: 2.0 } })
+    );
+  });
+
+  test("getStatus should call get_status command", async () => {
+    const mockBody = JSON.stringify({ ok: true, payload: { pet_count: 1 } });
+    const promise = client.getStatus();
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    const result: any = await promise;
+
+    expect(result.payload.pet_count).toBe(1);
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "get_status", payload: {} })
+    );
+  });
+
+  test("getSettings should call get_settings command", async () => {
+    const mockBody = JSON.stringify({ ok: true, payload: { volume: 0.5 } });
+    const promise = client.getSettings();
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "get_settings", payload: {} })
+    );
+  });
+
+  test("setSettings should call set_settings command", async () => {
+    const mockBody = JSON.stringify({ ok: true });
+    const promise = client.setSettings({ volume: 0.8 });
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "set_settings", payload: { volume: 0.8 } })
+    );
+  });
+
+  test("listPets should call list_pets command", async () => {
+    const mockBody = JSON.stringify({ ok: true, payload: { pets: [] } });
+    const promise = client.listPets();
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "list_pets", payload: {} })
+    );
+  });
+
+  test("listActive should call list_active command", async () => {
+    const mockBody = JSON.stringify({ ok: true, payload: { active: [] } });
+    const promise = client.listActive();
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "list_active", payload: {} })
+    );
+  });
+
+  test("addPet should call add_pet command", async () => {
+    const mockBody = JSON.stringify({ ok: true, pet_id: "pet_1" });
+    const promise = client.addPet("../pets/sheep", 1);
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "add_pet", payload: { pet_path: "../pets/sheep", spawn_id: 1 } })
+    );
+  });
+
+  test("addPet should use default spawnId", async () => {
+    const mockBody = JSON.stringify({ ok: true, pet_id: "pet_1" });
+    const promise = client.addPet("../pets/sheep");
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "add_pet", payload: { pet_path: "../pets/sheep", spawn_id: 0 } })
+    );
+  });
+
+  test("isConnected getter should return connected state", () => {
+    expect(client.isConnected).toBe(false);
+    client.connected = true;
+    expect(client.isConnected).toBe(true);
+  });
+
+  test("should handle timeout", async () => {
+    client = new BackendClient("http://localhost:8080", { timeoutMs: 100 });
+    mockRequest.mockImplementation((url: any, opts: any, callback: any) => {
+      // Don't call callback to simulate timeout
+      return mockReq;
+    });
+
+    const promise = client.request("test", {});
+    
+    await expect(promise).rejects.toThrow("timed out");
+    expect(client.connected).toBe(false);
+  });
 });
