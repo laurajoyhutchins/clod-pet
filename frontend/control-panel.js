@@ -59,6 +59,7 @@ async function refreshActivePets() {
         activePets = await api.listActive();
         activePets = activePets || [];
         renderActivePets();
+        renderPetTracker();
     }
     catch (err) {
         updateStatus("Error loading pets: " + err.message, "error");
@@ -70,8 +71,10 @@ function renderActivePets() {
     countEl.textContent = activePets.length + " pet" + (activePets.length !== 1 ? "s" : "");
     if (activePets.length === 0) {
         container.innerHTML = '<div class="empty-state">No pets active. Add one below!</div>';
+        el("pet-tracker-card").style.display = "none";
         return;
     }
+    el("pet-tracker-card").style.display = "block";
     container.innerHTML = "";
     activePets.forEach((pet) => {
         const div = document.createElement("div");
@@ -95,6 +98,34 @@ function renderActivePets() {
         container.appendChild(div);
     });
 }
+async function renderPetTracker() {
+    const content = el("pet-tracker-content");
+    try {
+        const diag = await api.diagnostics();
+        const petsDiag = diag.pets || {};
+        const windows = petsDiag.windows || [];
+        if (windows.length === 0) {
+            content.innerHTML = "No active windows tracked.";
+            return;
+        }
+        let html = "";
+        windows.forEach((win) => {
+            const b = win.bounds || {};
+            html += `<div style="margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">`;
+            html += `ID: ${win.id}<br/>`;
+            html += `Pos: ${b.x}, ${b.y}<br/>`;
+            html += `Size: ${b.width}x${b.height}<br/>`;
+            html += `Bottom: ${b.y + b.height}`;
+            html += `</div>`;
+        });
+        content.innerHTML = html;
+    }
+    catch (err) {
+        content.innerHTML = "Error updating tracker: " + err.message;
+    }
+}
+// Update tracker more frequently
+setInterval(renderPetTracker, 100);
 async function removePet(petId) {
     try {
         await api.removePet(petId);

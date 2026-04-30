@@ -222,54 +222,6 @@
     </div>
   </div>
 
-  <!-- Add New Pet -->
-  <div class="card">
-    <div class="card-title">Add New Pet</div>
-    <div class="add-pet-row">
-      <select id="pet-select"></select>
-      <button class="btn" id="add-pet-btn">Add</button>
-    </div>
-  </div>
-
-  <!-- Settings -->
-  <div class="card">
-    <div class="card-title">Settings</div>
-
-    <label>Volume</label>
-    <input type="range" id="volume" min="0" max="1" step="0.1" value="0.3">
-    <div class="range-label">
-      <span>🔇</span>
-      <span id="volume-value">30%</span>
-      <span>🔊</span>
-    </div>
-
-    <label>Scale</label>
-    <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
-    <div class="range-label">
-      <span>Small</span>
-      <span id="scale-value">1.0x</span>
-      <span>Large</span>
-    </div>
-
-    <label class="checkbox-label">
-      <input type="checkbox" id="multi-screen">
-      Enable Multi-Screen
-    </label>
-
-    <label class="checkbox-label">
-      <input type="checkbox" id="win-foreground">
-      Always On Top
-    </label>
-
-    <label class="checkbox-label">
-      <input type="checkbox" id="steal-focus">
-      Steal Taskbar Focus
-    </label>
-
-    <label>Autostart Pets</label>
-    <input type="number" id="autostart" min="0" max="10" step="1" value="1">
-  </div>
-
   <!-- Diagnostics -->
   <div class="card">
     <div class="card-title">
@@ -281,6 +233,12 @@
       <span class="diag-value">Loading...</span>
     </div>
     <div class="diag-log" id="diagnostics-log">No diagnostics yet.</div>
+  </div>
+
+  <!-- Pet Tracker (Debug) -->
+  <div class="card" id="pet-tracker-card" style="display: none;">
+    <div class="card-title">Pet Tracker (Debug)</div>
+    <div id="pet-tracker-content" style="font-size: 11px; font-family: monospace;"></div>
   </div>
 
   <div class="status" id="status">Loading...</div>

@@ -53,9 +53,11 @@ type Engine struct {
 	parentX        float64
 	parentY        float64
 	env            *expression.Env
-	animFrames     []int
-	animTotalSteps int
-	animRepeatFrom int
+	animFrames       []int
+	animTotalSteps   int
+	animRepeatFrom   int
+	borderTriggered  bool
+	gravityTriggered bool
 }
 
 func (e *Engine) CurrentAnim() int {
@@ -154,17 +156,23 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 	endOffsetY := float64(anim.End.OffsetY)
 	curOffsetY := expression.Lerp(startOffsetY, endOffsetY, progress)
 
-	e.parentX += curX
+	if e.flipH {
+		e.parentX -= curX
+	} else {
+		e.parentX += curX
+	}
 	e.parentY += curY
 
-	if borderCtx != ContextNone {
+	if borderCtx != ContextNone && !e.borderTriggered {
 		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
+			e.borderTriggered = true
 			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 		}
 	}
 
-	if gravity {
+	if gravity && !e.gravityTriggered {
 		if nextID := e.pickGravityTransition(); nextID > 0 {
+			e.gravityTriggered = true
 			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 		}
 	}
@@ -177,6 +185,7 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 
 		if e.totalStepsDone >= e.animTotalSteps {
 			if nextID := e.pickSequenceTransition(borderCtx); nextID > 0 {
+				e.applyAction(anim.Action)
 				return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 			}
 			e.totalStepsDone = 0
@@ -185,6 +194,12 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 	}
 
 	return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0), nil
+}
+
+func (e *Engine) applyAction(action string) {
+	if action == "flip" {
+		e.flipH = !e.flipH
+	}
 }
 
 func (e *Engine) SetDrag() {
@@ -238,6 +253,8 @@ func (e *Engine) loadAnimation() {
 
 	e.animFrames = append(e.animFrames[:0], anim.Frames...)
 	e.animRepeatFrom = anim.RepeatFrom
+	e.borderTriggered = false
+	e.gravityTriggered = false
 
 	repeat, err := expression.EvalInt(anim.Repeat, e.env)
 	if err != nil || repeat <= 0 {
