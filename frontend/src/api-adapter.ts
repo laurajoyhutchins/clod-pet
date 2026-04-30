@@ -72,13 +72,25 @@ class ApiAdapter {
     return resp.payload;
   }
 
-  async stepPet(petId: string, borderCtx: number, gravity: boolean) {
+  async stepPet(petId: string, borderCtx: number, gravity: boolean, screenW = 0, screenH = 0, areaW = 0, areaH = 0) {
     const resp = await this.client.request("step_pet", {
       pet_id: petId,
       border_ctx: borderCtx,
       gravity,
+      screen_w: screenW,
+      screen_h: screenH,
+      area_w: areaW,
+      area_h: areaH,
     });
     return resp.payload;
+  }
+
+  async setPosition(petId: string, x: number, y: number) {
+    return this.client.request("set_position", {
+      pet_id: petId,
+      x,
+      y,
+    });
   }
 
   async loadPet(petPath: string) {
