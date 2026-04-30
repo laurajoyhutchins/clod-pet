@@ -25,6 +25,12 @@ function Write-Section($title) {
 function Test-Backend {
     Write-Section "Running Backend Go Tests"
 
+    if (-not (Test-Path $backendDir)) {
+        Write-Host "Backend directory not found: $backendDir" -ForegroundColor Red
+        Log "Backend tests: SKIPPED (directory not found)"
+        return @{ ExitCode = 1 }
+    }
+
     Push-Location $backendDir
 
     Log "Starting Go backend tests..."
@@ -59,6 +65,12 @@ function Test-Backend {
 function Test-Frontend {
     Write-Section "Running Frontend Jest Tests"
 
+    if (-not (Test-Path $frontendDir)) {
+        Write-Host "Frontend directory not found: $frontendDir" -ForegroundColor Red
+        Log "Frontend tests: SKIPPED (directory not found)"
+        return @{ ExitCode = 1 }
+    }
+
     Push-Location $frontendDir
 
     Log "Starting frontend tests..."
@@ -87,6 +99,12 @@ function Test-Frontend {
 
 function Test-FrontendE2E {
     Write-Section "Running Frontend E2E Tests"
+
+    if (-not (Test-Path $frontendDir)) {
+        Write-Host "Frontend directory not found: $frontendDir" -ForegroundColor Red
+        Log "E2E tests: SKIPPED (directory not found)"
+        return @{ ExitCode = 1 }
+    }
 
     Push-Location $frontendDir
 

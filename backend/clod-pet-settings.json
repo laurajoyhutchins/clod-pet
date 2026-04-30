@@ -1,15 +1,10 @@
 {
   "Volume": 0.3,
-  "WinForeGround": false,
+  "WinForeGround": true,
   "StealTaskbarFocus": false,
   "AutostartPets": 1,
   "Scale": 1,
   "MultiScreenEnabled": true,
   "CurrentPet": "esheep64",
-  "LastUpdate": null,
-  "llm": {
-    "provider": "ollama",
-    "base_url": "http://localhost:11434",
-    "model": "llama3"
-  }
+  "LastUpdate": null
 }

@@ -1,8 +1,9 @@
 // Mock electron modules
 jest.mock("electron", () => ({
-  BrowserWindow: jest.fn().mockImplementation((opts) => ({
-    loadFile: jest.fn(),
+  BrowserWindow: Object.assign(jest.fn().mockImplementation((opts) => ({
+    loadFile: jest.fn().mockResolvedValue(undefined),
     show: jest.fn(),
+    showInactive: jest.fn(),
     once: jest.fn((event, cb) => {
       if (event === "ready-to-show") cb();
     }),
@@ -11,10 +12,10 @@ jest.mock("electron", () => ({
     }),
     webContents: {
       on: jest.fn((event, cb) => {
-        if (event === "dom-ready") cb();
+        if (event === "did-finish-load") cb();
       }),
       once: jest.fn((event, cb) => {
-        if (event === "dom-ready") cb();
+        if (event === "did-finish-load") cb();
       }),
       send: jest.fn(),
       getPosition: jest.fn(() => [100, 200]),
@@ -22,7 +23,12 @@ jest.mock("electron", () => ({
     },
     setPosition: jest.fn(),
     getPosition: jest.fn(() => [100, 200]),
-  })),
+    getBounds: jest.fn(() => ({ x: 100, y: 200, width: 64, height: 64 })),
+    getSize: jest.fn(() => [64, 64]),
+    isDestroyed: jest.fn(() => false),
+  })), {
+    fromWebContents: jest.fn(),
+  }),
   screen: {
     getPrimaryDisplay: jest.fn(() => ({
       workArea: { x: 0, y: 0, width: 1920, height: 1080 },
@@ -68,6 +74,7 @@ jest.mock("../border-detector", () => {
 });
 
 import PetManager from "../pet-manager";
+import { BrowserWindow, ipcMain } from "electron";
 
 describe("PetManager", () => {
   let manager: InstanceType<typeof PetManager>;
@@ -76,11 +83,16 @@ describe("PetManager", () => {
   let mockBorderDetector: { init: jest.Mock; checkBorder: jest.Mock; checkGravity: jest.Mock };
 
   beforeEach(() => {
+    jest.useFakeTimers();
     manager = new PetManager("http://localhost:8080");
     mockBackendClient = manager.backendClient as any;
     mockWindowManager = manager.windowManager as any;
     mockBorderDetector = manager.borderDetector as any;
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   test("should initialize with backend URL", () => {
@@ -90,6 +102,35 @@ describe("PetManager", () => {
   test("should initialize modules on init", async () => {
     await manager.init();
     expect(mockBorderDetector.init).toHaveBeenCalled();
+    expect(ipcMain.handle).toHaveBeenCalledWith("get-pet-init", expect.any(Function));
+  });
+
+  test("init should not register IPC handlers twice", async () => {
+    await manager.init();
+    const initialCallCount = (ipcMain.on as jest.Mock).mock.calls.length;
+    await manager.init();
+    expect((ipcMain.on as jest.Mock).mock.calls.length).toBe(initialCallCount);
+  });
+
+  test("get-pet-init handler should return pet data", async () => {
+    await manager.init();
+    const handler = (ipcMain.handle as jest.Mock).mock.calls.find(call => call[0] === "get-pet-init")[1];
+    
+    manager.pets.set("pet_1", {
+      backendPetId: "pet_1",
+      petData: { png_base64: "abc", tiles_x: 1, tiles_y: 1 }
+    });
+    
+    const result = await handler(null, "pet_1");
+    expect(result).toEqual({
+      petId: "pet_1",
+      pngBase64: "data:image/png;base64,abc",
+      tilesX: 1,
+      tilesY: 1
+    });
+
+    const resultNull = await handler(null, "nonexistent");
+    expect(resultNull).toBeNull();
   });
 
   test("should load and create pet", async () => {
@@ -101,17 +142,13 @@ describe("PetManager", () => {
     mockBackendClient.addPet.mockResolvedValue({ pet_id: "pet_1" });
     
     const mockWin = {
-      loadFile: jest.fn(),
+      loadFile: jest.fn().mockResolvedValue(undefined),
       show: jest.fn(),
       showInactive: jest.fn(),
-      once: jest.fn((event, cb) => {
-        if (event === "ready-to-show") cb();
-      }),
+      once: jest.fn(),
       on: jest.fn(),
       webContents: {
-        on: jest.fn((event, cb) => {
-          if (event === "did-finish-load") cb();
-        }),
+        on: jest.fn(),
         send: jest.fn(),
       },
       setPosition: jest.fn(),
@@ -131,18 +168,152 @@ describe("PetManager", () => {
     expect(mockWin.loadFile).toHaveBeenCalledWith(expect.stringContaining("pet.html"), { query: { petId: "pet_1" } });
     expect(petId).toBe("pet_1");
 
-    await manager.removePet("pet_1");
+    // Test window events
+    const readyToShowCb = mockWin.once.mock.calls.find(c => c[0] === "ready-to-show")[1];
+    readyToShowCb();
+    expect(mockWin.showInactive).toHaveBeenCalled();
+
+    const loadCb = mockWin.webContents.on.mock.calls.find(c => c[0] === "did-finish-load")[1];
+    loadCb();
+    expect(manager.pets.get("pet_1").loaded).toBe(true);
+
+    const closedCb = mockWin.on.mock.calls.find(c => c[0] === "closed")[1];
+    closedCb();
+    expect(manager.pets.has("pet_1")).toBe(false);
+
+    // Test crash event
+    const crashCb = mockWin.webContents.on.mock.calls.find(c => c[0] === "crashed")[1];
+    crashCb(); // Should log error and not throw
   });
 
-  test("should return all pets", () => {
-    manager.pets.set("pet1", {});
-    manager.pets.set("pet2", {});
-
-    const pets = manager.getAllPets();
-    expect(pets).toHaveLength(2);
+  test("loadAndCreatePet should throw if pet data is invalid", async () => {
+    mockBackendClient.loadPet.mockResolvedValue({});
+    await expect(manager.loadAndCreatePet("bad")).rejects.toThrow("invalid pet sprite data");
   });
 
-  test("removePet should call backend removePet", async () => {
+  test("loadAndCreatePet should throw if backend doesn't return pet id", async () => {
+    mockBackendClient.loadPet.mockResolvedValue({ png_base64: "a", tiles_x: 1, tiles_y: 1 });
+    mockBackendClient.addPet.mockResolvedValue({});
+    await expect(manager.loadAndCreatePet("bad")).rejects.toThrow("backend did not return a pet id");
+  });
+
+  test("should start pet loop and step pet", async () => {
+    const mockWin = {
+      getPosition: jest.fn().mockReturnValue([100, 200]),
+      getSize: jest.fn().mockReturnValue([64, 64]),
+      setPosition: jest.fn(),
+      isDestroyed: jest.fn().mockReturnValue(false),
+      webContents: { send: jest.fn() }
+    };
+    const petEntry = {
+      backendPetId: "pet_1",
+      win: mockWin,
+      loaded: true,
+      interval: null
+    };
+    manager.pets.set("pet_1", petEntry);
+
+    mockBackendClient.stepPet = jest.fn().mockResolvedValue({
+      frame_index: 5,
+      x: 110,
+      y: 210,
+      opacity: 0.5,
+      interval_ms: 200
+    });
+
+    manager["_startPetLoop"]("pet_1");
+    
+    // Fast-forward 200ms for first loop
+    jest.advanceTimersByTime(200);
+    await Promise.resolve(); // Wait for loop async work
+
+    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", 0, false);
+    expect(mockWin.setPosition).toHaveBeenCalledWith(110, 210);
+    expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({ frameIndex: 5, opacity: 0.5 }));
+
+    // Test default x, y
+    mockBackendClient.stepPet.mockResolvedValue({
+        frame_index: 6,
+        interval_ms: 200
+    });
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    expect(mockWin.setPosition).toHaveBeenCalledWith(0, 0);
+
+    // Test loop error handling
+    mockBackendClient.stepPet.mockRejectedValue(new Error("fail"));
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    expect(manager.pets.get("pet_1").stepFailures).toBe(1);
+    
+    // Test loop termination after failures
+    for (let i = 0; i < 5; i++) {
+        jest.advanceTimersByTime(200);
+        await Promise.resolve();
+    }
+    expect(manager.pets.get("pet_1").interval).toBeNull();
+  });
+
+  test("loop should terminate if pet is unloaded or window destroyed", async () => {
+    const mockWin = { isDestroyed: jest.fn().mockReturnValue(true) };
+    manager.pets.set("pet_1", { backendPetId: "pet_1", win: mockWin, loaded: true });
+    
+    manager["_startPetLoop"]("pet_1");
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+    
+    expect(mockBackendClient.stepPet).not.toHaveBeenCalled();
+  });
+
+  test("getDiagnostics should handle windows missing methods", () => {
+    mockWindowManager.getAllWindows.mockReturnValue([
+      { id: "pet1", win: {} }
+    ]);
+    const diag = manager.getDiagnostics();
+    expect(diag.windows[0].bounds).toBeNull();
+    expect(diag.windows[0].visible).toBeNull();
+    expect(diag.windows[0].destroyed).toBeNull();
+  });
+
+  test("IPC handlers should be registered and work", async () => {
+    await manager.init();
+    expect(ipcMain.on).toHaveBeenCalledWith("pet:drag", expect.any(Function));
+    expect(ipcMain.on).toHaveBeenCalledWith("pet:drag:move", expect.any(Function));
+    expect(ipcMain.on).toHaveBeenCalledWith("pet:drop", expect.any(Function));
+
+    const dragHandler = (ipcMain.on as jest.Mock).mock.calls.find(c => c[0] === "pet:drag")[1];
+    const moveHandler = (ipcMain.on as jest.Mock).mock.calls.find(c => c[0] === "pet:drag:move")[1];
+    const dropHandler = (ipcMain.on as jest.Mock).mock.calls.find(c => c[0] === "pet:drop")[1];
+
+    const mockSender = { id: 1 };
+    const mockWin = {
+      getPosition: jest.fn().mockReturnValue([10, 20]),
+      isDestroyed: jest.fn().mockReturnValue(false),
+      setPosition: jest.fn()
+    };
+    (BrowserWindow.fromWebContents as unknown as jest.Mock).mockReturnValue(mockWin);
+    manager["windowToPetId"].set(mockWin, "pet_1");
+
+    dragHandler({ sender: mockSender });
+    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 10, 20);
+
+    moveHandler({ sender: mockSender }, { x: 30, y: 40 });
+    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 30, 40);
+    expect(mockWin.setPosition).toHaveBeenCalledWith(30, 40);
+
+    dropHandler({ sender: mockSender });
+    expect(mockBackendClient.dropPet).toHaveBeenCalledWith("pet_1");
+  });
+
+  test("removePet should call backend removePet and cleanup when entry exists", async () => {
+    const mockWin = { id: 1 };
+    const entry = {
+      backendPetId: "pet_1",
+      interval: setInterval(() => {}, 1000),
+      win: mockWin
+    };
+    manager.pets.set("pet_1", entry);
+    
     const mockBackendRemove = jest.fn().mockResolvedValue(true);
     mockBackendClient.removePet = mockBackendRemove;
     
@@ -151,9 +322,10 @@ describe("PetManager", () => {
     expect(mockBackendRemove).toHaveBeenCalledWith("pet_1");
     expect(result).toBe(true);
     expect(manager.pets.has("pet_1")).toBe(false);
+    expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet_1");
   });
 
-  test("removePet should handle pet not found", async () => {
+  test("removePet should call backend removePet when no entry exists", async () => {
     const mockBackendRemove = jest.fn().mockResolvedValue(true);
     mockBackendClient.removePet = mockBackendRemove;
     
@@ -161,6 +333,11 @@ describe("PetManager", () => {
     
     expect(mockBackendRemove).toHaveBeenCalledWith("nonexistent");
     expect(result).toBe(true);
+  });
+
+  test("_mapBorderToContext should return none for unknown hit", () => {
+    const result = manager["_mapBorderToContext"](["unknown"]);
+    expect(result).toBe(0);
   });
 
   test("_mapBorderToContext should return none for empty hits", () => {
@@ -220,8 +397,16 @@ describe("PetManager", () => {
   });
 
   test("getDiagnostics should return correct info", () => {
-    const mockWin1 = { getBounds: jest.fn().mockReturnValue({ x: 0, y: 0, width: 100, height: 100 }) };
-    const mockWin2 = { getBounds: jest.fn().mockReturnValue({ x: 100, y: 100, width: 50, height: 50 }) };
+    const mockWin1 = {
+        getBounds: jest.fn().mockReturnValue({ x: 0, y: 0, width: 100, height: 100 }),
+        isVisible: jest.fn().mockReturnValue(true),
+        isDestroyed: jest.fn().mockReturnValue(false),
+    };
+    const mockWin2 = {
+        getBounds: jest.fn().mockReturnValue({ x: 100, y: 100, width: 50, height: 50 }),
+        isVisible: jest.fn().mockReturnValue(false),
+        isDestroyed: jest.fn().mockReturnValue(true),
+    };
     manager["windows"] = new Map([["pet1", mockWin1], ["pet2", mockWin2]]);
     
     manager.pets.set("pet1", {});
@@ -241,5 +426,7 @@ describe("PetManager", () => {
     expect(diag.lastError).toBe("test error");
     expect(diag.lastPetLoad).toEqual({ test: "data" });
     expect(diag.windows).toHaveLength(2);
+    expect(diag.windows[0].visible).toBe(true);
+    expect(diag.windows[1].visible).toBe(false);
   });
 });

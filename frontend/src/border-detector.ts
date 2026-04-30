@@ -66,7 +66,7 @@ class BorderDetector {
     const display = this._displayForRect(displays, x, y, width, height);
     if (!display || !display.workArea) return false;
     const wa = display.workArea;
-    return y + height < wa.y + wa.height - this.tolerance;
+    return y + height < wa.y + wa.height;
   }
 
   _onTaskbar(x: number, y: number, width: number, height: number, display?: any) {

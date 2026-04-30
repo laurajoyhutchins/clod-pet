@@ -207,6 +207,19 @@ describe("BorderDetector", () => {
     expect(detector.checkGravity(0, 1000, 64, 64)).toBe(false);
   });
 
+  test("checkGravity should return true when within tolerance but above bottom", () => {
+    screen.getAllDisplays.mockReturnValue([
+      {
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { y: 0, height: 1000 },
+      },
+    ]);
+
+    // y + height = 999, which is < 1000. 
+    // Old logic would return false if tolerance >= 1.
+    expect(detector.checkGravity(0, 999 - 64, 64, 64)).toBe(true);
+  });
+
   test("checkGravity should return false when no display found", () => {
     screen.getAllDisplays.mockReturnValue([]);
 
