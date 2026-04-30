@@ -154,7 +154,7 @@ func TestStepPet(t *testing.T) {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	state, err := svc.StepPet(petID, engine.ContextNone, false)
+	state, err := svc.StepPet(petID, engine.ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("StepPet failed: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestStepPetNonExistent(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg, nil)
 
-	_, err := svc.StepPet("non-existent", engine.ContextNone, false)
+	_, err := svc.StepPet("non-existent", engine.ContextNone, false, 0, 0, 0, 0)
 	if err == nil {
 		t.Error("expected error for non-existent pet")
 	}
@@ -187,7 +187,7 @@ func TestStepPetWithBorder(t *testing.T) {
 
 	borderCtx := engine.ContextHorizontal | engine.ContextTaskbar
 
-	state, err := svc.StepPet(petID, borderCtx, false)
+	state, err := svc.StepPet(petID, borderCtx, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("StepPet failed: %v", err)
 	}

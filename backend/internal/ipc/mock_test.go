@@ -67,7 +67,7 @@ func (m *commonMockService) RemovePet(petID string) {
 	delete(m.engines, petID)
 }
 
-func (m *commonMockService) StepPet(petID string, borderCtx engine.BorderContext, gravity bool) (*PetState, error) {
+func (m *commonMockService) StepPet(petID string, borderCtx engine.BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*PetState, error) {
 	m.mu.Lock()
 	e, ok := m.engines[petID]
 	m.mu.Unlock()
@@ -75,7 +75,7 @@ func (m *commonMockService) StepPet(petID string, borderCtx engine.BorderContext
 		return nil, engine.ErrPetNotFound
 	}
 
-	step, err := e.Step(borderCtx, gravity, 0, 0, 0, 0)
+	step, err := e.Step(borderCtx, gravity, screenW, screenH, areaW, areaH)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +98,17 @@ func (m *commonMockService) StepPet(petID string, borderCtx engine.BorderContext
 		FlipH:      step.ShouldFlip,
 		NextAnimID: step.NextAnimID,
 	}, nil
+}
+
+func (m *commonMockService) SetPosition(petID string, x, y float64) error {
+	m.mu.Lock()
+	e, ok := m.engines[petID]
+	m.mu.Unlock()
+	if !ok {
+		return engine.ErrPetNotFound
+	}
+	e.SetPosition(x, y)
+	return nil
 }
 
 func (m *commonMockService) DragPet(petID string, x, y float64) error {
