@@ -30,8 +30,8 @@ type xmlHeader struct {
 }
 
 type xmlImage struct {
-	TilesX       int    `xml:"tilesx"`
-	TilesY       int    `xml:"tilesy"`
+	TilesX       int    `xml:"tilesx,attr"`
+	TilesY       int    `xml:"tilesy,attr"`
 	PngBase64    string `xml:"png"`
 	Transparency string `xml:"transparency"`
 }
@@ -104,7 +104,7 @@ type xmlSounds struct {
 
 type xmlSound struct {
 	AnimationID int    `xml:"animationid,attr"`
-	Probability int    `xml:"probability"`
+	Probability int    `xml:"probability,attr"`
 	Loop        *int   `xml:"loop"`
 	Base64      string `xml:"base64"`
 }

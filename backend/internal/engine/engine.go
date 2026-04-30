@@ -54,6 +54,14 @@ type Engine struct {
 	animRepeatFrom int
 }
 
+func (e *Engine) GetCurrentAnim() int {
+	return e.currentAnim
+}
+
+func (e *Engine) GetPetDef() *pet.Pet {
+	return e.petDef
+}
+
 func NewEngine(p *pet.Pet) *Engine {
 	return &Engine{
 		petDef: p,
@@ -262,12 +270,12 @@ func (e *Engine) pickBorderTransition(ctx BorderContext) int {
 
 	var candidates []pet.NextAnimation
 	for _, n := range anim.BorderNext {
-		if n.Only == "none" || borderMatches(n.Only, ctx) {
+		if n.Only == "none" || BorderMatches(n.Only, ctx) {
 			candidates = append(candidates, n)
 		}
 	}
 
-	return weightedPick(candidates)
+	return WeightedPick(candidates)
 }
 
 func (e *Engine) pickSequenceTransition(ctx BorderContext) int {
@@ -278,12 +286,12 @@ func (e *Engine) pickSequenceTransition(ctx BorderContext) int {
 
 	var candidates []pet.NextAnimation
 	for _, n := range anim.SequenceNext {
-		if n.Only == "none" || borderMatches(n.Only, ctx) {
+		if n.Only == "none" || BorderMatches(n.Only, ctx) {
 			candidates = append(candidates, n)
 		}
 	}
 
-	return weightedPick(candidates)
+	return WeightedPick(candidates)
 }
 
 func (e *Engine) findAnimationByName(name string) int {
@@ -295,7 +303,7 @@ func (e *Engine) findAnimationByName(name string) int {
 	return 0
 }
 
-func borderMatches(only string, ctx BorderContext) bool {
+func BorderMatches(only string, ctx BorderContext) bool {
 	switch only {
 	case "none":
 		return true
@@ -311,7 +319,7 @@ func borderMatches(only string, ctx BorderContext) bool {
 	return false
 }
 
-func weightedPick(candidates []pet.NextAnimation) int {
+func WeightedPick(candidates []pet.NextAnimation) int {
 	if len(candidates) == 0 {
 		return 0
 	}

@@ -14,17 +14,20 @@ import (
 	"clod-pet/backend/internal/ipc"
 	"clod-pet/backend/internal/pet"
 	"clod-pet/backend/internal/settings"
+	"clod-pet/backend/internal/sound"
 
 	"github.com/rs/cors"
 )
 
 var (
-	handler  *ipc.Handler
-	cfg      *settings.Config
-	petsDir  string
-	petStore = make(map[string]*pet.Pet)
-	engines  = make(map[string]*engine.Engine)
-	enginesMu sync.RWMutex
+	handler    *ipc.Handler
+	cfg        *settings.Config
+	petsDir    string
+	petStore   = make(map[string]*pet.Pet)
+	engines    = make(map[string]*engine.Engine)
+	enginesMu  sync.RWMutex
+	soundPlayer *sound.Player
+	soundMu     sync.RWMutex
 )
 
 func main() {
@@ -43,6 +46,11 @@ func main() {
 	if err != nil {
 		log.Printf("warning: could not load settings: %v", err)
 		cfg = settings.DefaultConfig()
+	}
+
+	soundPlayer, err = sound.NewPlayer(44100, cfg.Volume)
+	if err != nil {
+		log.Printf("warning: could not initialize sound: %v", err)
 	}
 
 	handler = ipc.NewHandler()
@@ -89,6 +97,13 @@ func apiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle set_volume command
+	if req.Command == ipc.CmdSetVolume {
+		resp := handleSetVolume(req.Payload)
+		writeJSON(w, resp)
+		return
+	}
+
 	resp := handler.Handle(&req)
 	writeJSON(w, resp)
 }
@@ -121,6 +136,9 @@ func handleAddPet(payload json.RawMessage) *ipc.Response {
 	}
 	engines[petID] = e
 
+	// Play sound for the initial animation
+	playSoundForPet(petDef, e.GetCurrentAnim())
+
 	data, _ := json.Marshal(map[string]string{"pet_id": petID})
 	return &ipc.Response{OK: true, Payload: data}
 }
@@ -148,7 +166,16 @@ func handleStepPet(payload json.RawMessage) *ipc.Response {
 	}
 
 	if step.NextAnimID > 0 {
+		oldAnim := e.GetCurrentAnim()
 		e.TransitionTo(step.NextAnimID)
+		if oldAnim != step.NextAnimID {
+			enginesMu.RLock()
+			petDef := e.GetPetDef()
+			enginesMu.RUnlock()
+			if petDef != nil {
+				playSoundForPet(petDef, step.NextAnimID)
+			}
+		}
 	}
 
 	data, _ := json.Marshal(ipc.PetState{
@@ -242,4 +269,60 @@ func writeError(w http.ResponseWriter, msg string) {
 
 func init() {
 	_ = expression.NewEnv()
+}
+
+func playSoundForPet(petDef *pet.Pet, animID int) {
+	soundMu.RLock()
+	player := soundPlayer
+	soundMu.RUnlock()
+
+	if player == nil {
+		return
+	}
+
+	sounds, ok := petDef.Sounds[animID]
+	if !ok || len(sounds) == 0 {
+		return
+	}
+
+	// Convert pet.Sound to sound.SoundEntry for PickSound
+	var soundEntries []sound.SoundEntry
+	for _, s := range sounds {
+		soundEntries = append(soundEntries, sound.SoundEntry{
+			AnimationID: s.AnimationID,
+			Probability: s.Probability,
+			Loop:        s.Loop,
+			Data:        s.Data,
+		})
+	}
+
+	soundEntry := sound.PickSound(soundEntries)
+	if soundEntry == nil {
+		return
+	}
+
+	if err := player.PlayRawPCM(soundEntry.Data); err != nil {
+		log.Printf("sound play failed: %v", err)
+	}
+}
+
+func handleSetVolume(payload json.RawMessage) *ipc.Response {
+	var p ipc.SetVolumePayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return &ipc.Response{OK: false, Error: "invalid payload: " + err.Error()}
+	}
+
+	soundMu.Lock()
+	if soundPlayer != nil {
+		soundPlayer.SetVolume(p.Volume)
+	}
+	soundMu.Unlock()
+
+	// Also save to settings
+	cfg.Volume = p.Volume
+	if err := cfg.Save("clod-pet-settings.json"); err != nil {
+		log.Printf("warning: could not save settings: %v", err)
+	}
+
+	return &ipc.Response{OK: true}
 }

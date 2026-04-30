@@ -23,6 +23,74 @@ type Env struct {
 
 func Eval(expr string, env *Env) (float64, error) {
 	expr = strings.TrimSpace(expr)
+	return evalExpr(expr, env)
+}
+
+func EvalInt(expr string, env *Env) (int, error) {
+	v, err := Eval(expr, env)
+	if err != nil {
+		return 0, err
+	}
+	return int(v), nil
+}
+
+func evalExpr(expr string, env *Env) (float64, error) {
+	expr = strings.TrimSpace(expr)
+
+	if idx := strings.Index(expr, "+"); idx > 0 {
+		left, err := evalExpr(expr[:idx], env)
+		if err != nil {
+			return 0, err
+		}
+		right, err := evalExpr(expr[idx+1:], env)
+		if err != nil {
+			return 0, err
+		}
+		return left + right, nil
+	}
+
+	if idx := strings.LastIndex(expr, "-"); idx > 0 {
+		left, err := evalExpr(expr[:idx], env)
+		if err != nil {
+			return 0, err
+		}
+		right, err := evalExpr(expr[idx+1:], env)
+		if err != nil {
+			return 0, err
+		}
+		return left - right, nil
+	}
+
+	if idx := strings.LastIndex(expr, "*"); idx > 0 {
+		left, err := evalExpr(expr[:idx], env)
+		if err != nil {
+			return 0, err
+		}
+		right, err := evalExpr(expr[idx+1:], env)
+		if err != nil {
+			return 0, err
+		}
+		return left * right, nil
+	}
+
+	if idx := strings.LastIndex(expr, "/"); idx > 0 {
+		left, err := evalExpr(expr[:idx], env)
+		if err != nil {
+			return 0, err
+		}
+		right, err := evalExpr(expr[idx+1:], env)
+		if err != nil {
+			return 0, err
+		}
+		if right == 0 {
+			return 0, fmt.Errorf("division by zero in %q", expr)
+		}
+		return left / right, nil
+	}
+
+	if val, err := strconv.ParseFloat(expr, 64); err == nil {
+		return val, nil
+	}
 
 	switch expr {
 	case "screenW":
@@ -47,85 +115,7 @@ func Eval(expr string, env *Env) (float64, error) {
 		return env.RandS, nil
 	}
 
-	if val, err := strconv.ParseFloat(expr, 64); err == nil {
-		return val, nil
-	}
-
-	return evalExpr(expr, env)
-}
-
-func EvalInt(expr string, env *Env) (int, error) {
-	v, err := Eval(expr, env)
-	if err != nil {
-		return 0, err
-	}
-	return int(v), nil
-}
-
-func evalExpr(expr string, env *Env) (float64, error) {
-	expr = strings.TrimSpace(expr)
-
-	if idx := strings.Index(expr, "+"); idx > 0 && !hasLowerPrecedence(expr, idx) {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
-		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		return left + right, nil
-	}
-
-	if idx := strings.LastIndex(expr, "-"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
-		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		return left - right, nil
-	}
-
-	if idx := strings.Index(expr, "*"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
-		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		return left * right, nil
-	}
-
-	if idx := strings.Index(expr, "/"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
-		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		if right == 0 {
-			return 0, fmt.Errorf("division by zero in %q", expr)
-		}
-		return left / right, nil
-	}
-
-	return Eval(expr, env)
-}
-
-func hasLowerPrecedence(expr string, idx int) bool {
-	for i := idx + 1; i < len(expr); i++ {
-		if expr[i] == '*' || expr[i] == '/' {
-			return true
-		}
-	}
-	return false
+	return 0, fmt.Errorf("unknown expression %q", expr)
 }
 
 func NewEnv() *Env {
