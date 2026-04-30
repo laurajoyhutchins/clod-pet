@@ -16,6 +16,7 @@ class PetManager {
   ipcHandlersRegistered: boolean;
   lastError: string | null;
   lastPetLoad: any;
+  scale: number;
 
   constructor(backendUrl: string) {
     this.backendClient = new ApiAdapter(backendUrl);
@@ -26,11 +27,21 @@ class PetManager {
     this.ipcHandlersRegistered = false;
     this.lastError = null;
     this.lastPetLoad = null;
+    this.scale = 1.0;
   }
 
   async init() {
     await this.borderDetector.init();
     this._setupIpcHandlers();
+
+    try {
+      const settings = await this.backendClient.getSettings();
+      if (settings && settings.Scale) {
+        this.scale = settings.Scale;
+      }
+    } catch (err) {
+      log.warn("Failed to load initial scale:", err.message);
+    }
 
     ipcMain.handle("get-pet-init", (_event, petId) => {
       const targetEntry = this.pets.get(String(petId));
@@ -40,8 +51,22 @@ class PetManager {
         pngBase64: `data:image/png;base64,${targetEntry.petData.png_base64}`,
         tilesX: targetEntry.petData.tiles_x,
         tilesY: targetEntry.petData.tiles_y,
+        scale: this.scale,
       };
     });
+  }
+
+  async setScale(scale: number) {
+    this.scale = scale;
+    log.info("Setting scale to:", scale);
+    for (const entry of this.pets.values()) {
+      if (!entry.win.isDestroyed()) {
+        const width = Math.round(entry.frameW * scale);
+        const height = Math.round(entry.frameH * scale);
+        entry.win.setSize(width, height);
+        entry.win.webContents.send("pet:scale", scale);
+      }
+    }
   }
 
   async loadAndCreatePet(petPath: string, spawnId = 1) {
@@ -74,9 +99,14 @@ class PetManager {
     const x = workArea.x + Math.floor(Math.random() * workArea.width);
     const y = workArea.y + Math.floor(Math.random() * workArea.height * 0.8);
 
+    const frameW = petData.frame_w || 64;
+    const frameH = petData.frame_h || 64;
+    const width = Math.round(frameW * this.scale);
+    const height = Math.round(frameH * this.scale);
+
     const win = this.windowManager.createPetWindow(backendPetId, {
       x, y,
-      width: 64, height: 64,
+      width, height,
       preload: path.join(__dirname, "preload.js"),
     });
 
@@ -87,6 +117,8 @@ class PetManager {
       petData,
       petPath,
       backendPetId,
+      frameW,
+      frameH,
       state: { frameIndex: 0, x, y, flipH: false },
       interval: null,
       stepFailures: 0,

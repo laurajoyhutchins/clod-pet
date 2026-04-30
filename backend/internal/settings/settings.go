@@ -18,6 +18,7 @@ type Config struct {
 	StealTaskbarFocus bool               `json:"StealTaskbarFocus"`
 	AutostartPets     int                `json:"AutostartPets"`
 	Scale             float64            `json:"Scale"`
+	ShowAdvancedSettings bool            `json:"ShowAdvancedSettings"`
 	MultiScreenEnabled bool              `json:"MultiScreenEnabled"`
 	CurrentPet        string             `json:"CurrentPet"`
 	LLM               llm.ProviderConfig `json:"LLM"`
@@ -28,6 +29,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Volume:             0.3,
 		Scale:              1.0,
+		ShowAdvancedSettings: false,
 		MultiScreenEnabled: true,
 		AutostartPets:      1,
 		CurrentPet:        "esheep64",

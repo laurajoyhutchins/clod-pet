@@ -40,11 +40,17 @@ async function initControlPanel() {
 function renderSettings() {
   const volume = settings.Volume ?? 0.3;
   const scale = settings.Scale ?? 1.0;
+  const showAdvanced = settings.ShowAdvancedSettings || false;
 
   input("volume").value = String(volume);
   el("volume-value").textContent = Math.round(volume * 100) + "%";
+  
+  input("show-advanced").checked = showAdvanced;
+  el("advanced-settings").style.display = showAdvanced ? "block" : "none";
+  
   input("scale").value = String(scale);
   el("scale-value").textContent = scale.toFixed(1) + "x";
+  
   input("multi-screen").checked = settings.MultiScreenEnabled !== false;
   input("win-foreground").checked = settings.WinForeGround || false;
   input("steal-focus").checked = settings.StealTaskbarFocus || false;
@@ -274,6 +280,16 @@ el("pet-select").addEventListener("change", async (e: Event) => {
 el("autostart").addEventListener("change", async (e: Event) => {
   try {
     await api.setSettings({ AutostartPets: parseInt((e.target as HTMLInputElement).value, 10) });
+  } catch (err: any) {
+    updateStatus("Error: " + err.message, "error");
+  }
+});
+
+el("show-advanced").addEventListener("change", async (e: Event) => {
+  const show = (e.target as HTMLInputElement).checked;
+  el("advanced-settings").style.display = show ? "block" : "none";
+  try {
+    await api.setSettings({ ShowAdvancedSettings: show });
   } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
