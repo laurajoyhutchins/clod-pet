@@ -9,6 +9,16 @@ $frontendDir = Join-Path $repoRoot "frontend"
 
 Write-Host "Building ClodPet..." -ForegroundColor Cyan
 
+# Close running instances to avoid file locks
+Write-Host "Closing running instances..." -ForegroundColor Yellow
+$processesToStop = @("electron", "clod-pet-backend")
+foreach ($proc in $processesToStop) {
+    if (Get-Process -Name $proc -ErrorAction SilentlyContinue) {
+        Write-Host "Stopping $proc..." -ForegroundColor Gray
+        Stop-Process -Name $proc -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # Check for Go
 if (-not (Get-Command "go" -ErrorAction SilentlyContinue)) {
     Write-Host "ERROR: Go is not installed or not in PATH" -ForegroundColor Red

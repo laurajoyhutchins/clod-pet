@@ -164,7 +164,7 @@ func (s *Service) RemovePet(petID string) {
 	delete(s.petPaths, petID)
 }
 
-func (s *Service) StepPet(petID string, borderCtx engine.BorderContext, gravity bool) (*ipc.PetState, error) {
+func (s *Service) StepPet(petID string, borderCtx engine.BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*ipc.PetState, error) {
 	s.mu.RLock()
 	e, ok := s.engines[petID]
 	s.mu.RUnlock()
@@ -173,7 +173,7 @@ func (s *Service) StepPet(petID string, borderCtx engine.BorderContext, gravity 
 		return nil, engine.ErrPetNotFound
 	}
 
-	step, err := e.Step(borderCtx, gravity)
+	step, err := e.Step(borderCtx, gravity, screenW, screenH, areaW, areaH)
 	if err != nil {
 		return nil, err
 	}
@@ -205,6 +205,18 @@ func (s *Service) StepPet(petID string, borderCtx engine.BorderContext, gravity 
 		FlipH:      step.ShouldFlip,
 		NextAnimID: step.NextAnimID,
 	}, nil
+}
+
+func (s *Service) SetPosition(petID string, x, y float64) error {
+	s.mu.RLock()
+	e, ok := s.engines[petID]
+	s.mu.RUnlock()
+	if !ok {
+		return engine.ErrPetNotFound
+	}
+
+	e.SetPosition(x, y)
+	return nil
 }
 
 func (s *Service) DragPet(petID string, x, y float64) error {

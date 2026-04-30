@@ -103,6 +103,7 @@ func TestEvalSubtraction(t *testing.T) {
 	}{
 		{"10-3", 7},
 		{"100-50-10", 40},
+		{"10-2-3", 5},
 	}
 
 	for _, tc := range tests {
@@ -178,6 +179,10 @@ func TestEvalPrecedence(t *testing.T) {
 		{"10-2*3", 4},
 		{"6/2+1", 4},
 		{"1+2*3+4", 11},
+		{"10+20-5", 25},
+		{"10-5+2", 7},
+		{"(10+20)*2", 60},
+		{"(100-50)/2", 25},
 	}
 
 	for _, tc := range tests {
