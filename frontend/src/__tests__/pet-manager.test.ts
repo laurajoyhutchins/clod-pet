@@ -141,4 +141,105 @@ describe("PetManager", () => {
     const pets = manager.getAllPets();
     expect(pets).toHaveLength(2);
   });
+
+  test("removePet should call backend removePet", async () => {
+    const mockBackendRemove = jest.fn().mockResolvedValue(true);
+    mockBackendClient.removePet = mockBackendRemove;
+    
+    const result = await manager.removePet("pet_1");
+    
+    expect(mockBackendRemove).toHaveBeenCalledWith("pet_1");
+    expect(result).toBe(true);
+    expect(manager.pets.has("pet_1")).toBe(false);
+  });
+
+  test("removePet should handle pet not found", async () => {
+    const mockBackendRemove = jest.fn().mockResolvedValue(true);
+    mockBackendClient.removePet = mockBackendRemove;
+    
+    const result = await manager.removePet("nonexistent");
+    
+    expect(mockBackendRemove).toHaveBeenCalledWith("nonexistent");
+    expect(result).toBe(true);
+  });
+
+  test("_mapBorderToContext should return none for empty hits", () => {
+    const result = manager["_mapBorderToContext"]([]);
+    expect(result).toBe(0);
+  });
+
+  test("_mapBorderToContext should return taskbar for taskbar hit", () => {
+    const result = manager["_mapBorderToContext"](["taskbar"]);
+    expect(result).toBe(1);
+  });
+
+  test("_mapBorderToContext should return window for window hit", () => {
+    const result = manager["_mapBorderToContext"](["window"]);
+    expect(result).toBe(2);
+  });
+
+  test("_mapBorderToContext should return horizontal for horizontal hit", () => {
+    const result = manager["_mapBorderToContext"](["horizontal"]);
+    expect(result).toBe(3);
+  });
+
+  test("_mapBorderToContext should return vertical for vertical hit", () => {
+    const result = manager["_mapBorderToContext"](["vertical"]);
+    expect(result).toBe(4);
+  });
+
+  test("_mapBorderToContext should prioritize taskbar over other hits", () => {
+    const result = manager["_mapBorderToContext"](["taskbar", "horizontal"]);
+    expect(result).toBe(1);
+  });
+
+  test("_safeWindowPosition should return window position", () => {
+    const mockWin = { getPosition: jest.fn().mockReturnValue([100, 200]) };
+    const result = manager["_safeWindowPosition"](mockWin);
+    expect(result).toEqual([100, 200]);
+  });
+
+  test("_safeWindowPosition should handle errors gracefully", () => {
+    const mockWin = { getPosition: jest.fn().mockImplementation(() => { throw new Error("test"); }) };
+    const result = manager["_safeWindowPosition"](mockWin);
+    expect(result).toEqual([0, 0]);
+  });
+
+  test("_getPetIdByWindow should return pet id for window", () => {
+    const mockWin = {};
+    manager["windowToPetId"] = new WeakMap([[mockWin, "pet_123"]]);
+    const result = manager["_getPetIdByWindow"](mockWin);
+    expect(result).toBe("pet_123");
+  });
+
+  test("_getPetIdByWindow should return null for unknown window", () => {
+    const mockWin = {};
+    manager["windowToPetId"] = new WeakMap();
+    const result = manager["_getPetIdByWindow"](mockWin);
+    expect(result).toBeNull();
+  });
+
+  test("getDiagnostics should return correct info", () => {
+    const mockWin1 = { getBounds: jest.fn().mockReturnValue({ x: 0, y: 0, width: 100, height: 100 }) };
+    const mockWin2 = { getBounds: jest.fn().mockReturnValue({ x: 100, y: 100, width: 50, height: 50 }) };
+    manager["windows"] = new Map([["pet1", mockWin1], ["pet2", mockWin2]]);
+    
+    manager.pets.set("pet1", {});
+    manager.pets.set("pet2", {});
+    manager.lastError = "test error";
+    manager.lastPetLoad = { test: "data" };
+    
+    // Mock window manager getAllWindows
+    mockWindowManager.getAllWindows.mockReturnValue([
+      { id: "pet1", win: mockWin1 },
+      { id: "pet2", win: mockWin2 }
+    ]);
+    
+    const diag = manager.getDiagnostics();
+    expect(diag.activePetIds).toEqual(["pet1", "pet2"]);
+    expect(diag.petCount).toBe(2);
+    expect(diag.lastError).toBe("test error");
+    expect(diag.lastPetLoad).toEqual({ test: "data" });
+    expect(diag.windows).toHaveLength(2);
+  });
 });
