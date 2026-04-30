@@ -407,6 +407,20 @@ func TestLoadPetMissingEndUsesClone(t *testing.T) {
 	}
 }
 
+func TestLoadPetInvalidBase64(t *testing.T) {
+	xml := strings.Replace(minimalXML, `<png>iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mNk+M+AARiHKhgFBDYAAHjaE/9nYGBgAAAAAElFTkSuQmCC</png>`, `<png>invalid base64</png>`, 1)
+	dir := makeTestDir(t)
+	writeTestXML(t, dir, xml)
+
+	_, err := LoadPet(dir)
+	if err == nil {
+		t.Error("LoadPet(invalid base64) expected error, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "decode sprite png") {
+		t.Errorf("Error = %v, want to contain %q", err, "decode sprite png")
+	}
+}
+
 func TestMovementClone(t *testing.T) {
 	m := Movement{
 		X:        "-2",

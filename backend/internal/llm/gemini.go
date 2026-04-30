@@ -20,6 +20,9 @@ func newGeminiClient(cfg *ProviderConfig) (Client, error) {
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
 		APIKey:  cfg.APIKey,
 		Backend: genai.BackendGeminiAPI,
+		HTTPOptions: genai.HTTPOptions{
+			BaseURL: cfg.BaseURL,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemini: failed to create client: %w", err)

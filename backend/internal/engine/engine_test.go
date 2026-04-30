@@ -288,6 +288,66 @@ func TestWeightedPickEmpty(t *testing.T) {
 	}
 }
 
+func TestEngineGravityTransition(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+		GravityNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100, Only: "none"},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+
+	result, err := e.Step(ContextNone, true)
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Step returned nil")
+	}
+	if result.NextAnimID != 2 {
+		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
+	}
+}
+
+func TestEngineStartNoSpawns(t *testing.T) {
+	p := testPet()
+	p.Spawns = []pet.Spawn{}
+	e := NewEngine(p)
+
+	err := e.Start(1)
+	if err != nil {
+		t.Fatalf("Start error: %v", err)
+	}
+}
+
+func TestLoadAnimationInvalidRepeat(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "bad",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "invalid",
+		RepeatFrom: 0,
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	if e.animTotalSteps != 1 {
+		t.Errorf("animTotalSteps = %d, want 1 (fallback for invalid repeat)", e.animTotalSteps)
+	}
+}
+
 func TestWeightedPickZeroProbability(t *testing.T) {
 	candidates := []pet.NextAnimation{
 		{ID: 1, Probability: 0},
