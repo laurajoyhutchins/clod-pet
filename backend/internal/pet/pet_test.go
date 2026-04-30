@@ -129,6 +129,26 @@ func TestLoadPet(t *testing.T) {
 	}
 }
 
+func TestLoadPetImageTilesFromChildElements(t *testing.T) {
+	xml := strings.Replace(minimalXML, `<image tilesx="2" tilesy="2">`, `<image>
+    <tilesx>2</tilesx>
+    <tilesy>2</tilesy>`, 1)
+	dir := makeTestDir(t)
+	writeTestXML(t, dir, xml)
+
+	p, err := LoadPet(dir)
+	if err != nil {
+		t.Fatalf("LoadPet error: %v", err)
+	}
+
+	if p.Image.TilesX != 2 {
+		t.Errorf("TilesX = %d, want 2", p.Image.TilesX)
+	}
+	if p.Image.TilesY != 2 {
+		t.Errorf("TilesY = %d, want 2", p.Image.TilesY)
+	}
+}
+
 func TestLoadPetSpawns(t *testing.T) {
 	dir := makeTestDir(t)
 	writeTestXML(t, dir, minimalXML)
@@ -395,8 +415,8 @@ func TestMovementClone(t *testing.T) {
 		Interval: "200",
 	}
 
-	c := m.Clone()
+	c := m.Copy()
 	if c != m {
-		t.Errorf("Clone = %+v, want %+v", c, m)
+		t.Errorf("Copy = %+v, want %+v", c, m)
 	}
 }

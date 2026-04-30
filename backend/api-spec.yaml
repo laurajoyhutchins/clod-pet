@@ -1,0 +1,125 @@
+openapi: 3.0.0
+info:
+  title: Clod Pet API
+  version: 1.0.0
+  description: HTTP API for controlling desktop pets
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [ok, degraded]
+                  message:
+                    type: string
+
+  /api:
+    post:
+      summary: Generic command endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [command, payload]
+              properties:
+                command:
+                  type: string
+                  enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active]
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: Command response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  payload:
+                    type: object
+                  error:
+                    type: string
+
+  /api/pet/load:
+    post:
+      summary: Load pet definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pet_path:
+                  type: string
+      responses:
+        '200':
+          description: Pet definition loaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  payload:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                      pet_name:
+                        type: string
+                      tiles_x:
+                        type: integer
+                      tiles_y:
+                        type: integer
+                      png_base64:
+                        type: string
+
+  /api/describe:
+    get:
+      summary: API discovery endpoint
+      description: Returns API capabilities and available commands
+      responses:
+        '200':
+          description: API description
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  commands:
+                    type: array
+                    items:
+                      type: string
+                  endpoints:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        method:
+                          type: string
+                        description:
+                          type: string

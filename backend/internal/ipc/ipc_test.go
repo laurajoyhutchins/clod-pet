@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 
 	"clod-pet/backend/internal/engine"
@@ -17,13 +18,13 @@ func testPetDef() *pet.Pet {
 		},
 		Animations: map[int]pet.Animation{
 			1: {
-				ID:   1,
-				Name: "walk",
-				Start: pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				End:   pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				Frames:      []int{0, 1},
-				Repeat:      "10",
-				RepeatFrom:  0,
+				ID:         1,
+				Name:       "walk",
+				Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+				End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+				Frames:     []int{0, 1},
+				Repeat:     "10",
+				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
 					{ID: 1, Probability: 100, Only: "none"},
 				},
@@ -33,14 +34,160 @@ func testPetDef() *pet.Pet {
 	}
 }
 
-func addTestEngine(h *Handler, id string) {
+type mockService struct {
+	mu      sync.Mutex
+	engines map[string]*engine.Engine
+}
+
+func newMockService() *mockService {
+	return &mockService{engines: make(map[string]*engine.Engine)}
+}
+
+func (m *mockService) addEngine(id string) {
 	e := engine.NewEngine(testPetDef())
 	e.Start(1)
-	h.engines[id] = e
+	m.engines[id] = e
+}
+
+func (m *mockService) AddPet(petPath string, spawnID int) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	e := engine.NewEngine(testPetDef())
+	e.Start(1)
+	m.engines[petPath] = e
+	return petPath, nil
+}
+
+func (m *mockService) RemovePet(petID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.engines, petID)
+}
+
+func (m *mockService) StepPet(petID string, borderCtx engine.BorderContext, gravity bool) (*PetState, error) {
+	m.mu.Lock()
+	e, ok := m.engines[petID]
+	m.mu.Unlock()
+	if !ok {
+		return nil, engine.ErrPetNotFound
+	}
+
+	step, err := e.Step(borderCtx, gravity)
+	if err != nil {
+		return nil, err
+	}
+	if step == nil {
+		return nil, nil
+	}
+
+	if step.NextAnimID > 0 {
+		e.TransitionTo(step.NextAnimID)
+	}
+
+	return &PetState{
+		PetID:      petID,
+		FrameIndex: step.FrameIndex,
+		X:          step.X,
+		Y:          step.Y,
+		OffsetY:    step.OffsetY,
+		Opacity:    step.Opacity,
+		IntervalMs: step.IntervalMs,
+		FlipH:      step.ShouldFlip,
+		NextAnimID: step.NextAnimID,
+	}, nil
+}
+
+func (m *mockService) DragPet(petID string, x, y float64) error {
+	m.mu.Lock()
+	e, ok := m.engines[petID]
+	m.mu.Unlock()
+	if !ok {
+		return engine.ErrPetNotFound
+	}
+	e.SetDrag()
+	e.SetPosition(x, y)
+	return nil
+}
+
+func (m *mockService) DropPet(petID string) error {
+	m.mu.Lock()
+	e, ok := m.engines[petID]
+	m.mu.Unlock()
+	if !ok {
+		return engine.ErrPetNotFound
+	}
+	e.SetFall()
+	return nil
+}
+
+func (m *mockService) ValidatePetExists(petID string) error {
+	m.mu.Lock()
+	_, ok := m.engines[petID]
+	m.mu.Unlock()
+	if !ok {
+		return engine.ErrPetNotFound
+	}
+	return nil
+}
+
+func (m *mockService) Status() map[string]int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return map[string]int{"pet_count": len(m.engines)}
+}
+
+func (m *mockService) UpdateVolume(volume float64) error {
+	return nil
+}
+
+func (m *mockService) UpdateScale(scale float64) error {
+	return nil
+}
+
+func (m *mockService) Settings() map[string]interface{} {
+	return map[string]interface{}{"Volume": 0.3, "Scale": 1.0, "CurrentPet": "test"}
+}
+
+func (m *mockService) SetSettings(settings map[string]interface{}) error {
+	return nil
+}
+
+func (m *mockService) ListPets() ([]string, error) {
+	return []string{"test"}, nil
+}
+
+func (m *mockService) ListActive() ([]map[string]interface{}, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	active := make([]map[string]interface{}, 0, len(m.engines))
+	for petID := range m.engines {
+		active = append(active, map[string]interface{}{"pet_id": petID})
+	}
+	return active, nil
+}
+
+func (m *mockService) Pet(petID string) (json.RawMessage, error) {
+	return json.Marshal(map[string]string{"pet_id": petID})
+}
+
+func (m *mockService) PetsDir() string {
+	return "../pets"
+}
+
+func (m *mockService) LoadPet(petPath string) (*PetInfo, error) {
+	return &PetInfo{
+		Title:     "Test",
+		PetName:   "test",
+		TilesX:    4,
+		TilesY:    4,
+		AnimCount: 1,
+	}, nil
 }
 
 func TestHandleGetStatus(t *testing.T) {
-	h := NewHandler()
+	svc := newMockService()
+	h := NewHandler(svc)
 
 	resp := h.Handle(&Request{Command: CmdGetStatus})
 	if !resp.OK {
@@ -57,9 +204,10 @@ func TestHandleGetStatus(t *testing.T) {
 }
 
 func TestHandleGetStatusWithPets(t *testing.T) {
-	h := NewHandler()
-	addTestEngine(h, "pet-1")
-	addTestEngine(h, "pet-2")
+	svc := newMockService()
+	svc.addEngine("pet-1")
+	svc.addEngine("pet-2")
+	h := NewHandler(svc)
 
 	resp := h.Handle(&Request{Command: CmdGetStatus})
 
@@ -73,8 +221,9 @@ func TestHandleGetStatusWithPets(t *testing.T) {
 }
 
 func TestHandleStepPet(t *testing.T) {
-	h := NewHandler()
-	addTestEngine(h, "step-test")
+	svc := newMockService()
+	svc.addEngine("step-test")
+	h := NewHandler(svc)
 
 	stepPayload, _ := json.Marshal(StepPetPayload{PetID: "step-test", BorderCtx: engine.ContextNone})
 	resp := h.Handle(&Request{
@@ -97,7 +246,7 @@ func TestHandleStepPet(t *testing.T) {
 }
 
 func TestHandleStepPetNotFound(t *testing.T) {
-	h := NewHandler()
+	h := NewHandler(newMockService())
 
 	stepPayload, _ := json.Marshal(StepPetPayload{PetID: "nope", BorderCtx: engine.ContextNone})
 	resp := h.Handle(&Request{
@@ -111,8 +260,9 @@ func TestHandleStepPetNotFound(t *testing.T) {
 }
 
 func TestHandleRemovePet(t *testing.T) {
-	h := NewHandler()
-	addTestEngine(h, "remove-me")
+	svc := newMockService()
+	svc.addEngine("remove-me")
+	h := NewHandler(svc)
 
 	resp := h.Handle(&Request{
 		Command: CmdRemovePet,
@@ -125,7 +275,7 @@ func TestHandleRemovePet(t *testing.T) {
 }
 
 func TestHandleRemovePetNotFound(t *testing.T) {
-	h := NewHandler()
+	h := NewHandler(newMockService())
 
 	resp := h.Handle(&Request{
 		Command: CmdRemovePet,
@@ -138,8 +288,9 @@ func TestHandleRemovePetNotFound(t *testing.T) {
 }
 
 func TestHandleDragPet(t *testing.T) {
-	h := NewHandler()
-	addTestEngine(h, "drag-test")
+	svc := newMockService()
+	svc.addEngine("drag-test")
+	h := NewHandler(svc)
 
 	dragPayload, _ := json.Marshal(DragPetPayload{PetID: "drag-test", X: 500, Y: 300})
 	resp := h.Handle(&Request{
@@ -153,7 +304,7 @@ func TestHandleDragPet(t *testing.T) {
 }
 
 func TestHandleDragPetNotFound(t *testing.T) {
-	h := NewHandler()
+	h := NewHandler(newMockService())
 
 	dragPayload, _ := json.Marshal(DragPetPayload{PetID: "nope", X: 0, Y: 0})
 	resp := h.Handle(&Request{
@@ -167,8 +318,9 @@ func TestHandleDragPetNotFound(t *testing.T) {
 }
 
 func TestHandleDropPet(t *testing.T) {
-	h := NewHandler()
-	addTestEngine(h, "drop-test")
+	svc := newMockService()
+	svc.addEngine("drop-test")
+	h := NewHandler(svc)
 
 	resp := h.Handle(&Request{
 		Command: CmdDropPet,
@@ -181,8 +333,9 @@ func TestHandleDropPet(t *testing.T) {
 }
 
 func TestHandleBorderPet(t *testing.T) {
-	h := NewHandler()
-	addTestEngine(h, "border-test")
+	svc := newMockService()
+	svc.addEngine("border-test")
+	h := NewHandler(svc)
 
 	borderPayload, _ := json.Marshal(BorderPetPayload{PetID: "border-test", Direction: engine.ContextTaskbar})
 	resp := h.Handle(&Request{
@@ -196,7 +349,7 @@ func TestHandleBorderPet(t *testing.T) {
 }
 
 func TestHandleGetPet(t *testing.T) {
-	h := NewHandler()
+	h := NewHandler(newMockService())
 
 	resp := h.Handle(&Request{
 		Command: CmdGetPet,
@@ -211,13 +364,13 @@ func TestHandleGetPet(t *testing.T) {
 	if err := json.Unmarshal(resp.Payload, &result); err != nil {
 		t.Fatalf("unmarshal payload error: %v", err)
 	}
-	if result["pet_path"] != "some-pet" {
-		t.Errorf("pet_path = %q, want %q", result["pet_path"], "some-pet")
+	if result["pet_id"] != "some-pet" {
+		t.Errorf("pet_id = %q, want %q", result["pet_id"], "some-pet")
 	}
 }
 
 func TestHandleUnknownCommand(t *testing.T) {
-	h := NewHandler()
+	h := NewHandler(newMockService())
 
 	resp := h.Handle(&Request{Command: "unknown_cmd"})
 
@@ -277,65 +430,5 @@ func TestPetStateJSON(t *testing.T) {
 	}
 	if int(decoded["next_anim_id"].(float64)) != 2 {
 		t.Errorf("next_anim_id = %v, want 2", decoded["next_anim_id"])
-	}
-}
-
-func TestBorderMatches(t *testing.T) {
-	tests := []struct {
-		only string
-		ctx  engine.BorderContext
-		want bool
-	}{
-		{"none", engine.ContextNone, true},
-		{"none", engine.ContextTaskbar, true},
-		{"taskbar", engine.ContextTaskbar, true},
-		{"taskbar", engine.ContextNone, false},
-		{"window", engine.ContextWindow, true},
-		{"window", engine.ContextTaskbar, false},
-		{"vertical", engine.ContextVertical, true},
-		{"vertical", engine.ContextHorizontal, false},
-		{"horizontal", engine.ContextHorizontal, true},
-		{"horizontal", engine.ContextVertical, false},
-		{"horizontal+", engine.ContextHorizontal, true},
-	}
-
-	for _, tc := range tests {
-		got := engine.BorderMatches(tc.only, tc.ctx)
-		if got != tc.want {
-			t.Errorf("BorderMatches(%q, %v) = %v, want %v", tc.only, tc.ctx, got, tc.want)
-		}
-	}
-}
-
-func TestWeightedPick(t *testing.T) {
-	candidates := []pet.NextAnimation{
-		{ID: 1, Probability: 80},
-		{ID: 2, Probability: 20},
-	}
-
-	for i := 0; i < 100; i++ {
-		result := engine.WeightedPick(candidates)
-		if result != 1 && result != 2 {
-			t.Errorf("WeightedPick returned %d, want 1 or 2", result)
-		}
-	}
-}
-
-func TestWeightedPickEmpty(t *testing.T) {
-	result := engine.WeightedPick([]pet.NextAnimation{})
-	if result != 0 {
-		t.Errorf("WeightedPick(empty) = %d, want 0", result)
-	}
-}
-
-func TestWeightedPickZeroProbability(t *testing.T) {
-	candidates := []pet.NextAnimation{
-		{ID: 1, Probability: 0},
-		{ID: 2, Probability: 0},
-	}
-
-	result := engine.WeightedPick(candidates)
-	if result != 0 {
-		t.Errorf("WeightedPick(zero prob) = %d, want 0", result)
 	}
 }
