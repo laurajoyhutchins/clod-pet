@@ -2,11 +2,13 @@
 # Run with: powershell -ExecutionPolicy Bypass -File install.ps1
 
 $ErrorActionPreference = "Stop"
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
 $backendDir = Join-Path $repoRoot "backend"
 $frontendDir = Join-Path $repoRoot "frontend"
 $distDir = Join-Path $repoRoot "dist"
 $logFile = Join-Path $env:TEMP "clodpet-install.log"
+$signtool = $null
 
 function Log($msg) {
     $timestamp = Get-Date -Format "o"
@@ -26,7 +28,7 @@ Log "Repo root: $repoRoot"
 Log "Checking for code-signing certificate..."
 $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object {
     $_.Subject -like "*ClodPet*" -and $_.EnhancedKeyUsageList.FriendlyName -contains "Code Signing"
-}
+} | Select-Object -First 1
 
 if (-not $cert) {
     Log "Creating self-signed code-signing cert for development..."
@@ -118,14 +120,19 @@ if (-not $electronExe) {
     Log "Building Electron app..."
     Push-Location $frontendDir
     try {
-        # Check if electron-builder is available
-        if (Test-CommandExists "electron-builder") {
+        # Check if electron-builder is available locally or globally
+        $localBuilder = Join-Path $frontendDir "node_modules\.bin\electron-builder.cmd"
+        if (Test-Path $localBuilder) {
+            & $localBuilder --dir
+            Log "Electron app built"
+        }
+        elseif (Test-CommandExists "electron-builder") {
             electron-builder --dir
             Log "Electron app built"
         }
         else {
             Log "WARNING: electron-builder not found - skipping Electron build"
-            Log "Install with: npm install -g electron-builder"
+            Log "Install with: npm install --save-dev electron-builder"
         }
     }
     catch {
