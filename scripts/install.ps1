@@ -24,6 +24,16 @@ function Test-CommandExists($cmd) {
 Log "=== Starting ClodPet install ==="
 Log "Repo root: $repoRoot"
 
+# Close running instances to avoid file locks
+Log "Closing running instances..."
+$processesToStop = @("electron", "clod-pet-backend")
+foreach ($proc in $processesToStop) {
+    if (Get-Process -Name $proc -ErrorAction SilentlyContinue) {
+        Log "Stopping $proc..."
+        Stop-Process -Name $proc -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # 1 Create self-signed code-signing cert (dev)
 Log "Checking for code-signing certificate..."
 $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object {

@@ -207,7 +207,7 @@ describe("BorderDetector", () => {
     expect(detector.checkGravity(0, 1000, 64, 64)).toBe(false);
   });
 
-  test("checkGravity should return true when within tolerance but above bottom", () => {
+  test("checkGravity should return false when within tolerance of work area bottom", () => {
     screen.getAllDisplays.mockReturnValue([
       {
         bounds: { x: 0, y: 0, width: 1920, height: 1080 },
@@ -215,9 +215,9 @@ describe("BorderDetector", () => {
       },
     ]);
 
-    // y + height = 999, which is < 1000. 
-    // Old logic would return false if tolerance >= 1.
-    expect(detector.checkGravity(0, 999 - 64, 64, 64)).toBe(true);
+    // Default tolerance is 2. y + height = 999.
+    // 999 < 1000 - 2 is false. This prevents jitter from small vertical movements.
+    expect(detector.checkGravity(0, 999 - 64, 64, 64)).toBe(false);
   });
 
   test("checkGravity should return false when no display found", () => {
@@ -234,6 +234,31 @@ describe("BorderDetector", () => {
     ]);
 
     expect(detector.checkGravity(0, 500, 64, 64)).toBe(false);
+  });
+
+  test("checkGravity should return true when there is another display below", () => {
+    const displays = [
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      },
+      {
+        id: 1,
+        bounds: { x: 0, y: 1080, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 1080, width: 1920, height: 1080 },
+      },
+    ];
+    screen.getAllDisplays.mockReturnValue(displays);
+
+    // Pet is at the bottom of the first display
+    // y + height = 1080.
+    // centerY = 1080 - 32 = 1048. 
+    // centerX = 500.
+    // _displayForRect will find display 0 because centerY (1048) is within [0, 1080].
+    // Current checkGravity would return false because 1080 < 1080 is false.
+    // But it SHOULD return true because there is display 1 below it.
+    expect(detector.checkGravity(500, 1080 - 64, 64, 64)).toBe(true);
   });
 
   test("_onTaskbar should return false when no taskbar bounds", () => {

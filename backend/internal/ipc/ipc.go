@@ -22,6 +22,7 @@ const (
 	CmdSetSettings Command = "set_settings"
 	CmdListPets    Command = "list_pets"
 	CmdListActive  Command = "list_active"
+	CmdSetPosition Command = "set_position"
 )
 
 type Request struct {
@@ -58,6 +59,16 @@ type StepPetPayload struct {
 	PetID     string               `json:"pet_id"`
 	BorderCtx engine.BorderContext `json:"border_ctx"`
 	Gravity   bool                 `json:"gravity,omitempty"`
+	ScreenW   float64              `json:"screen_w,omitempty"`
+	ScreenH   float64              `json:"screen_h,omitempty"`
+	AreaW     float64              `json:"area_w,omitempty"`
+	AreaH     float64              `json:"area_h,omitempty"`
+}
+
+type SetPositionPayload struct {
+	PetID string  `json:"pet_id"`
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
 }
 
 type BorderPetPayload struct {
@@ -105,7 +116,8 @@ type PetInfo struct {
 type Service interface {
 	AddPet(petPath string, spawnID int) (string, error)
 	RemovePet(petID string)
-	StepPet(petID string, borderCtx engine.BorderContext, gravity bool) (*PetState, error)
+	StepPet(petID string, borderCtx engine.BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*PetState, error)
+	SetPosition(petID string, x, y float64) error
 	DragPet(petID string, x, y float64) error
 	DropPet(petID string) error
 	ValidatePetExists(petID string) error
@@ -163,9 +175,23 @@ func (h *Handler) Handle(req *Request) *Response {
 		return h.handleListPets()
 	case CmdListActive:
 		return h.handleListActive()
+	case CmdSetPosition:
+		return h.handleSetPosition(req.Payload)
 	default:
 		return errorResponse("unknown command: " + string(req.Command))
 	}
+}
+
+func (h *Handler) handleSetPosition(payload json.RawMessage) *Response {
+	var p SetPositionPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return errorResponse("invalid payload: " + err.Error())
+	}
+
+	if err := h.svc.SetPosition(p.PetID, p.X, p.Y); err != nil {
+		return errorResponse(err.Error())
+	}
+	return successResponse(nil)
 }
 
 func (h *Handler) handleAddPet(payload json.RawMessage) *Response {
@@ -222,7 +248,7 @@ func (h *Handler) handleStepPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	state, err := h.svc.StepPet(p.PetID, p.BorderCtx, p.Gravity)
+	state, err := h.svc.StepPet(p.PetID, p.BorderCtx, p.Gravity, p.ScreenW, p.ScreenH, p.AreaW, p.AreaH)
 	if err != nil {
 		return errorResponse(err.Error())
 	}

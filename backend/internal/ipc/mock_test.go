@@ -75,7 +75,7 @@ func (m *commonMockService) StepPet(petID string, borderCtx engine.BorderContext
 		return nil, engine.ErrPetNotFound
 	}
 
-	step, err := e.Step(borderCtx, gravity)
+	step, err := e.Step(borderCtx, gravity, 0, 0, 0, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -116,9 +116,16 @@ func (e *Engine) Start(spawnID int) error {
 	return nil
 }
 
-func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error) {
+func (e *Engine) Step(borderCtx BorderContext, gravity bool, screenW, screenH, areaW, areaH float64) (*StepResult, error) {
 	if e.state == StateIdle {
 		return nil, nil
+	}
+
+	if screenW > 0 {
+		e.env.ScreenW = screenW
+		e.env.ScreenH = screenH
+		e.env.AreaW = areaW
+		e.env.AreaH = areaH
 	}
 
 	anim, ok := e.petDef.Animations[e.currentAnim]
@@ -184,10 +191,16 @@ func (e *Engine) Step(borderCtx BorderContext, gravity bool) (*StepResult, error
 		e.frameIdx = e.animRepeatFrom
 
 		if e.totalStepsDone >= e.animTotalSteps {
-			if nextID := e.pickSequenceTransition(borderCtx); nextID > 0 {
+			nextID := e.pickSequenceTransition(borderCtx)
+			if nextID == 0 && len(anim.SequenceNext) > 0 {
+				nextID = e.currentAnim
+			}
+
+			if nextID > 0 {
 				e.applyAction(anim.Action)
 				return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 			}
+
 			e.totalStepsDone = 0
 			e.frameIdx = e.animRepeatFrom
 		}

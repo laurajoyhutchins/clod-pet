@@ -51,7 +51,7 @@ func TestNewEngineIdle(t *testing.T) {
 		t.Errorf("state = %v, want %v", e.state, StateIdle)
 	}
 
-	result, err := e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestEngineStepProducesFrames(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestEngineStepCyclesFrames(t *testing.T) {
 
 	expected := []int{0, 1, 0, 1, 0, 1}
 	for i, want := range expected {
-		result, err := e.Step(ContextNone, false)
+		result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 		if err != nil {
 			t.Fatalf("Step %d error: %v", i, err)
 		}
@@ -151,9 +151,9 @@ func TestEngineStepAccumulatesPosition(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	_, _ = e.Step(ContextNone, false)
-	_, _ = e.Step(ContextNone, false)
-	_, _ = e.Step(ContextNone, false)
+	_, _ = e.Step(ContextNone, false, 0, 0, 0, 0)
+	_, _ = e.Step(ContextNone, false, 0, 0, 0, 0)
+	_, _ = e.Step(ContextNone, false, 0, 0, 0, 0)
 
 	x, _ := e.Position()
 	want := 100.0 + (-2)*3
@@ -306,7 +306,7 @@ func TestEngineGravityTransition(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextNone, true)
+	result, err := e.Step(ContextNone, true, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestEngineStepTransitionTriggers(t *testing.T) {
 
 	var transitionID int
 	for i := 0; i < 10; i++ {
-		result, err := e.Step(ContextNone, false)
+		result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 		if err != nil {
 			t.Fatalf("Step %d error: %v", i, err)
 		}
@@ -418,7 +418,7 @@ func TestEngineBorderTransition(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextTaskbar, false)
+	result, err := e.Step(ContextTaskbar, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -448,7 +448,7 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextTaskbar, false)
+	result, err := e.Step(ContextTaskbar, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -466,7 +466,7 @@ func TestEngineInvalidAnimation(t *testing.T) {
 	e.Start(1)
 
 	e.TransitionTo(999)
-	result, err := e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -491,7 +491,7 @@ func TestEngineNoFrames(t *testing.T) {
 	e.Start(1)
 	e.TransitionTo(3)
 
-	result, err := e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -518,7 +518,7 @@ func TestEngineOpacityLerp(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	result, err := e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -549,8 +549,8 @@ func TestEngineIntervalEvaluation(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 
-	_, _ = e.Step(ContextNone, false)
-	result, err := e.Step(ContextNone, false)
+	_, _ = e.Step(ContextNone, false, 0, 0, 0, 0)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -586,7 +586,7 @@ func TestEngineFlipAction(t *testing.T) {
 		t.Errorf("flipH = %v, want false (start state)", e.flipH)
 	}
 
-	result, err := e.Step(ContextNone, false)
+	result, err := e.Step(ContextNone, false, 0, 0, 0, 0)
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
@@ -615,7 +615,7 @@ func TestEngineMirroredMovement(t *testing.T) {
 	e.SetPosition(100, 200)
 
 	// Normal movement (flipH = false)
-	_, _ = e.Step(ContextNone, false)
+	_, _ = e.Step(ContextNone, false, 0, 0, 0, 0)
 	x, _ := e.Position()
 	if math.Abs(x-98) > 0.01 {
 		t.Errorf("X = %v, want 98", x)
@@ -623,7 +623,7 @@ func TestEngineMirroredMovement(t *testing.T) {
 
 	// Mirrored movement (flipH = true)
 	e.flipH = true
-	_, _ = e.Step(ContextNone, false)
+	_, _ = e.Step(ContextNone, false, 0, 0, 0, 0)
 	x, _ = e.Position()
 	if math.Abs(x-100) > 0.01 {
 		t.Errorf("X = %v, want 100 (98 + 2)", x)
@@ -649,17 +649,81 @@ func TestEngineBorderTriggeredOnce(t *testing.T) {
 	e.Start(1)
 
 	// First collision
-	result, _ := e.Step(ContextTaskbar, false)
+	result, _ := e.Step(ContextTaskbar, false, 0, 0, 0, 0)
 	if result.NextAnimID != 2 {
 		t.Errorf("First step NextAnimID = %d, want 2", result.NextAnimID)
 	}
 
 	// Stay in same animation (simulated by not calling TransitionTo)
 	// Second step with same collision should NOT trigger transition again
-	result, _ = e.Step(ContextTaskbar, false)
+	result, _ = e.Step(ContextTaskbar, false, 0, 0, 0, 0)
 	if result.NextAnimID != 0 {
 		t.Errorf("Second step NextAnimID = %d, want 0", result.NextAnimID)
 	}
 }
+
+func TestEngineSelfTransitionReset(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "2",
+		RepeatFrom: 0,
+		SequenceNext: []pet.NextAnimation{
+			{ID: 1, Probability: 100, Only: "none"},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+
+	// Step 1: totalStepsDone = 0 -> 1
+	e.Step(ContextNone, false, 0, 0, 0, 0)
+	// Step 2: totalStepsDone = 1 -> 2, triggers transition to 1
+	result, _ := e.Step(ContextNone, false, 0, 0, 0, 0)
+	if result.NextAnimID != 1 {
+		t.Errorf("NextAnimID = %d, want 1", result.NextAnimID)
+	}
+
+	// Simulated Service behavior: call TransitionTo(1)
+	e.TransitionTo(result.NextAnimID)
+
+	if e.totalStepsDone != 0 {
+		t.Errorf("totalStepsDone = %d, want 0 after TransitionTo(self)", e.totalStepsDone)
+	}
+}
+
+func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
+	p := testPet()
+	// Animation with SequenceNext but none match (e.g., only taskbar but we are none)
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+		SequenceNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100, Only: "taskbar"},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+
+	// Step triggers end of sequence
+	result, _ := e.Step(ContextNone, false, 0, 0, 0, 0)
+	
+	// Should return self ID (1) because SequenceNext is present but no match
+	if result.NextAnimID != 1 {
+		t.Errorf("NextAnimID = %d, want 1 (self-reset)", result.NextAnimID)
+	}
+}
+
+
 
 

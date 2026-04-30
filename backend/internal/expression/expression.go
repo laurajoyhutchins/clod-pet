@@ -38,58 +38,99 @@ func EvalInt(expr string, env *Env) (int, error) {
 
 func evalExpr(expr string, env *Env) (float64, error) {
 	expr = strings.TrimSpace(expr)
-
-	if idx := strings.Index(expr, "+"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
-		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		return left + right, nil
+	if expr == "" {
+		return 0, nil
 	}
 
-	if idx := strings.LastIndex(expr, "-"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
+	// Remove outermost parentheses if they wrap the entire expression
+	for len(expr) > 0 && expr[0] == '(' && expr[len(expr)-1] == ')' {
+		// Verify if these parentheses actually match each other
+		depth := 0
+		matches := true
+		for i := 0; i < len(expr)-1; i++ {
+			if expr[i] == '(' {
+				depth++
+			} else if expr[i] == ')' {
+				depth--
+			}
+			if depth == 0 {
+				matches = false
+				break
+			}
 		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
+		if matches {
+			expr = strings.TrimSpace(expr[1 : len(expr)-1])
+		} else {
+			break
 		}
-		return left - right, nil
 	}
 
-	if idx := strings.LastIndex(expr, "*"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
+	// Find the last lowest-precedence operator (+, -) that is not inside parentheses
+	splitIdx := -1
+	op := ""
+	depth := 0
+	for i := len(expr) - 1; i >= 0; i-- {
+		c := expr[i]
+		if c == ')' {
+			depth++
+		} else if c == '(' {
+			depth--
+		} else if depth == 0 {
+			if (c == '+' || c == '-') && i > 0 { // i > 0 to avoid unary plus/minus at start
+				splitIdx = i
+				op = string(c)
+				break
+			}
 		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		return left * right, nil
 	}
 
-	if idx := strings.LastIndex(expr, "/"); idx > 0 {
-		left, err := evalExpr(expr[:idx], env)
-		if err != nil {
-			return 0, err
+	// If no +, - found, look for *, /
+	if splitIdx == -1 {
+		depth = 0
+		for i := len(expr) - 1; i >= 0; i-- {
+			c := expr[i]
+			if c == ')' {
+				depth++
+			} else if c == '(' {
+				depth--
+			} else if depth == 0 {
+				if (c == '*' || c == '/') && i > 0 {
+					splitIdx = i
+					op = string(c)
+					break
+				}
+			}
 		}
-		right, err := evalExpr(expr[idx+1:], env)
-		if err != nil {
-			return 0, err
-		}
-		if right == 0 {
-			return 0, fmt.Errorf("division by zero in %q", expr)
-		}
-		return left / right, nil
 	}
 
+	if splitIdx != -1 {
+		leftStr := expr[:splitIdx]
+		rightStr := expr[splitIdx+1:]
+		left, err := evalExpr(leftStr, env)
+		if err != nil {
+			return 0, err
+		}
+		right, err := evalExpr(rightStr, env)
+		if err != nil {
+			return 0, err
+		}
+
+		switch op {
+		case "+":
+			return left + right, nil
+		case "-":
+			return left - right, nil
+		case "*":
+			return left * right, nil
+		case "/":
+			if right == 0 {
+				return 0, fmt.Errorf("division by zero in %q", expr)
+			}
+			return left / right, nil
+		}
+	}
+
+	// No operators found, handle as literal or variable
 	if val, err := strconv.ParseFloat(expr, 64); err == nil {
 		return val, nil
 	}
