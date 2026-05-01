@@ -21,7 +21,7 @@ let controlPanelWindow: any = null;
 let controlPanelHandlersRegistered = false;
 let shutdownStarted = false;
 
-async function createPet(petPath = "../pets/esheep64", opts: { throwOnError?: boolean } = {}) {
+async function createPet(petPath = "../pets/eSheep-modern", opts: { throwOnError?: boolean } = {}) {
   try {
     return await petManager.loadAndCreatePet(petPath);
   } catch (err) {

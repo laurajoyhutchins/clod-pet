@@ -62,10 +62,17 @@ func (m *commonMockService) AddPet(petPath string, spawnID int, world ...engine.
 	e.Start(spawnID, world...)
 	m.engines[petPath] = e
 	x, y := e.Position()
+	animID := e.CurrentAnim()
+	animName := ""
+	if anim, ok := m.petDef.Animations[animID]; ok {
+		animName = anim.Name
+	}
 	return &PetState{
-		PetID: petPath,
-		X:     x,
-		Y:     y,
+		PetID:           petPath,
+		X:               x,
+		Y:               y,
+		CurrentAnimID:   animID,
+		CurrentAnimName: animName,
 	}, nil
 }
 
@@ -98,16 +105,24 @@ func (m *commonMockService) StepPet(petID string, world engine.WorldContext) (*P
 		e.TransitionTo(step.NextAnimID)
 	}
 
+	animID := e.CurrentAnim()
+	animName := ""
+	if anim, ok := m.petDef.Animations[animID]; ok {
+		animName = anim.Name
+	}
+
 	return &PetState{
-		PetID:      petID,
-		FrameIndex: step.FrameIndex,
-		X:          step.X,
-		Y:          step.Y,
-		OffsetY:    step.OffsetY,
-		Opacity:    step.Opacity,
-		IntervalMs: step.IntervalMs,
-		FlipH:      step.ShouldFlip,
-		NextAnimID: step.NextAnimID,
+		PetID:           petID,
+		FrameIndex:      step.FrameIndex,
+		X:               step.X,
+		Y:               step.Y,
+		OffsetY:         step.OffsetY,
+		Opacity:         step.Opacity,
+		IntervalMs:      step.IntervalMs,
+		FlipH:           step.ShouldFlip,
+		CurrentAnimID:   animID,
+		CurrentAnimName: animName,
+		NextAnimID:      step.NextAnimID,
 	}, nil
 }
 

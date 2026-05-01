@@ -117,13 +117,19 @@ class PetManager {
     };
 
     const workArea = screen.getPrimaryDisplay().workArea;
-    const x = typeof addResult.x === "number" ? addResult.x : workArea.x + Math.floor(Math.random() * workArea.width);
-    const y = typeof addResult.y === "number" ? addResult.y : workArea.y + Math.floor(Math.random() * workArea.height * 0.8);
-
     const frameW = petData.frame_w || 64;
     const frameH = petData.frame_h || 64;
     const width = Math.round(frameW * this.scale);
     const height = Math.round(frameH * this.scale);
+
+    const rawX = typeof addResult.x === "number" ? addResult.x : workArea.x + Math.floor(Math.random() * workArea.width);
+    const rawY = typeof addResult.y === "number" ? addResult.y : workArea.y + Math.floor(Math.random() * workArea.height * 0.8);
+
+    // Clamp to work area — Wayland can't position windows off-screen, so the OS would snap an
+    // off-screen spawn (e.g. screenW+10) to (0,0). Clamping here puts the pet at the nearest
+    // visible edge instead, preserving the intended "enter from the side" behaviour.
+    const x = Math.max(workArea.x, Math.min(workArea.x + workArea.width - width, rawX));
+    const y = Math.max(workArea.y, Math.min(workArea.y + workArea.height - height, rawY));
 
     const win = this.windowManager.createPetWindow(backendPetId, {
       x, y,
@@ -140,15 +146,29 @@ class PetManager {
       backendPetId,
       frameW,
       frameH,
+      currentAnimId: typeof addResult.current_anim_id === "number" ? addResult.current_anim_id : 0,
+      currentAnimName: typeof addResult.current_anim_name === "string" ? addResult.current_anim_name : "",
       state: { frameIndex: 0, x, y, flipH: !!addResult.flip_h },
       interval: null,
       stepFailures: 0,
       stopped: false,
       loaded: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
     };
 
     this.pets.set(petEntry.backendPetId, petEntry);
     this.windowToPetId.set(win, petEntry.backendPetId);
+
+    // If the OS clamped our spawn position, tell the backend the real starting point so
+    // its physics begin from where the window actually is.
+    if (x !== rawX || y !== rawY) {
+      try {
+        await this.backendClient.setPosition(backendPetId, x, y);
+      } catch (err) {
+        log.warn("Failed to sync clamped spawn position:", err.message);
+      }
+    }
 
     const petId = petEntry.backendPetId;
     const loadPromise = win.loadFile(path.join(__dirname, "..", "pet.html"), { query: { petId } });
@@ -157,8 +177,12 @@ class PetManager {
     const showPetWindow = () => {
       if (shown || win.isDestroyed()) return;
       shown = true;
+      // Re-apply the intended position right before showing so the window manager has a
+      // chance to honor the spawn coordinates before the first physics sync runs.
+      win.setPosition(x, y);
       log.debug("Window ready to show", win.getBounds());
       win.showInactive();
+      this._startPetLoop(petEntry.backendPetId);
     };
 
     win.once("ready-to-show", showPetWindow);
@@ -166,7 +190,6 @@ class PetManager {
     win.webContents.on("did-finish-load", () => {
       log.info("pet.html loaded successfully");
       petEntry.loaded = true;
-      this._startPetLoop(petEntry.backendPetId);
       setTimeout(showPetWindow, 50);
     });
 
@@ -274,25 +297,65 @@ class PetManager {
         }
 
         const world = this.borderDetector.getRawWorldContext(winX, winY, winW, winH);
-        if (!world) return;
+        if (!world) {
+          schedule(200);
+          return;
+        }
+
+        if (petEntry._debugCount === undefined) petEntry._debugCount = 0;
+        if (petEntry._debugCount < 5) {
+          log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${world.screen.w}x${world.screen.h}) wa=(${world.work_area.w}x${world.work_area.h})`);
+          petEntry._debugCount++;
+        }
+
+        const collision = this.borderDetector.checkBorder(winX, winY, winW, winH);
+        const collisionKey = collision.length > 0 ? collision.join(",") : "";
+        if (collisionKey && petEntry._lastCollisionKey !== collisionKey) {
+          const animId = typeof petEntry.currentAnimId === "number" ? petEntry.currentAnimId : -1;
+          const animName = typeof petEntry.currentAnimName === "string" && petEntry.currentAnimName ? petEntry.currentAnimName : "unknown";
+          log.info(`[DEBUG] collision animName=${animName} animId=${animId} borders=${collisionKey} win=(${winX},${winY}) size=(${winW}x${winH})`);
+        }
+        petEntry._lastCollisionKey = collisionKey;
 
         const result = await this.backendClient.stepPet(petId, world);
         petEntry.stepFailures = 0;
 
         const finalX = result.x ?? 0;
         const finalY = (result.y ?? 0) + (result.offset_y ?? 0);
+        petEntry.currentAnimId = typeof result.current_anim_id === "number" ? result.current_anim_id : petEntry.currentAnimId;
+        petEntry.currentAnimName = typeof result.current_anim_name === "string" ? result.current_anim_name : petEntry.currentAnimName;
 
-        petEntry.state = {
-          frameIndex: result.frame_index,
-          x: finalX,
-          y: finalY,
-          offsetY: result.offset_y,
-          flipH: result.flip_h,
-        };
+        if (petEntry._debugCount <= 5) {
+          const animId = typeof petEntry.currentAnimId === "number" ? petEntry.currentAnimId : -1;
+          const animName = typeof petEntry.currentAnimName === "string" && petEntry.currentAnimName ? petEntry.currentAnimName : "unknown";
+          log.info(`[DEBUG] loop result animName=${animName} animId=${animId} x=${finalX} y=${finalY} nextAnim=${result.next_anim_id}`);
+        }
 
         if (!petEntry.win.isDestroyed()) {
           if (!isDragging) {
             petEntry.win.setPosition(Math.round(finalX), Math.round(finalY));
+            // Read back actual position — Wayland clamps windows to screen bounds, so the OS
+            // may have snapped our requested position. If it did, tell the backend the real
+            // coordinates so its physics stay in sync and the pet doesn't get stuck at an edge.
+            const [actualX, actualY] = petEntry.win.getPosition();
+            if (actualX !== Math.round(finalX) || actualY !== Math.round(finalY)) {
+              await this.backendClient.setPosition(petId, actualX, actualY - (result.offset_y ?? 0));
+            }
+            petEntry.state = {
+              frameIndex: result.frame_index,
+              x: actualX,
+              y: actualY,
+              offsetY: result.offset_y,
+              flipH: result.flip_h,
+            };
+          } else {
+            petEntry.state = {
+              frameIndex: result.frame_index,
+              x: finalX,
+              y: finalY,
+              offsetY: result.offset_y,
+              flipH: result.flip_h,
+            };
           }
           petEntry.win.webContents.send("pet:frame", {
             frameIndex: result.frame_index,
@@ -349,17 +412,32 @@ class PetManager {
       const petId = this._getPetIdByWindow(win);
       if (petId) {
         this.draggingPets.add(petId);
-        this.backendClient.dragPet(petId, ...this._safeWindowPosition(win));
+        const [winX, winY] = this._safeWindowPosition(win);
+        // Record where in the window the user clicked so we can preserve that offset
+        // during drag instead of snapping the window's top-left to the cursor.
+        const cursor = screen.getCursorScreenPoint();
+        const entry = this.pets.get(petId);
+        if (entry) {
+          entry.dragOffsetX = cursor.x - winX;
+          entry.dragOffsetY = cursor.y - winY;
+        }
+        this.backendClient.dragPet(petId, winX, winY);
       }
     });
 
-    ipcMain.on("pet:drag:move", (event, data) => {
+    ipcMain.on("pet:drag:move", (event, _data) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const petId = this._getPetIdByWindow(win);
-      if (petId) {
+      const entry = this.pets.get(petId);
+      if (petId && entry) {
         this.draggingPets.add(petId);
-        this.backendClient.dragPet(petId, data.x, data.y);
-        if (!win.isDestroyed()) win.setPosition(Math.round(data.x), Math.round(data.y));
+        // Use the main-process cursor position instead of the renderer's screenX/screenY —
+        // on Wayland those values are window-relative, not absolute screen coordinates.
+        const cursor = screen.getCursorScreenPoint();
+        const newX = cursor.x - (entry.dragOffsetX ?? 0);
+        const newY = cursor.y - (entry.dragOffsetY ?? 0);
+        this.backendClient.dragPet(petId, newX, newY);
+        if (!win.isDestroyed()) win.setPosition(Math.round(newX), Math.round(newY));
       }
     });
 

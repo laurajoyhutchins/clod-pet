@@ -3,117 +3,14 @@ package pet
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/xml"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/png"
 	"os"
+	"path/filepath"
 )
-
-const xmlNamespace = "https://esheep.petrucci.ch/"
-
-type xmlRoot struct {
-	XMLName    xml.Name      `xml:"animations"`
-	Header     xmlHeader     `xml:"header"`
-	Image      xmlImage      `xml:"image"`
-	Spawns     xmlSpawns     `xml:"spawns"`
-	Animations xmlAnimations `xml:"animations"`
-	Children   xmlChildren   `xml:"childs"`
-	Sounds     xmlSounds     `xml:"sounds"`
-}
-
-type xmlHeader struct {
-	Author      string `xml:"author"`
-	Title       string `xml:"title"`
-	PetName     string `xml:"petname"`
-	Version     string `xml:"version"`
-	Info        string `xml:"info"`
-	Application int    `xml:"application"`
-	Icon        string `xml:"icon"`
-}
-
-type xmlImage struct {
-	TilesX       int    `xml:"tilesx"`
-	TilesY       int    `xml:"tilesy"`
-	TilesXAttr   int    `xml:"tilesx,attr"`
-	TilesYAttr   int    `xml:"tilesy,attr"`
-	PngBase64    string `xml:"png"`
-	Transparency string `xml:"transparency"`
-}
-
-type xmlSpawns struct {
-	Spawns []xmlSpawn `xml:"spawn"`
-}
-
-type xmlSpawn struct {
-	ID          int     `xml:"id,attr"`
-	Probability int     `xml:"probability,attr"`
-	X           string  `xml:"x"`
-	Y           string  `xml:"y"`
-	Next        xmlNext `xml:"next"`
-}
-
-type xmlAnimations struct {
-	Animations []xmlAnimation `xml:"animation"`
-}
-
-type xmlAnimation struct {
-	ID       int             `xml:"id,attr"`
-	Name     string          `xml:"name"`
-	Start    xmlMovement     `xml:"start"`
-	End      *xmlMovement    `xml:"end"`
-	Sequence xmlSequence     `xml:"sequence"`
-	Border   *xmlTransitions `xml:"border"`
-	Gravity  *xmlTransitions `xml:"gravity"`
-}
-
-type xmlMovement struct {
-	X        string   `xml:"x"`
-	Y        string   `xml:"y"`
-	OffsetY  *int     `xml:"offsety"`
-	Opacity  *float64 `xml:"opacity"`
-	Interval string   `xml:"interval"`
-}
-
-type xmlSequence struct {
-	Frames     []int     `xml:"frame"`
-	Nexts      []xmlNext `xml:"next"`
-	Action     string    `xml:"action"`
-	Repeat     string    `xml:"repeat,attr"`
-	RepeatFrom int       `xml:"repeatfrom,attr"`
-}
-
-type xmlTransitions struct {
-	Nexts []xmlNext `xml:"next"`
-}
-
-type xmlNext struct {
-	Probability int    `xml:"probability,attr"`
-	Only        string `xml:"only,attr"`
-	Value       int    `xml:",chardata"`
-}
-
-type xmlChildren struct {
-	Children []xmlChild `xml:"child"`
-}
-
-type xmlChild struct {
-	AnimationID int     `xml:"animationid,attr"`
-	X           string  `xml:"x"`
-	Y           string  `xml:"y"`
-	Next        xmlNext `xml:"next"`
-}
-
-type xmlSounds struct {
-	Sounds []xmlSound `xml:"sound"`
-}
-
-type xmlSound struct {
-	AnimationID int    `xml:"animationid,attr"`
-	Probability int    `xml:"probability,attr"`
-	Loop        *int   `xml:"loop"`
-	Base64      string `xml:"base64"`
-}
 
 type Header struct {
 	Author      string
@@ -133,11 +30,12 @@ type Image struct {
 }
 
 type Spawn struct {
-	ID          int
-	Probability int
-	X           string
-	Y           string
-	NextAnimID  int
+	ID              int
+	Probability     int
+	X               string
+	Y               string
+	NextProbability int
+	NextAnimID      int
 }
 
 type Movement struct {
@@ -169,10 +67,11 @@ type NextAnimation struct {
 }
 
 type Child struct {
-	AnimationID int
-	X           string
-	Y           string
-	NextAnimID  int
+	AnimationID     int
+	X               string
+	Y               string
+	NextProbability int
+	NextAnimID      int
 }
 
 type Sound struct {
@@ -193,45 +92,137 @@ type Pet struct {
 	FrameH     int
 }
 
+type modernRoot struct {
+	Header     modernHeader      `json:"header"`
+	Image      modernImage       `json:"image"`
+	Spawns     []modernSpawn     `json:"spawns"`
+	Animations []modernAnimation `json:"animations"`
+	Children   []modernChild     `json:"children,omitempty"`
+	Sounds     []modernSound     `json:"sounds,omitempty"`
+}
+
+type modernHeader struct {
+	Author      string `json:"author"`
+	Title       string `json:"title"`
+	PetName     string `json:"petname"`
+	Version     string `json:"version"`
+	Info        string `json:"info"`
+	Application int    `json:"application"`
+	Icon        string `json:"icon,omitempty"`
+}
+
+type modernImage struct {
+	TilesX       int    `json:"tiles_x"`
+	TilesY       int    `json:"tiles_y"`
+	Spritesheet  string `json:"spritesheet"`
+	Transparency string `json:"transparency,omitempty"`
+}
+
+type modernSpawn struct {
+	ID          int        `json:"id"`
+	Probability int        `json:"probability"`
+	X           string     `json:"x"`
+	Y           string     `json:"y"`
+	Next        modernNext `json:"next"`
+}
+
+type modernAnimation struct {
+	ID       int             `json:"id"`
+	Name     string          `json:"name"`
+	Start    modernMovement  `json:"start"`
+	End      *modernMovement `json:"end,omitempty"`
+	Sequence modernSequence  `json:"sequence"`
+	Border   []modernNext    `json:"border,omitempty"`
+	Gravity  []modernNext    `json:"gravity,omitempty"`
+}
+
+type modernMovement struct {
+	X        string   `json:"x"`
+	Y        string   `json:"y"`
+	OffsetY  *int     `json:"offset_y,omitempty"`
+	Opacity  *float64 `json:"opacity,omitempty"`
+	Interval string   `json:"interval"`
+}
+
+type modernSequence struct {
+	Frames     []int        `json:"frames"`
+	Nexts      []modernNext `json:"nexts,omitempty"`
+	Action     string       `json:"action,omitempty"`
+	Repeat     string       `json:"repeat"`
+	RepeatFrom int          `json:"repeat_from"`
+}
+
+type modernNext struct {
+	Probability int    `json:"probability"`
+	Only        string `json:"only,omitempty"`
+	Value       int    `json:"value"`
+}
+
+type modernChild struct {
+	AnimationID int        `json:"animation_id"`
+	X           string     `json:"x"`
+	Y           string     `json:"y"`
+	Next        modernNext `json:"next"`
+}
+
+type modernSound struct {
+	AnimationID int    `json:"animation_id"`
+	Probability int    `json:"probability"`
+	Loop        *int   `json:"loop,omitempty"`
+	Base64      string `json:"base64"`
+}
+
 func LoadPet(dir string) (*Pet, error) {
-	data, err := os.ReadFile(dir + "/animations.xml")
-	if err != nil {
-		return nil, fmt.Errorf("read animations.xml: %w", err)
+	jsonPath := filepath.Join(dir, "animations.json")
+	if _, err := os.Stat(jsonPath); err == nil {
+		return loadModernPet(dir, jsonPath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("stat animations.json: %w", err)
 	}
 
-	var root xmlRoot
-	if err := xml.Unmarshal(data, &root); err != nil {
-		return nil, fmt.Errorf("parse xml: %w", err)
+	return loadXMLPet(dir)
+}
+
+func loadModernPet(dir, jsonPath string) (*Pet, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("read animations.json: %w", err)
 	}
 
-	iconData, err := base64.StdEncoding.DecodeString(root.Header.Icon)
-	if err != nil {
-		return nil, fmt.Errorf("decode icon: %w", err)
-	}
-	pngData, err := base64.StdEncoding.DecodeString(root.Image.PngBase64)
-	if err != nil {
-		return nil, fmt.Errorf("decode sprite png: %w", err)
+	var root modernRoot
+	if err := json.Unmarshal(data, &root); err != nil {
+		return nil, fmt.Errorf("parse json: %w", err)
 	}
 
-	// Calculate FrameW and FrameH from image dimensions
+	iconData := []byte(nil)
+	if root.Header.Icon != "" {
+		iconPath := filepath.Join(dir, root.Header.Icon)
+		iconData, err = os.ReadFile(iconPath)
+		if err != nil {
+			return nil, fmt.Errorf("read icon %q: %w", root.Header.Icon, err)
+		}
+	}
+
+	spritesheetPath := root.Image.Spritesheet
+	if spritesheetPath == "" {
+		spritesheetPath = "spritesheet.png"
+	}
+	pngData, err := os.ReadFile(filepath.Join(dir, spritesheetPath))
+	if err != nil {
+		return nil, fmt.Errorf("read spritesheet %q: %w", spritesheetPath, err)
+	}
+
 	imgCfg, _, err := image.DecodeConfig(bytes.NewReader(pngData))
 	if err != nil {
 		return nil, fmt.Errorf("decode png config: %w", err)
 	}
 
 	tilesX := root.Image.TilesX
-	if tilesX == 0 {
-		tilesX = root.Image.TilesXAttr
-	}
-	tilesY := root.Image.TilesY
-	if tilesY == 0 {
-		tilesY = root.Image.TilesYAttr
-	}
-
-	if tilesX == 0 {
+	if tilesX <= 0 {
 		tilesX = 1
 	}
-	if tilesY == 0 {
+	tilesY := root.Image.TilesY
+	if tilesY <= 0 {
 		tilesY = 1
 	}
 
@@ -257,28 +248,29 @@ func LoadPet(dir string) (*Pet, error) {
 		FrameH:     imgCfg.Height / tilesY,
 	}
 
-	for _, xs := range root.Spawns.Spawns {
+	for _, xs := range root.Spawns {
 		pet.Spawns = append(pet.Spawns, Spawn{
-			ID:          xs.ID,
-			Probability: xs.Probability,
-			X:           xs.X,
-			Y:           xs.Y,
-			NextAnimID:  xs.Next.Value,
+			ID:              xs.ID,
+			Probability:     xs.Probability,
+			X:               xs.X,
+			Y:               xs.Y,
+			NextProbability: xs.Next.Probability,
+			NextAnimID:      xs.Next.Value,
 		})
 	}
 
-	for _, xa := range root.Animations.Animations {
+	for _, xa := range root.Animations {
 		anim := Animation{
 			ID:         xa.ID,
 			Name:       xa.Name,
 			Action:     xa.Sequence.Action,
-			Start:      parseMovement(xa.Start),
+			Start:      parseModernMovement(xa.Start),
 			Repeat:     xa.Sequence.Repeat,
 			RepeatFrom: xa.Sequence.RepeatFrom,
 		}
 
 		if xa.End != nil {
-			anim.End = parseMovement(*xa.End)
+			anim.End = parseModernMovement(*xa.End)
 		} else {
 			anim.End = anim.Start.Copy()
 		}
@@ -292,39 +284,36 @@ func LoadPet(dir string) (*Pet, error) {
 			})
 		}
 
-		if xa.Border != nil {
-			for _, xn := range xa.Border.Nexts {
-				anim.BorderNext = append(anim.BorderNext, NextAnimation{
-					ID:          xn.Value,
-					Probability: xn.Probability,
-					Only:        xn.Only,
-				})
-			}
+		for _, xn := range xa.Border {
+			anim.BorderNext = append(anim.BorderNext, NextAnimation{
+				ID:          xn.Value,
+				Probability: xn.Probability,
+				Only:        xn.Only,
+			})
 		}
 
-		if xa.Gravity != nil {
-			for _, xn := range xa.Gravity.Nexts {
-				anim.GravityNext = append(anim.GravityNext, NextAnimation{
-					ID:          xn.Value,
-					Probability: xn.Probability,
-					Only:        xn.Only,
-				})
-			}
+		for _, xn := range xa.Gravity {
+			anim.GravityNext = append(anim.GravityNext, NextAnimation{
+				ID:          xn.Value,
+				Probability: xn.Probability,
+				Only:        xn.Only,
+			})
 		}
 
 		pet.Animations[xa.ID] = anim
 	}
 
-	for _, xc := range root.Children.Children {
+	for _, xc := range root.Children {
 		pet.Children = append(pet.Children, Child{
-			AnimationID: xc.AnimationID,
-			X:           xc.X,
-			Y:           xc.Y,
-			NextAnimID:  xc.Next.Value,
+			AnimationID:     xc.AnimationID,
+			X:               xc.X,
+			Y:               xc.Y,
+			NextProbability: xc.Next.Probability,
+			NextAnimID:      xc.Next.Value,
 		})
 	}
 
-	for _, xs := range root.Sounds.Sounds {
+	for _, xs := range root.Sounds {
 		audioData, err := base64.StdEncoding.DecodeString(xs.Base64)
 		if err != nil {
 			return nil, fmt.Errorf("decode sound base64 for animation %d: %w", xs.AnimationID, err)
@@ -345,24 +334,28 @@ func LoadPet(dir string) (*Pet, error) {
 	return pet, nil
 }
 
-func parseMovement(xm xmlMovement) Movement {
+func parseModernMovement(mm modernMovement) Movement {
 	offsetY := 0
-	if xm.OffsetY != nil {
-		offsetY = *xm.OffsetY
+	if mm.OffsetY != nil {
+		offsetY = *mm.OffsetY
 	}
 	opacity := 1.0
-	if xm.Opacity != nil {
-		opacity = *xm.Opacity
+	if mm.Opacity != nil {
+		opacity = *mm.Opacity
 	}
 	return Movement{
-		X:        xm.X,
-		Y:        xm.Y,
+		X:        mm.X,
+		Y:        mm.Y,
 		OffsetY:  offsetY,
 		Opacity:  opacity,
-		Interval: xm.Interval,
+		Interval: mm.Interval,
 	}
 }
 
-func (m Movement) Copy() Movement {
-	return m
+func intPtr(v int) *int {
+	return &v
+}
+
+func floatPtr(v float64) *float64 {
+	return &v
 }

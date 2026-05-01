@@ -199,16 +199,25 @@ func (s *Service) AddPet(petPath string, spawnID int, world ...engine.WorldConte
 	}
 
 	x, y := e.Position()
+	animID := e.CurrentAnim()
+	animName := ""
+	if petDef != nil {
+		if anim, ok := petDef.Animations[animID]; ok {
+			animName = anim.Name
+		}
+	}
 	return &ipc.PetState{
-		PetID:      petID,
-		FrameIndex: 0,
-		X:          x,
-		Y:          y,
-		OffsetY:    0,
-		Opacity:    1,
-		IntervalMs: 0,
-		FlipH:      false,
-		NextAnimID: 0,
+		PetID:           petID,
+		FrameIndex:      0,
+		X:               x,
+		Y:               y,
+		OffsetY:         0,
+		Opacity:         1,
+		IntervalMs:      0,
+		FlipH:           false,
+		CurrentAnimID:   animID,
+		CurrentAnimName: animName,
+		NextAnimID:      0,
 	}, nil
 }
 
@@ -306,17 +315,28 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 		s.mu.Unlock()
 	}
 
+	currentAnimID := e.CurrentAnim()
+	currentAnimName := ""
+	petDef := e.PetDef()
+	if petDef != nil {
+		if anim, ok := petDef.Animations[currentAnimID]; ok {
+			currentAnimName = anim.Name
+		}
+	}
+
 	return &ipc.PetState{
-		PetID:      petID,
-		FrameIndex: step.FrameIndex,
-		X:          step.X,
-		Y:          step.Y,
-		OffsetY:    step.OffsetY,
-		Opacity:    step.Opacity,
-		IntervalMs: step.IntervalMs,
-		FlipH:      step.ShouldFlip,
-		NextAnimID: step.NextAnimID,
-		Sound:      soundPayload,
+		PetID:           petID,
+		FrameIndex:      step.FrameIndex,
+		X:               step.X,
+		Y:               step.Y,
+		OffsetY:         step.OffsetY,
+		Opacity:         step.Opacity,
+		IntervalMs:      step.IntervalMs,
+		FlipH:           step.ShouldFlip,
+		CurrentAnimID:   currentAnimID,
+		CurrentAnimName: currentAnimName,
+		NextAnimID:      step.NextAnimID,
+		Sound:           soundPayload,
 	}, nil
 }
 

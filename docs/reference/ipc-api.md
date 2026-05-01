@@ -38,7 +38,7 @@ Register a pet with the animation engine.
 **Payload:**
 ```json
 {
-  "pet_path": "../pets/esheep64",
+  "pet_path": "../pets/eSheep-modern",
   "spawn_id": 1
 }
 ```
@@ -47,7 +47,7 @@ Register a pet with the animation engine.
 ```json
 {
   "ok": true,
-  "payload": { "pet_id": "../pets/esheep64" }
+  "payload": { "pet_id": "../pets/eSheep-modern" }
 }
 ```
 
@@ -95,7 +95,7 @@ Remove a pet from the engine.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/esheep64" }
+{ "pet_id": "../pets/eSheep-modern" }
 ```
 
 ### `drag_pet`
@@ -104,7 +104,7 @@ Set the pet to dragging state and update position.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/esheep64", "x": 500, "y": 300 }
+{ "pet_id": "../pets/eSheep-modern", "x": 500, "y": 300 }
 ```
 
 ### `drop_pet`
@@ -113,7 +113,7 @@ Set the pet to falling state (gravity animation).
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/esheep64" }
+{ "pet_id": "../pets/eSheep-modern" }
 ```
 
 ### `border_pet`
@@ -122,7 +122,7 @@ Notify the pet that it hit a screen border.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/esheep64", "border_ctx": 1 }
+{ "pet_id": "../pets/eSheep-modern", "border_ctx": 1 }
 ```
 
 ### `set_volume`
@@ -144,7 +144,7 @@ Load pet data from an `animations.xml` file.
 
 **Payload:**
 ```json
-{ "pet_path": "../pets/esheep64" }
+{ "pet_path": "../pets/eSheep-modern" }
 ```
 
 **Response:**

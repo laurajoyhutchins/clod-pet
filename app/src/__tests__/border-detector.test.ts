@@ -34,6 +34,56 @@ describe("BorderDetector", () => {
     expect(spy).toHaveBeenCalled();
   });
 
+  test("getRawWorldContext should refresh taskbar bounds when display work area changes", async () => {
+    let displays = [
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+      },
+    ];
+    screen.getAllDisplays.mockImplementation(() => displays);
+
+    await detector.init();
+    expect(detector.taskbarBoundsByDisplay.size).toBe(0);
+
+    displays = [
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+      },
+    ];
+
+    const world = detector.getRawWorldContext(100, 100, 64, 64);
+    expect(world?.taskbar).toEqual({
+      x: 0,
+      y: 1040,
+      w: 1920,
+      h: 40,
+    });
+  });
+
+  test("getRawWorldContext should prefer the nearest inset when multiple taskbars exist", async () => {
+    screen.getAllDisplays.mockReturnValue([
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 40, y: 30, width: 1880, height: 1050 },
+      },
+    ]);
+
+    await detector.init();
+
+    const world = detector.getRawWorldContext(20, 100, 64, 64);
+    expect(world?.taskbar).toEqual({
+      x: 0,
+      y: 0,
+      w: 40,
+      h: 1080,
+    });
+  });
+
   test("should detect taskbar on top", async () => {
     screen.getAllDisplays.mockReturnValue([
       {

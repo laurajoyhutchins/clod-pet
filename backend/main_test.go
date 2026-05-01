@@ -195,7 +195,7 @@ func TestLoadPetHandlerSuccess(t *testing.T) {
 	h := ipc.NewHandler(svc)
 	handler := loadPetHandler(h)
 
-	body := `{"pet_path": "../pets/esheep64"}`
+	body := `{"pet_path": "../pets/eSheep-modern"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/pet/load", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -212,7 +212,7 @@ func TestHealthHandlerOK(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := service.New("../pets", "test-settings.json", cfg)
 	// Add a pet to make it OK
-	svc.AddPet("../pets/esheep64", 1)
+	svc.AddPet("../pets/eSheep-modern", 1)
 
 	handler := healthHandler(svc)
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)

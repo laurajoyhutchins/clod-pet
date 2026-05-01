@@ -1,65 +1,92 @@
 # How-to: Add a custom pet
 
-Create a new pet directory under `pets/` with an `animations.xml` file and a sprite sheet.
+Create a new pet directory under `pets/` with an `animations.json` file and a sprite sheet.
 
 ## Step 1: Create the pet directory
 
 ```
 pets/
 └── my-pet/
-    └── animations.xml
+    ├── animations.json
+    └── spritesheet.png
 ```
 
 ## Step 2: Define the sprite sheet
 
-`animations.xml` must contain an `<image>` element with:
-- `tilesX` — columns in the sprite sheet
-- `tilesY` — rows in the sprite sheet
-- `<png>` — base64-encoded PNG data
+`animations.json` must contain an `image` object with:
+- `tiles_x` - columns in the sprite sheet
+- `tiles_y` - rows in the sprite sheet
+- `spritesheet` - the sprite sheet filename
 
-```xml
-<animations>
-  <image tilesx="16" tilesy="8">
-    <png>iVBORw0KGgo...</png>
-  </image>
-</animations>
+```json
+{
+  "image": {
+    "tiles_x": 16,
+    "tiles_y": 8,
+    "spritesheet": "spritesheet.png"
+  }
+}
 ```
 
 ## Step 3: Define at least one spawn
 
 A spawn determines where the pet appears:
 
-```xml
-<spawns>
-  <spawn id="1" probability="100">
-    <x>screenW/2</x>
-    <y>areaH-imageH</y>
-    <next probability="100">1</next>
-  </spawn>
-</spawns>
+```json
+{
+  "spawns": [
+    {
+      "id": 1,
+      "probability": 100,
+      "x": "screenW/2",
+      "y": "areaH-imageH",
+      "next": {
+        "probability": 100,
+        "value": 1
+      }
+    }
+  ]
+}
 ```
 
 - `x`, `y` — [expressions](../reference/expressions.md) for spawn position
-- `<next>` — animation ID to transition into after spawning
+- `next.value` — animation ID to transition into after spawning
 
 ## Step 4: Define at least one animation
 
-```xml
-<animations>
-  <animation id="1">
-    <name>stand</name>
-    <start>
-      <x>0</x><y>0</y><interval>200</interval><opacity>1.0</opacity>
-    </start>
-    <end>
-      <x>0</x><y>0</y><interval>200</interval><opacity>1.0</opacity>
-    </end>
-    <sequence repeat="1" repeatfrom="0">
-      <frame>0</frame>
-      <next probability="100" only="none">1</next>
-    </sequence>
-  </animation>
-</animations>
+```json
+{
+  "animations": [
+    {
+      "id": 1,
+      "name": "stand",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "interval": "200",
+        "opacity": 1.0
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "interval": "200",
+        "opacity": 1.0
+      },
+      "sequence": {
+        "frames": [0],
+        "repeat": "1",
+        "repeat_from": 0,
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ]
+      }
+    }
+  ]
+}
 ```
 
 ## Step 5: Load the pet
@@ -67,7 +94,7 @@ A spawn determines where the pet appears:
 Edit `app/main.ts`, change the default pet path passed to `createPet()`:
 
 ```ts
-async function createPet(petPath = "../pets/my-pet", opts = {}) {
+async function createPet(petPath = "../pets/eSheep-modern", opts = {}) {
 ```
 
 Then start the app:
@@ -82,6 +109,6 @@ cd app && npm start
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| "read animations.xml: no such file" | Wrong pet path | Path is relative to the Go backend working dir (`backend/`) |
-| "parse xml: ..." | Malformed XML | Validate with an XML linter |
-| "decode sprite png: ..." | Invalid base64 | Ensure `<png>` content is valid base64 |
+| "read animations.json: no such file" | Wrong pet path | Path is relative to the Go backend working dir (`backend/`) |
+| "parse json: ..." | Malformed JSON | Validate with a JSON linter |
+| "read spritesheet ...: ..." | Missing sprite sheet | Ensure `spritesheet.png` exists next to `animations.json` |

@@ -38,6 +38,7 @@ jest.mock("electron", () => ({
       bounds: { x: 0, y: 0, width: 1920, height: 1080 },
       workArea: { x: 0, y: 0, width: 1920, height: 1080 },
     }]),
+    getCursorScreenPoint: jest.fn(() => ({ x: 400, y: 300 })),
   },
   ipcMain: {
     on: jest.fn(),
@@ -321,13 +322,21 @@ describe("PetManager", () => {
     };
     (BrowserWindow.fromWebContents as unknown as jest.Mock).mockReturnValue(mockWin);
     manager["windowToPetId"].set(mockWin, "pet_1");
+    // pet entry required by drag:move handler for offset lookup
+    manager["pets"].set("pet_1", { dragOffsetX: 0, dragOffsetY: 0 });
+
+    // Cursor is at (40, 60) when the user presses down inside a window at (10, 20)
+    // → offset = (30, 40). Then cursor moves to (130, 160) → new window pos = (100, 120).
+    (screen.getCursorScreenPoint as jest.Mock)
+      .mockReturnValueOnce({ x: 40, y: 60 })
+      .mockReturnValueOnce({ x: 130, y: 160 });
 
     dragHandler({ sender: mockSender });
     expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 10, 20);
 
-    moveHandler({ sender: mockSender }, { x: 30, y: 40 });
-    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 30, 40);
-    expect(mockWin.setPosition).toHaveBeenCalledWith(30, 40);
+    moveHandler({ sender: mockSender }, { x: 0, y: 0 }); // renderer coords ignored
+    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 100, 120);
+    expect(mockWin.setPosition).toHaveBeenCalledWith(100, 120);
 
     dropHandler({ sender: mockSender });
     expect(mockBackendClient.dropPet).toHaveBeenCalledWith("pet_1");
@@ -408,6 +417,49 @@ describe("PetManager", () => {
     expect(mockBackendClient.setPosition).toHaveBeenCalledWith("pet_1", 0, 0);
     expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.any(Object));
     expect(mockWin.setPosition).toHaveBeenCalledWith(0, 10);
+  });
+
+  test("pet loop should log border collision events once per collision type", async () => {
+    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    const mockWin = {
+      getPosition: jest.fn().mockReturnValue([100, 200]),
+      getSize: jest.fn().mockReturnValue([64, 64]),
+      setPosition: jest.fn(),
+      isDestroyed: jest.fn().mockReturnValue(false),
+      webContents: { send: jest.fn() }
+    };
+    const petEntry = {
+      backendPetId: "pet_1",
+      win: mockWin,
+      loaded: true,
+      interval: null,
+      _debugCount: 0,
+      currentAnimId: 1,
+      currentAnimName: "walk",
+    };
+    manager.pets.set("pet_1", petEntry);
+
+    mockBorderDetector.checkBorder.mockReturnValue(["taskbar"]);
+    mockBackendClient.stepPet.mockResolvedValue({
+      frame_index: 5,
+      x: 100,
+      y: 200,
+      opacity: 1,
+      interval_ms: 100,
+      current_anim_id: 1,
+      current_anim_name: "walk",
+    });
+
+    manager["_startPetLoop"]("pet_1");
+    await jest.advanceTimersByTimeAsync(200);
+
+    expect(infoSpy.mock.calls.some((call) => (
+      call[0] === "[pet-manager]"
+      && typeof call[1] === "string"
+      && call[1].includes("[DEBUG] collision animName=walk animId=1 borders=taskbar")
+    ))).toBe(true);
+
+    infoSpy.mockRestore();
   });
 
   test("removePet should call backend removePet and cleanup when entry exists", async () => {
