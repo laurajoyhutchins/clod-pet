@@ -23,8 +23,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.AutostartPets != 1 {
 		t.Errorf("expected AutostartPets 1, got %v", cfg.AutostartPets)
 	}
-	if cfg.CurrentPet != "esheep64" {
-		t.Errorf("expected CurrentPet esheep64, got %v", cfg.CurrentPet)
+	if cfg.CurrentPet != "eSheep-modern" {
+		t.Errorf("expected CurrentPet eSheep-modern, got %v", cfg.CurrentPet)
 	}
 }
 
@@ -53,10 +53,10 @@ func TestLoadExistingFile(t *testing.T) {
 
 	// Create a settings file
 	original := &Config{
-		Volume:         0.8,
-		Scale:          2.0,
-		CurrentPet:     "test-pet",
-		AutostartPets:  3,
+		Volume:             0.8,
+		Scale:              2.0,
+		CurrentPet:         "test-pet",
+		AutostartPets:      3,
 		MultiScreenEnabled: false,
 	}
 	if err := original.Save(path); err != nil {
@@ -130,10 +130,10 @@ func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(dir, "subdir", "settings.json")
 
 	cfg := &Config{
-		Volume:         0.5,
-		Scale:          1.5,
-		CurrentPet:     "custom-pet",
-		AutostartPets:  2,
+		Volume:             0.5,
+		Scale:              1.5,
+		CurrentPet:         "custom-pet",
+		AutostartPets:      2,
 		MultiScreenEnabled: true,
 	}
 

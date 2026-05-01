@@ -1,0 +1,2375 @@
+{
+  "header": {
+    "author": "Adriano",
+    "title": "eSheep-modern",
+    "petname": "eSheep-modern",
+    "version": "1.8",
+    "info": "Open source project for the lovely eSheep.[br] For more info, visit my webpage [link:http://esheep.petrucci.ch] [br]Image rip by LiL_Stenly",
+    "application": 1,
+    "icon": "icon.png"
+  },
+  "image": {
+    "tiles_x": 16,
+    "tiles_y": 11,
+    "spritesheet": "spritesheet.png",
+    "transparency": "Magenta"
+  },
+  "spawns": [
+    {
+      "id": 1,
+      "probability": 20,
+      "x": "screenW+10",
+      "y": "areaH-imageH",
+      "next": {
+        "probability": 100,
+        "value": 1
+      }
+    },
+    {
+      "id": 2,
+      "probability": 80,
+      "x": "random*(screenW-imageW-50)/100+25",
+      "y": "-imageH-20",
+      "next": {
+        "probability": 100,
+        "value": 1
+      }
+    },
+    {
+      "id": 3,
+      "probability": 3,
+      "x": "screenW+10",
+      "y": "areaH/2-(randS*areaH/2)/120-imageH",
+      "next": {
+        "probability": 0,
+        "value": 21
+      }
+    },
+    {
+      "id": 4,
+      "probability": 3,
+      "x": "screenW",
+      "y": "areaH-imageH",
+      "next": {
+        "probability": 0,
+        "value": 28
+      }
+    }
+  ],
+  "animations": [
+    {
+      "id": 1,
+      "name": "walk",
+      "start": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          2,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 2,
+            "only": "window",
+            "value": 11
+          },
+          {
+            "probability": 10,
+            "only": "taskbar",
+            "value": 35
+          },
+          {
+            "probability": 90,
+            "only": "none",
+            "value": 1
+          },
+          {
+            "probability": 6,
+            "only": "none",
+            "value": 15
+          },
+          {
+            "probability": 50,
+            "only": "taskbar",
+            "value": 50
+          },
+          {
+            "probability": 50,
+            "only": "window",
+            "value": 49
+          }
+        ],
+        "repeat": "20",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 2
+        },
+        {
+          "probability": 2,
+          "only": "vertical",
+          "value": 37
+        },
+        {
+          "probability": 20,
+          "only": "window",
+          "value": 43
+        }
+      ],
+      "gravity": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "rotate1a",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          3,
+          9,
+          10
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "value": 3
+          }
+        ],
+        "action": "flip",
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 3,
+      "name": "rotate1b",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          10,
+          9,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          },
+          {
+            "probability": 5,
+            "only": "taskbar",
+            "value": 26
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 4,
+      "name": "drag",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          42,
+          43,
+          43,
+          42,
+          44,
+          44
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 5,
+      "name": "fall",
+      "start": {
+        "x": "0",
+        "y": "1",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "10",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "40"
+      },
+      "sequence": {
+        "frames": [
+          133
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 6
+          }
+        ],
+        "repeat": "20",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 9
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "fall fast",
+      "start": {
+        "x": "0",
+        "y": "10",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "40"
+      },
+      "end": {
+        "x": "0",
+        "y": "10",
+        "offset_y": 2,
+        "opacity": 1,
+        "interval": "40"
+      },
+      "sequence": {
+        "frames": [
+          46,
+          46,
+          46
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 6
+          }
+        ],
+        "repeat": "10",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 10
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "run",
+      "start": {
+        "x": "-10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "-10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          5,
+          4,
+          4
+        ],
+        "nexts": [
+          {
+            "probability": 40,
+            "only": "none",
+            "value": 7
+          },
+          {
+            "probability": 80,
+            "only": "none",
+            "value": 36
+          },
+          {
+            "probability": 20,
+            "only": "taskbar",
+            "value": 25
+          }
+        ],
+        "repeat": "5",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "vertical",
+          "value": 8
+        }
+      ],
+      "gravity": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "boing",
+      "start": {
+        "x": "1",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          62,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 20,
+            "value": 2
+          },
+          {
+            "probability": 5,
+            "value": 7
+          },
+          {
+            "probability": 80,
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 9,
+      "name": "fall soft",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 1,
+        "opacity": 1,
+        "interval": "800"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          133,
+          133,
+          133,
+          133,
+          49,
+          13,
+          12,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 10,
+      "name": "fall hard",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 2,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 2,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "sequence": {
+        "frames": [
+          48,
+          48,
+          48,
+          48,
+          47
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 11,
+      "name": "pissa",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          3,
+          12,
+          13,
+          103,
+          104,
+          105,
+          106
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "value": 12
+          }
+        ],
+        "repeat": "5+random/10",
+        "repeat_from": 5
+      }
+    },
+    {
+      "id": 12,
+      "name": "pissb",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          104,
+          105,
+          104,
+          104,
+          103,
+          13,
+          12
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 13,
+      "name": "kill",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          3,
+          96,
+          96
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "20",
+        "repeat_from": 1
+      }
+    },
+    {
+      "id": 14,
+      "name": "sync",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          50,
+          51
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "value": 1
+          }
+        ],
+        "repeat": "12",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 15,
+      "name": "sleep1a",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "1000"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          3,
+          107,
+          108,
+          107,
+          108,
+          107,
+          31,
+          32,
+          33,
+          0,
+          1
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 16
+          }
+        ],
+        "repeat": "random/5+10",
+        "repeat_from": 9
+      }
+    },
+    {
+      "id": 16,
+      "name": "sleep1b",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          0,
+          80,
+          79,
+          78,
+          77,
+          37,
+          38,
+          39,
+          38,
+          37,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 17,
+      "name": "sleep2a",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          3,
+          6,
+          7,
+          8,
+          8,
+          7,
+          8,
+          8
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 18
+          }
+        ],
+        "repeat": "random/10+20",
+        "repeat_from": 6
+      }
+    },
+    {
+      "id": 18,
+      "name": "sleep2b",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          8,
+          7,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "value": 7
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 19,
+      "name": "sleep3a",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 1,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 1,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          3,
+          9,
+          10,
+          34,
+          35,
+          34,
+          35,
+          36,
+          36
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 20
+          }
+        ],
+        "repeat": "random/10+30",
+        "repeat_from": 7
+      }
+    },
+    {
+      "id": 20,
+      "name": "sleep3b",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 1,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          35,
+          36,
+          36,
+          35,
+          34,
+          34,
+          34,
+          10,
+          9
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 21,
+      "name": "batha",
+      "start": {
+        "x": "-2",
+        "y": "2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "end": {
+        "x": "-2",
+        "y": "2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "sequence": {
+        "frames": [
+          134
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 22
+          }
+        ],
+        "repeat": "(areaH/2+(randS*areaH/2)/120-imageH-68)/2",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 22,
+      "name": "bathb",
+      "start": {
+        "x": "-2",
+        "y": "2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "end": {
+        "x": "-2",
+        "y": "2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "32"
+      },
+      "sequence": {
+        "frames": [
+          135,
+          135,
+          135,
+          135,
+          136,
+          136,
+          136,
+          136,
+          137,
+          137,
+          137,
+          137,
+          138,
+          138,
+          138,
+          138,
+          139,
+          139,
+          139,
+          139,
+          140,
+          140,
+          140,
+          140,
+          141,
+          141,
+          141,
+          141,
+          142,
+          142,
+          142,
+          142,
+          143,
+          143,
+          143,
+          143,
+          144,
+          144,
+          144,
+          144,
+          145,
+          144,
+          145,
+          144,
+          145,
+          144,
+          145,
+          144,
+          174,
+          174,
+          174,
+          174,
+          174,
+          174,
+          174
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 47
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 47
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "name": "bathw",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "sequence": {
+        "frames": [
+          146
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 24
+          }
+        ],
+        "repeat": "(areaH/2+(randS*areaH/2)/120-imageH-10)/2",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 24,
+      "name": "bathz",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "30"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "50"
+      },
+      "sequence": {
+        "frames": [
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          146,
+          147,
+          147,
+          148,
+          148,
+          148,
+          147,
+          147,
+          146,
+          146,
+          146,
+          146,
+          146
+        ],
+        "repeat": "5",
+        "repeat_from": 20
+      }
+    },
+    {
+      "id": 25,
+      "name": "jump",
+      "start": {
+        "x": "-10",
+        "y": "-15",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "-10",
+        "y": "15",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          76,
+          30,
+          30,
+          30,
+          30,
+          23,
+          23,
+          23,
+          23,
+          23,
+          24,
+          24,
+          24,
+          24,
+          77
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 7
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 80,
+          "only": "taskbar",
+          "value": 7
+        },
+        {
+          "probability": 20,
+          "only": "horizontal+",
+          "value": 36
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "name": "eat",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "300"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "300"
+      },
+      "sequence": {
+        "frames": [
+          6,
+          6,
+          6,
+          6,
+          58,
+          59,
+          59,
+          60,
+          61,
+          60,
+          61,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "5",
+        "repeat_from": 5
+      }
+    },
+    {
+      "id": 27,
+      "name": "flower",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 0.8,
+        "interval": "300"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "300"
+      },
+      "sequence": {
+        "frames": [
+          174,
+          153,
+          153,
+          153,
+          153,
+          153,
+          149,
+          149,
+          149,
+          149,
+          149,
+          149,
+          149,
+          149,
+          149,
+          150,
+          150,
+          150,
+          150,
+          150,
+          150,
+          150,
+          151,
+          151,
+          151,
+          151,
+          151,
+          151,
+          151,
+          152,
+          152,
+          152,
+          152,
+          152,
+          152,
+          152,
+          174,
+          174,
+          174
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 28,
+      "name": "blacksheepa",
+      "start": {
+        "x": "-10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "-10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          5,
+          4,
+          4
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 29
+          }
+        ],
+        "repeat": "(screenW/2)/30-6",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 29,
+      "name": "blacksheepb",
+      "start": {
+        "x": "-6",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          2,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 30
+          }
+        ],
+        "repeat": "25+(Convert(screenW/2,System.Int32)%30)/7",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 30,
+      "name": "blacksheepc",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "sequence": {
+        "frames": [
+          8,
+          3,
+          3,
+          3,
+          127,
+          128,
+          129,
+          130,
+          130,
+          130,
+          130,
+          129,
+          128,
+          127,
+          3,
+          3,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 31,
+      "name": "blacksheepv",
+      "start": {
+        "x": "10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          155,
+          154,
+          154
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 32
+          }
+        ],
+        "repeat": "(screenW/2)/30-6",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 32,
+      "name": "blacksheepw",
+      "start": {
+        "x": "6",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          156,
+          157
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 33
+          }
+        ],
+        "repeat": "24+(Convert(screenW/2,System.Int32)%30)/7",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 33,
+      "name": "blacksheepy",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "sequence": {
+        "frames": [
+          157
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 34
+          }
+        ],
+        "repeat": "9",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 34,
+      "name": "blacksheepz",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "20"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 0,
+        "interval": "20"
+      },
+      "sequence": {
+        "frames": [
+          157
+        ],
+        "repeat": "20",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 35,
+      "name": "run_begin",
+      "start": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "-10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          2,
+          3,
+          2,
+          5,
+          4,
+          5,
+          4,
+          5
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 7
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "vertical",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "name": "run_end",
+      "start": {
+        "x": "-10",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          5,
+          4,
+          5,
+          4,
+          5,
+          3,
+          2,
+          3,
+          2,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "vertical",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "name": "vertical_walk_up",
+      "start": {
+        "x": "0",
+        "y": "-2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "end": {
+        "x": "0",
+        "y": "-2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "sequence": {
+        "frames": [
+          31,
+          30,
+          15,
+          16
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 37
+          }
+        ],
+        "repeat": "5000",
+        "repeat_from": 2
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 38
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "name": "top_walk",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          16,
+          17,
+          28
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 39
+          }
+        ],
+        "action": "flip",
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 39,
+      "name": "top_walk2",
+      "start": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": -2,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "end": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": -2,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "sequence": {
+        "frames": [
+          98,
+          97
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 39
+          }
+        ],
+        "repeat": "5000",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 40
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "name": "top_walk3",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "800"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "800"
+      },
+      "sequence": {
+        "frames": [
+          97,
+          97
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 41
+          }
+        ],
+        "action": "flip",
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 41,
+      "name": "vertical_walk_down",
+      "start": {
+        "x": "0",
+        "y": "2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "end": {
+        "x": "0",
+        "y": "2",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "sequence": {
+        "frames": [
+          19,
+          20
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 41
+          }
+        ],
+        "repeat": "5000",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 42
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "name": "vertical_walk_over",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          24,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 43,
+      "name": "look_down",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "120"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "120"
+      },
+      "sequence": {
+        "frames": [
+          6,
+          78,
+          78,
+          78,
+          79,
+          80,
+          79,
+          78,
+          78,
+          78,
+          78,
+          78
+        ],
+        "nexts": [
+          {
+            "probability": 50,
+            "only": "none",
+            "value": 2
+          },
+          {
+            "probability": 40,
+            "only": "none",
+            "value": 44
+          },
+          {
+            "probability": 40,
+            "only": "none",
+            "value": 51
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 44,
+      "name": "jump_down",
+      "start": {
+        "x": "-5",
+        "y": "-10",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "end": {
+        "x": "-20",
+        "y": "10",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "150"
+      },
+      "sequence": {
+        "frames": [
+          31,
+          30,
+          30,
+          4,
+          4,
+          4,
+          21,
+          25
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 45
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 45,
+      "name": "jump_down2",
+      "start": {
+        "x": "0",
+        "y": "10",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "50"
+      },
+      "end": {
+        "x": "0",
+        "y": "10",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "50"
+      },
+      "sequence": {
+        "frames": [
+          25,
+          25
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 45
+          }
+        ],
+        "repeat": "100",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 46
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "name": "jump_down3",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "50"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          24,
+          23,
+          23,
+          23,
+          23,
+          23,
+          31,
+          3,
+          3,
+          3,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 47,
+      "name": "bathc",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          169,
+          169,
+          169,
+          170,
+          171,
+          170,
+          169,
+          169
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 48
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 48,
+      "name": "bathd",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": -20,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          119,
+          81,
+          81,
+          82,
+          82,
+          10
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 3
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 49,
+      "name": "walk_win2",
+      "start": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          2,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 10,
+            "only": "none",
+            "value": 19
+          },
+          {
+            "probability": 3,
+            "only": "none",
+            "value": 17
+          },
+          {
+            "probability": 80,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "10",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 2
+        },
+        {
+          "probability": 2,
+          "only": "vertical",
+          "value": 37
+        },
+        {
+          "probability": 20,
+          "only": "window",
+          "value": 43
+        }
+      ],
+      "gravity": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "name": "walk_task2",
+      "start": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "end": {
+        "x": "-2",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "200"
+      },
+      "sequence": {
+        "frames": [
+          2,
+          3
+        ],
+        "nexts": [
+          {
+            "probability": 10,
+            "only": "none",
+            "value": 19
+          },
+          {
+            "probability": 3,
+            "only": "none",
+            "value": 17
+          },
+          {
+            "probability": 80,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "10",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 2
+        },
+        {
+          "probability": 2,
+          "only": "vertical",
+          "value": 37
+        },
+        {
+          "probability": 20,
+          "only": "window",
+          "value": 43
+        }
+      ],
+      "gravity": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "name": "fall_wina",
+      "start": {
+        "x": "-imageW*0.7",
+        "y": "imageH*0.45",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          77
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 52
+          }
+        ],
+        "action": "flip",
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 52,
+      "name": "fall_winb",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "end": {
+        "x": "0",
+        "y": "1",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "100"
+      },
+      "sequence": {
+        "frames": [
+          40,
+          41
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 53
+          }
+        ],
+        "repeat": "10+random/10",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 53,
+      "name": "fall_winc",
+      "start": {
+        "x": "0",
+        "y": "4",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "50"
+      },
+      "end": {
+        "x": "0",
+        "y": "20",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "50"
+      },
+      "sequence": {
+        "frames": [
+          29,
+          29
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 53
+          }
+        ],
+        "repeat": "300",
+        "repeat_from": 0
+      },
+      "border": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 54
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "name": "fall_wind",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "end": {
+        "x": "0",
+        "y": "0",
+        "offset_y": 0,
+        "opacity": 1,
+        "interval": "500"
+      },
+      "sequence": {
+        "frames": [
+          45,
+          45,
+          18,
+          76,
+          6
+        ],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "0",
+        "repeat_from": 0
+      }
+    }
+  ],
+  "children": [
+    {
+      "animation_id": 21,
+      "x": "screenW+10-areaH/2-(randS*areaH/2)/120",
+      "y": "areaH-imageH",
+      "next": {
+        "probability": 0,
+        "value": 23
+      }
+    },
+    {
+      "animation_id": 26,
+      "x": "imageX-imageW*0.9",
+      "y": "imageY",
+      "next": {
+        "probability": 0,
+        "value": 27
+      }
+    },
+    {
+      "animation_id": 28,
+      "x": "-imageW",
+      "y": "imageY",
+      "next": {
+        "probability": 0,
+        "value": 31
+      }
+    }
+  ]
+}

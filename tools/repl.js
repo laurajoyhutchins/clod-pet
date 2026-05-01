@@ -103,7 +103,7 @@ function stopBackend() {
 
 async function step(count = 1) {
   for (let i = 0; i < count; i++) {
-    await api("step_pet", { pet_id: "../pets/esheep64", border_ctx: 0 });
+    await api("step_pet", { pet_id: "../pets/eSheep-modern", border_ctx: 0 });
   }
 }
 
@@ -126,10 +126,10 @@ rl.on("line", async (line) => {
         stopBackend();
         break;
       case "load":
-        await loadPet(parts[1] || "../pets/esheep64");
+        await loadPet(parts[1] || "../pets/eSheep-modern");
         break;
       case "add":
-        await api("add_pet", { pet_path: parts[1] || "../pets/esheep64", spawn_id: parseInt(parts[2]) || 1 });
+        await api("add_pet", { pet_path: parts[1] || "../pets/eSheep-modern", spawn_id: parseInt(parts[2]) || 1 });
         break;
       case "step":
         await step(parseInt(parts[1]) || 1);

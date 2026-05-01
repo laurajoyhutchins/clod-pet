@@ -1,6 +1,8 @@
 package pet
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -176,6 +178,9 @@ func TestLoadPetSpawns(t *testing.T) {
 	if s.NextAnimID != 1 {
 		t.Errorf("Spawn NextAnimID = %d, want 1", s.NextAnimID)
 	}
+	if s.NextProbability != 100 {
+		t.Errorf("Spawn NextProbability = %d, want 100", s.NextProbability)
+	}
 }
 
 func TestLoadPetAnimations(t *testing.T) {
@@ -315,6 +320,9 @@ func TestLoadPetChildren(t *testing.T) {
 	if c.X != "imageX+10" {
 		t.Errorf("Child X = %q, want %q", c.X, "imageX+10")
 	}
+	if c.NextProbability != 100 {
+		t.Errorf("Child NextProbability = %d, want 100", c.NextProbability)
+	}
 }
 
 func TestLoadPetSounds(t *testing.T) {
@@ -343,6 +351,316 @@ func TestLoadPetSounds(t *testing.T) {
 	}
 	if s.Loop != 0 {
 		t.Errorf("Sound Loop = %d, want 0", s.Loop)
+	}
+}
+
+func TestLoadPetModernFormat(t *testing.T) {
+	const modernJSON = `{
+  "header": {
+    "author": "test",
+    "title": "Test Modern Pet",
+    "petname": "test-modern",
+    "version": "1.0",
+    "info": "A modern test pet",
+    "application": 1
+  },
+  "image": {
+    "tiles_x": 2,
+    "tiles_y": 2,
+    "spritesheet": "spritesheet.png",
+    "transparency": "#FF00FF"
+  },
+  "spawns": [
+    {
+      "id": 1,
+      "probability": 100,
+      "x": "screenW/2",
+      "y": "areaH-imageH",
+      "next": {
+        "probability": 100,
+        "value": 1
+      }
+    }
+  ],
+  "animations": [
+    {
+      "id": 1,
+      "name": "walk",
+      "start": {
+        "x": "-2",
+        "y": "0",
+        "interval": "200",
+        "offset_y": 0,
+        "opacity": 1.0
+      },
+      "end": {
+        "x": "-2",
+        "y": "0",
+        "interval": "200",
+        "offset_y": 0,
+        "opacity": 1.0
+      },
+      "sequence": {
+        "frames": [0, 1],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "1",
+        "repeat_from": 0
+      }
+    },
+    {
+      "id": 2,
+      "name": "sit",
+      "start": {
+        "x": "0",
+        "y": "0",
+        "interval": "300",
+        "opacity": 1.0
+      },
+      "sequence": {
+        "frames": [2, 3],
+        "nexts": [
+          {
+            "probability": 100,
+            "only": "none",
+            "value": 1
+          }
+        ],
+        "repeat": "1",
+        "repeat_from": 0
+      },
+      "gravity": [
+        {
+          "probability": 100,
+          "only": "none",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "sounds": [
+    {
+      "animation_id": 1,
+      "probability": 50,
+      "loop": 2,
+      "base64": "YWJj"
+    }
+  ]
+}`
+
+	dir := makeTestDir(t)
+	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mNk+M+AARiHKhgFBDYAAHjaE/9nYGBgAAAAAElFTkSuQmCC")
+	if err != nil {
+		t.Fatalf("failed to decode png: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "spritesheet.png"), pngData, 0644); err != nil {
+		t.Fatalf("failed to write spritesheet: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "animations.json"), []byte(modernJSON), 0644); err != nil {
+		t.Fatalf("failed to write animations.json: %v", err)
+	}
+
+	p, err := LoadPet(dir)
+	if err != nil {
+		t.Fatalf("LoadPet(modern) error: %v", err)
+	}
+
+	if p.Header.Title != "Test Modern Pet" {
+		t.Errorf("Title = %q, want %q", p.Header.Title, "Test Modern Pet")
+	}
+	if p.Header.PetName != "test-modern" {
+		t.Errorf("PetName = %q, want %q", p.Header.PetName, "test-modern")
+	}
+	if p.Image.TilesX != 2 {
+		t.Errorf("TilesX = %d, want 2", p.Image.TilesX)
+	}
+	if p.Image.TilesY != 2 {
+		t.Errorf("TilesY = %d, want 2", p.Image.TilesY)
+	}
+	if len(p.Image.PngData) == 0 {
+		t.Error("PngData is empty")
+	}
+	if p.FrameW != 1 {
+		t.Errorf("FrameW = %d, want 1", p.FrameW)
+	}
+	if p.FrameH != 1 {
+		t.Errorf("FrameH = %d, want 1", p.FrameH)
+	}
+	if len(p.Spawns) != 1 {
+		t.Fatalf("Spawns count = %d, want 1", len(p.Spawns))
+	}
+	if p.Spawns[0].NextProbability != 100 {
+		t.Errorf("Spawn NextProbability = %d, want 100", p.Spawns[0].NextProbability)
+	}
+	if len(p.Animations) != 2 {
+		t.Fatalf("Animations count = %d, want 2", len(p.Animations))
+	}
+	if walk, ok := p.Animations[1]; !ok {
+		t.Fatal("Animation 1 not found")
+	} else if walk.Name != "walk" {
+		t.Errorf("Animation 1 Name = %q, want %q", walk.Name, "walk")
+	}
+	sounds, ok := p.Sounds[1]
+	if !ok {
+		t.Fatal("Sounds for animation 1 not found")
+	}
+	if len(sounds) != 1 {
+		t.Fatalf("Sounds count = %d, want 1", len(sounds))
+	}
+	if got := string(sounds[0].Data); got != "abc" {
+		t.Errorf("Sound data = %q, want %q", got, "abc")
+	}
+	if sounds[0].Loop != 2 {
+		t.Errorf("Sound loop = %d, want 2", sounds[0].Loop)
+	}
+}
+
+func TestExportModernPet(t *testing.T) {
+	dir := makeTestDir(t)
+	dst := filepath.Join(dir, "modern")
+	pngData, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mNk+M+AARiHKhgFBDYAAHjaE/9nYGBgAAAAAElFTkSuQmCC")
+	if err != nil {
+		t.Fatalf("failed to decode png: %v", err)
+	}
+
+	p := &Pet{
+		Header: Header{
+			Author:      "exporter",
+			Title:       "Original Title",
+			PetName:     "original-name",
+			Version:     "1.0",
+			Info:        "exported pet",
+			Application: 1,
+			Icon:        []byte("icon-data"),
+		},
+		Image: Image{
+			TilesX:       2,
+			TilesY:       2,
+			PngData:      pngData,
+			Transparency: "Magenta",
+		},
+		Spawns: []Spawn{
+			{ID: 2, Probability: 25, X: "x2", Y: "y2", NextProbability: 80, NextAnimID: 2},
+			{ID: 1, Probability: 75, X: "x1", Y: "y1", NextProbability: 20, NextAnimID: 1},
+		},
+		Animations: map[int]Animation{
+			2: {
+				ID:   2,
+				Name: "second",
+				Start: Movement{
+					X:        "10",
+					Y:        "20",
+					OffsetY:  3,
+					Opacity:  0.5,
+					Interval: "150",
+				},
+				End: Movement{
+					X:        "30",
+					Y:        "40",
+					OffsetY:  4,
+					Opacity:  0.75,
+					Interval: "250",
+				},
+				Frames:       []int{3, 4},
+				SequenceNext: []NextAnimation{{ID: 1, Probability: 100, Only: "none"}},
+				BorderNext:   []NextAnimation{{ID: 3, Probability: 10, Only: "window"}},
+				GravityNext:  []NextAnimation{{ID: 4, Probability: 20, Only: "none"}},
+				Repeat:       "2",
+				RepeatFrom:   1,
+			},
+			1: {
+				ID:   1,
+				Name: "first",
+				Start: Movement{
+					X:        "1",
+					Y:        "2",
+					Interval: "100",
+				},
+				End:        Movement{X: "1", Y: "2", Interval: "100"},
+				Frames:     []int{0, 1},
+				Repeat:     "1",
+				RepeatFrom: 0,
+			},
+		},
+		Children: []Child{
+			{AnimationID: 2, X: "childX", Y: "childY", NextProbability: 42, NextAnimID: 1},
+		},
+		Sounds: map[int][]Sound{
+			1: []Sound{
+				{AnimationID: 1, Probability: 60, Loop: 2, Data: []byte("sound-data")},
+			},
+		},
+	}
+
+	if err := ExportModernPet(dst, p, ModernExportOptions{
+		Title:   "Modern Title",
+		PetName: "modern-name",
+	}); err != nil {
+		t.Fatalf("ExportModernPet error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dst, "spritesheet.png")); err != nil {
+		t.Fatalf("spritesheet.png missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "icon.png")); err != nil {
+		t.Fatalf("icon.png missing: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dst, "animations.json"))
+	if err != nil {
+		t.Fatalf("read animations.json: %v", err)
+	}
+
+	var root modernRoot
+	if err := json.Unmarshal(data, &root); err != nil {
+		t.Fatalf("unmarshal exported json: %v", err)
+	}
+
+	if root.Header.Title != "Modern Title" {
+		t.Errorf("Title = %q, want %q", root.Header.Title, "Modern Title")
+	}
+	if root.Header.PetName != "modern-name" {
+		t.Errorf("PetName = %q, want %q", root.Header.PetName, "modern-name")
+	}
+	if root.Header.Icon != "icon.png" {
+		t.Errorf("Icon = %q, want %q", root.Header.Icon, "icon.png")
+	}
+	if root.Image.Spritesheet != "spritesheet.png" {
+		t.Errorf("Spritesheet = %q, want %q", root.Image.Spritesheet, "spritesheet.png")
+	}
+	if len(root.Animations) != 2 {
+		t.Fatalf("Animations count = %d, want 2", len(root.Animations))
+	}
+	if root.Animations[0].ID != 1 || root.Animations[1].ID != 2 {
+		t.Errorf("Animations not sorted by ID: got %d then %d", root.Animations[0].ID, root.Animations[1].ID)
+	}
+	if len(root.Spawns) != 2 {
+		t.Fatalf("Spawns count = %d, want 2", len(root.Spawns))
+	}
+	if root.Spawns[0].Next.Probability != 80 || root.Spawns[1].Next.Probability != 20 {
+		t.Errorf("Spawn next probabilities = %d, %d; want 80, 20", root.Spawns[0].Next.Probability, root.Spawns[1].Next.Probability)
+	}
+	if len(root.Children) != 1 {
+		t.Fatalf("Children count = %d, want 1", len(root.Children))
+	}
+	if root.Children[0].Next.Probability != 42 {
+		t.Errorf("Child next probability = %d, want 42", root.Children[0].Next.Probability)
+	}
+	if len(root.Sounds) != 1 {
+		t.Fatalf("Sounds count = %d, want 1", len(root.Sounds))
+	}
+	if root.Sounds[0].AnimationID != 1 {
+		t.Errorf("Sound AnimationID = %d, want 1", root.Sounds[0].AnimationID)
+	}
+	if got, err := base64.StdEncoding.DecodeString(root.Sounds[0].Base64); err != nil {
+		t.Fatalf("decode exported sound: %v", err)
+	} else if string(got) != "sound-data" {
+		t.Errorf("Sound bytes = %q, want %q", string(got), "sound-data")
 	}
 }
 

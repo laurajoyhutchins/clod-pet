@@ -3,6 +3,7 @@ dist/
 app/coverage/
 site/
 backend/backend.exe
+backend/clod-pet-backend
 backend/clod-pet-backend.exe
 backend/clod-pet-test.exe
 backend/clod-pet.exe*

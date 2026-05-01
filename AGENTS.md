@@ -83,7 +83,7 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - UI: `index.html` (Main), `chat.html` (AI Chat), `control-panel.html` (Settings)
 
 ## Pet format
-- Directory per pet under `pets/` (e.g., `pets/esheep64/`)
+- Directory per pet under `pets/` (e.g., `pets/eSheep-modern/`)
 - `animations.xml` — sprite sheet + animation state machine
 - XML supports expressions: `screenW`, `random`, `imageH`, etc.
 

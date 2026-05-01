@@ -4,7 +4,7 @@ import net from "net";
 import path from "path";
 
 const BACKEND_DIR = path.join(__dirname, "../../backend");
-const PET_PATH = path.join(__dirname, "../../pets/esheep64");
+const PET_PATH = path.join(__dirname, "../../pets/eSheep-modern");
 
 interface ApiResponse {
   status: number;
@@ -154,7 +154,7 @@ describe("E2E Tests - Backend API", () => {
     expect(res.body.pets_dir).toBe(path.dirname(PET_PATH));
   });
 
-  test("load pet from esheep64", async () => {
+  test("load pet from eSheep-modern", async () => {
     const res = await apiRequest(ctx!.url, "/api/pet/load", "POST", { pet_path: PET_PATH });
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);

@@ -34,7 +34,7 @@ func DefaultConfig() *Config {
 		ShowDiagnostics:      false,
 		MultiScreenEnabled:   true,
 		AutostartPets:        1,
-		CurrentPet:           "esheep64",
+		CurrentPet:           "eSheep-modern",
 		LLM: llm.ProviderConfig{
 			Provider: "ollama",
 			BaseURL:  "http://localhost:11434",

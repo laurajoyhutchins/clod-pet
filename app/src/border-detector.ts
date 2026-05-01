@@ -27,37 +27,79 @@ class BorderDetector {
     });
   }
 
-  _taskbarBoundsForDisplay(display: any) {
-    if (!display || !display.bounds || !display.workArea) return null;
+  _taskbarCandidatesForDisplay(display: any) {
+    if (!display || !display.bounds || !display.workArea) return [];
 
     const workArea = display.workArea;
     const bounds = display.bounds;
+    const topInset = workArea.y - bounds.y;
+    const leftInset = workArea.x - bounds.x;
     const rightInset = (bounds.x + bounds.width) - (workArea.x + workArea.width);
     const bottomInset = (bounds.y + bounds.height) - (workArea.y + workArea.height);
-    const edgeInsets = [
-      { edge: "top", size: workArea.y - bounds.y },
-      { edge: "left", size: workArea.x - bounds.x },
-      { edge: "right", size: rightInset },
-      { edge: "bottom", size: bottomInset },
-    ];
-    const inset = edgeInsets.reduce((largest, current) => (
-      current.size > largest.size ? current : largest
-    ), { edge: "", size: 0 });
 
-    if (inset.size <= 0) return null;
-
-    switch (inset.edge) {
-      case "top":
-        return { x: bounds.x, y: bounds.y, width: bounds.width, height: inset.size };
-      case "left":
-        return { x: bounds.x, y: bounds.y, width: inset.size, height: bounds.height };
-      case "right":
-        return { x: workArea.x + workArea.width, y: bounds.y, width: inset.size, height: bounds.height };
-      case "bottom":
-        return { x: bounds.x, y: workArea.y + workArea.height, width: bounds.width, height: inset.size };
-      default:
-        return null;
+    const candidates: any[] = [];
+    if (topInset > 0) {
+      candidates.push({ edge: "top", x: bounds.x, y: bounds.y, width: bounds.width, height: topInset });
     }
+    if (leftInset > 0) {
+      candidates.push({ edge: "left", x: bounds.x, y: bounds.y, width: leftInset, height: bounds.height });
+    }
+    if (rightInset > 0) {
+      candidates.push({ edge: "right", x: workArea.x + workArea.width, y: bounds.y, width: rightInset, height: bounds.height });
+    }
+    if (bottomInset > 0) {
+      candidates.push({ edge: "bottom", x: bounds.x, y: workArea.y + workArea.height, width: bounds.width, height: bottomInset });
+    }
+
+    return candidates;
+  }
+
+  _pickTaskbarCandidate(candidates: any[], x?: number, y?: number, width?: number, height?: number) {
+    if (!candidates.length) return null;
+
+    if ([x, y, width, height].some((value) => typeof value !== "number")) {
+      return candidates.reduce((largest, current) => (
+        current.width * current.height > largest.width * largest.height ? current : largest
+      ), candidates[0]);
+    }
+
+    let best = candidates[0];
+    let bestOverlap = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    candidates.forEach((candidate) => {
+      const overlap = this._intersectionArea(candidate, x as number, y as number, width as number, height as number);
+      if (overlap > 0) {
+        if (overlap > bestOverlap || (overlap === bestOverlap && candidate.width * candidate.height > best.width * best.height)) {
+          best = candidate;
+          bestOverlap = overlap;
+          bestDistance = 0;
+        }
+        return;
+      }
+
+      if (bestOverlap > 0) return;
+
+      const distance = this._rectDistance(candidate, x as number, y as number, width as number, height as number);
+      if (distance < bestDistance || (distance === bestDistance && candidate.width * candidate.height > best.width * best.height)) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    });
+
+    return best;
+  }
+
+  _taskbarBoundsForDisplay(display: any) {
+    const taskbar = this._pickTaskbarCandidate(this._taskbarCandidatesForDisplay(display));
+    if (!taskbar) return null;
+
+    return {
+      x: taskbar.x,
+      y: taskbar.y,
+      width: taskbar.width,
+      height: taskbar.height,
+    };
   }
 
   _displayForRect(displays: any[], x: number, y: number, width: number, height: number) {
@@ -92,6 +134,12 @@ class BorderDetector {
     return Math.max(0, overlapW) * Math.max(0, overlapH);
   }
 
+  _rectDistance(bounds: any, x: number, y: number, width: number, height: number) {
+    const dx = Math.max(bounds.x - (x + width), x - (bounds.x + bounds.width), 0);
+    const dy = Math.max(bounds.y - (y + height), y - (bounds.y + bounds.height), 0);
+    return dx + dy;
+  }
+
   _displayIndex(display: any) {
     if (!display) return null;
     const displays = screen.getAllDisplays();
@@ -107,6 +155,7 @@ class BorderDetector {
     const bounds = display.bounds;
     const borders: string[] = [];
     const displayIndex = displays.indexOf(display);
+    const taskbar = this._taskbarForRect(display, displayIndex, x, y, width, height);
 
     if (Math.abs(y - bounds.y) <= this.tolerance || Math.abs((y + height) - (bounds.y + bounds.height)) <= this.tolerance) {
       borders.push("horizontal");
@@ -114,7 +163,7 @@ class BorderDetector {
     if (Math.abs(x - bounds.x) <= this.tolerance || Math.abs((x + width) - (bounds.x + bounds.width)) <= this.tolerance) {
       borders.push("vertical");
     }
-    if (this._onTaskbar(x, y, width, height, display, displayIndex)) {
+    if (this._onTaskbar(x, y, width, height, display, displayIndex, taskbar)) {
       borders.push("taskbar");
     }
 
@@ -129,7 +178,8 @@ class BorderDetector {
     const bottom = y + height;
     const workBottom = display.workArea.y + display.workArea.height;
     const displayIndex = displays.indexOf(display);
-    if (this._onBottomTaskbar(x, y, width, height, display, displayIndex)) return false;
+    const taskbar = this._taskbarForRect(display, displayIndex, x, y, width, height);
+    if (this._onBottomTaskbar(x, y, width, height, display, displayIndex, taskbar)) return false;
 
     if (bottom < workBottom - this.tolerance) return true;
 
@@ -140,8 +190,8 @@ class BorderDetector {
     });
   }
 
-  _onTaskbar(x: number, y: number, width: number, height: number, display: any, displayIndex: number | null = null) {
-    const taskbar = this._taskbarForDisplay(display, displayIndex);
+  _onTaskbar(x: number, y: number, width: number, height: number, display: any, displayIndex: number | null = null, taskbar: any = null) {
+    taskbar = taskbar || this._taskbarForRect(display, displayIndex, x, y, width, height);
     if (!taskbar) return false;
     const t = this.tolerance;
 
@@ -151,30 +201,47 @@ class BorderDetector {
       || y > taskbar.y + taskbar.height + t);
   }
 
-  _onBottomTaskbar(x: number, y: number, width: number, height: number, display: any, displayIndex: number | null = null) {
-    const taskbar = this._taskbarForDisplay(display, displayIndex);
+  _onBottomTaskbar(x: number, y: number, width: number, height: number, display: any, displayIndex: number | null = null, taskbar: any = null) {
+    taskbar = taskbar || this._taskbarForRect(display, displayIndex, x, y, width, height);
     if (!taskbar || !display?.bounds) return false;
     const screenTop = display.bounds.y;
     const taskbarBottom = taskbar.y + taskbar.height;
     const screenBottom = display.bounds.y + display.bounds.height;
     return taskbar.y > screenTop + this.tolerance
       && taskbarBottom >= screenBottom - this.tolerance
-      && this._onTaskbar(x, y, width, height, display, displayIndex);
+      && this._onTaskbar(x, y, width, height, display, displayIndex, taskbar);
   }
 
   _taskbarForDisplay(display: any, displayIndex: number | null = null) {
     const displayId = display?.id ?? displayIndex ?? this._displayIndex(display);
     if (displayId === null || displayId === undefined) return null;
+
+    const candidates = this._taskbarCandidatesForDisplay(display);
+    if (candidates.length > 0) {
+      return this._pickTaskbarCandidate(candidates);
+    }
+
+    return this.taskbarBoundsByDisplay.get(displayId) || null;
+  }
+
+  _taskbarForRect(display: any, displayIndex: number | null = null, x?: number, y?: number, width?: number, height?: number) {
+    const displayId = display?.id ?? displayIndex ?? this._displayIndex(display);
+    if (displayId === null || displayId === undefined) return null;
+    const candidates = this._taskbarCandidatesForDisplay(display);
+    if (candidates.length > 0) {
+      return this._pickTaskbarCandidate(candidates, x, y, width, height);
+    }
     return this.taskbarBoundsByDisplay.get(displayId) || null;
   }
 
   getRawWorldContext(x: number, y: number, width: number, height: number) {
+    this._detectTaskbar();
+
     const displays = screen.getAllDisplays();
     const display = this._displayForRect(displays, x, y, width, height);
     if (!display) return null;
 
-    const displayId = display.id ?? displays.indexOf(display);
-    const taskbar = this.taskbarBoundsByDisplay.get(displayId) || { x: 0, y: 0, width: 0, height: 0 };
+    const taskbar = this._taskbarForRect(display, displays.indexOf(display), x, y, width, height) || { x: 0, y: 0, width: 0, height: 0 };
 
     return {
       screen: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },

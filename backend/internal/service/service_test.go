@@ -66,7 +66,7 @@ func TestLoadPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	info, err := svc.LoadPet("../../../pets/esheep64")
+	info, err := svc.LoadPet("../../../pets/eSheep-modern")
 	if err != nil {
 		t.Fatalf("LoadPet failed: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestAddPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestAddPetUsesWorldContext(t *testing.T) {
 		WorkArea: engine.Rect{W: 1920, H: 1040},
 	}
 
-	state, err := svc.AddPet("../../../pets/esheep64", 1, world)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 1, world)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestRemovePet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestStepPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -194,13 +194,19 @@ func TestStepPet(t *testing.T) {
 	if state.PetID == "" {
 		t.Error("expected non-empty PetID")
 	}
+	if state.CurrentAnimID == 0 {
+		t.Error("expected current animation id")
+	}
+	if state.CurrentAnimName == "" {
+		t.Error("expected current animation name")
+	}
 }
 
 func TestStepPetConcurrentCalls(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -246,7 +252,7 @@ func TestStepPetWithBorder(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -268,7 +274,7 @@ func TestDragPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -293,7 +299,7 @@ func TestDropPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -318,7 +324,7 @@ func TestValidatePetExists(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -400,7 +406,7 @@ func TestListActive(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -421,7 +427,7 @@ func TestPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -555,12 +561,12 @@ func TestAddPetDuplicate(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	state1, err := svc.AddPet("../../../pets/esheep64", 0)
+	state1, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	state2, err := svc.AddPet("../../../pets/esheep64", 0)
+	state2, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}

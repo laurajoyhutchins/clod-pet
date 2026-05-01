@@ -378,16 +378,18 @@ func TestHandleInvalidPayloads(t *testing.T) {
 
 func TestPetStateJSON(t *testing.T) {
 	state := PetState{
-		PetID:      "test",
-		FrameIndex: 3,
-		X:          100.5,
-		Y:          200.5,
-		OffsetY:    5.0,
-		Opacity:    0.75,
-		IntervalMs: 200,
-		FlipH:      true,
-		NextAnimID: 2,
-		Sound:      &SoundPayload{MIMEType: "audio/wav", DataBase64: "abc"},
+		PetID:           "test",
+		FrameIndex:      3,
+		X:               100.5,
+		Y:               200.5,
+		OffsetY:         5.0,
+		Opacity:         0.75,
+		IntervalMs:      200,
+		FlipH:           true,
+		CurrentAnimID:   7,
+		CurrentAnimName: "walk",
+		NextAnimID:      2,
+		Sound:           &SoundPayload{MIMEType: "audio/wav", DataBase64: "abc"},
 	}
 
 	data, err := json.Marshal(state)
@@ -405,6 +407,12 @@ func TestPetStateJSON(t *testing.T) {
 	}
 	if int(decoded["frame_index"].(float64)) != 3 {
 		t.Errorf("frame_index = %v, want 3", decoded["frame_index"])
+	}
+	if int(decoded["current_anim_id"].(float64)) != 7 {
+		t.Errorf("current_anim_id = %v, want 7", decoded["current_anim_id"])
+	}
+	if decoded["current_anim_name"] != "walk" {
+		t.Errorf("current_anim_name = %v, want walk", decoded["current_anim_name"])
 	}
 	if int(decoded["next_anim_id"].(float64)) != 2 {
 		t.Errorf("next_anim_id = %v, want 2", decoded["next_anim_id"])

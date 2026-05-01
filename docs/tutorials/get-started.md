@@ -70,7 +70,7 @@ Select **Quit** from the tray menu. The Go backend process terminates automatica
 ## What happens under the hood
 
 1. `app/main.ts` compiles to `app/dist/main.js`, which Electron runs
-2. The Go backend reads `pets/esheep64/animations.xml` — a sprite sheet and 77 animation definitions
+2. The Go backend reads `pets/eSheep-modern/animations.json` and `spritesheet.png`
 3. `addPet()` loads the pet data, creates a transparent `BrowserWindow`
 4. The animation loop polls `/api` every 200ms for the next frame
 5. Each frame sends `{frame_index, x, y, flip_h, opacity}` to the renderer

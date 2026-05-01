@@ -74,8 +74,10 @@ clod-pet/
 |       |-- preload.ts           # Context bridge (ipcRenderer)
 |       `-- pet-renderer.ts      # Canvas sprite sheet renderer
 |-- pets/                     # Pet data directories
-|   `-- esheep64/
-|       `-- animations.xml    # Sprite sheet + animation definitions
+|   `-- eSheep-modern/
+|       |-- animations.json   # Modern pet definition
+|       |-- spritesheet.png   # Sprite sheet image
+|       `-- icon.png          # Optional pet icon
 |-- dist/                     # Built Electron executables
 |-- scripts/                  # PowerShell automation scripts
 `-- docs/                     # This documentation

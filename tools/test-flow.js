@@ -5,7 +5,7 @@ const path = require("path");
 const BACKEND_URL = "http://localhost:8080";
 const BACKEND_DIR = path.join(__dirname, "backend");
 const PETS_DIR = path.join(__dirname, "pets");
-const PET_REL_PATH = "../pets/esheep64";
+const PET_REL_PATH = "../pets/eSheep-modern";
 
 function api(command, payload = {}) {
   return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ async function test() {
 
   console.log("\n=== load pet ===");
   const loadResult = await new Promise((resolve, reject) => {
-    const data = JSON.stringify({ pet_path: "../pets/esheep64" });
+    const data = JSON.stringify({ pet_path: "../pets/eSheep-modern" });
     const req = http.request(`${BACKEND_URL}/api/pet/load`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,12 +75,12 @@ async function test() {
   }
 
   console.log("\n=== add pet ===");
-  const addResult = await api("add_pet", { pet_path: "../pets/esheep64", spawn_id: 1 });
+  const addResult = await api("add_pet", { pet_path: "../pets/eSheep-modern", spawn_id: 1 });
   console.log("add_pet:", addResult.ok ? "ok" : addResult.error);
 
   console.log("\n=== step 50 ===");
   for (let i = 0; i < 50; i++) {
-    const stepResult = await api("step_pet", { pet_id: "../pets/esheep64", border_ctx: 0 });
+    const stepResult = await api("step_pet", { pet_id: "../pets/eSheep-modern", border_ctx: 0 });
     if (stepResult.ok) {
       const p = typeof stepResult.payload === "string" ? JSON.parse(stepResult.payload) : stepResult.payload;
       const na = p.next_anim_id !== undefined ? `nextAnim=${p.next_anim_id}` : "no transition";
