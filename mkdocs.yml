@@ -14,7 +14,7 @@ nav:
       - Add a custom pet: howto/add-custom-pet.md
   - Reference:
       - IPC API: reference/ipc-api.md
-      - animations.xml: reference/animations-xml.md
+      - animations.json: reference/animations-json.md
       - Expression language: reference/expressions.md
       - Scripts: reference/scripts.md
   - Explanation:

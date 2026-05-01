@@ -1,6 +1,6 @@
 # How-to: Add a custom pet
 
-Create a new pet directory under `pets/` with an `animations.json` file and a sprite sheet.
+Create a new pet directory under `pets/` with an `animations.json` file and a sprite sheet. The backend loads this JSON format first; legacy `animations.xml` pets are still supported for older content.
 
 ## Step 1: Create the pet directory
 
@@ -9,6 +9,13 @@ pets/
 └── my-pet/
     ├── animations.json
     └── spritesheet.png
+```
+
+If you are converting an older XML pet, you can generate the modern layout with:
+
+```bash
+cd backend
+go run ./cmd/export-modern-pet -src ../pets/<legacy-pet> -dst ../pets/<new-pet>
 ```
 
 ## Step 2: Define the sprite sheet
