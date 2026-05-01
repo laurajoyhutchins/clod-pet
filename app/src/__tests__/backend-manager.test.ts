@@ -1,9 +1,10 @@
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import http from "http";
 
 // Mock modules
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
+  spawnSync: jest.fn(),
 }));
 
 jest.mock("http", () => ({
@@ -41,6 +42,7 @@ describe("BackendManager", () => {
   let manager: InstanceType<typeof BackendManager>;
   let mockProcess: { stdout: { on: jest.Mock; removeAllListeners: jest.Mock }; stderr: { on: jest.Mock; removeAllListeners: jest.Mock }; on: jest.Mock; once: jest.Mock; removeListener: jest.Mock; removeAllListeners: jest.Mock; kill: jest.Mock };
   let mockGet: jest.MockedFunction<typeof http.get>;
+  let mockSpawnSync: jest.Mock;
 
   beforeEach(() => {
     const fs = require("fs");
@@ -55,6 +57,8 @@ describe("BackendManager", () => {
       kill: jest.fn(),
     };
     (spawn as jest.Mock).mockReturnValue(mockProcess);
+    mockSpawnSync = spawnSync as unknown as jest.Mock;
+    mockSpawnSync.mockReset();
     mockGet = http.get as jest.MockedFunction<typeof http.get>;
     
     // Mock http.get for health check
@@ -171,11 +175,37 @@ describe("BackendManager", () => {
     Object.defineProperty(process, "platform", { value: "win32" });
     
     manager.process = { ...mockProcess, pid: 1234 };
+    mockSpawnSync.mockReturnValue({ status: 0, signal: null, stderr: Buffer.from(""), error: null });
     manager.stop();
     
-    expect(spawn).toHaveBeenCalledWith("taskkill", ["/F", "/T", "/PID", "1234"]);
+    expect(spawnSync).toHaveBeenCalledWith("taskkill", ["/F", "/T", "/PID", "1234"], expect.objectContaining({ stdio: "pipe" }));
     expect(manager.process).toBeNull();
     
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+  });
+
+  test("should log taskkill failure on windows", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+
+    manager.process = { ...mockProcess, pid: 1234 };
+    mockSpawnSync.mockReturnValue({ status: 1, signal: null, stderr: Buffer.from("denied"), error: null });
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    manager.stop();
+
+    expect(spawnSync).toHaveBeenCalledWith("taskkill", ["/F", "/T", "/PID", "1234"], expect.objectContaining({ stdio: "pipe" }));
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[backend-manager]",
+      "taskkill exited nonzero",
+      expect.objectContaining({
+        pid: 1234,
+        status: 1,
+        stderr: "denied",
+      })
+    );
+
+    errorSpy.mockRestore();
     Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
@@ -258,6 +288,41 @@ describe("BackendManager", () => {
     expect(diag.lastError).toBe("test error msg");
     expect(diag.exitCode).toBe(0);
     expect(diag.running).toBe(false);
+  });
+
+  test("stop should clear runtime state for reuse", () => {
+    manager.process = mockProcess;
+    manager.url = "http://localhost:8080";
+    manager.port = 8080;
+    manager.launch = { cmd: "go", args: ["run", "."], pid: 4321 };
+    manager.lastStdout = "stdout";
+    manager.lastStderr = "stderr";
+    manager.lastError = "error";
+    manager.exitCode = 7;
+    manager.ready = true;
+    manager.available = true;
+    manager.state = "ready";
+    manager.fatalError = "fatal";
+    manager.nextRestartAt = "2026-04-30T22:00:00.000Z";
+    manager.restartAttempt = 2;
+
+    manager.stopWithReason("test shutdown");
+
+    const diag = manager.getDiagnostics();
+    expect(diag.url).toBeNull();
+    expect(diag.port).toBeNull();
+    expect(diag.launch).toBeNull();
+    expect(diag.lastStdout).toBe("");
+    expect(diag.lastStderr).toBe("");
+    expect(diag.lastError).toBeNull();
+    expect(diag.exitCode).toBeNull();
+    expect(diag.ready).toBe(false);
+    expect(diag.available).toBe(false);
+    expect(diag.state).toBe("stopped");
+    expect(diag.fatalError).toBeNull();
+    expect(diag.nextRestartAt).toBeNull();
+    expect(diag.restartAttempt).toBe(0);
+    expect(diag.shutdownReason).toBe("test shutdown");
   });
 
   test("getDiagnostics should report running when process active", () => {

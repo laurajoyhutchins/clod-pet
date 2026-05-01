@@ -103,7 +103,7 @@ function shutdown() {
   }
 
   if (backendManager) {
-    backendManager.stop();
+    backendManager.stopWithReason("app quitting");
   }
 }
 

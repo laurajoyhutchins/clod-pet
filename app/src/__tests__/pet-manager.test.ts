@@ -366,6 +366,42 @@ describe("PetManager", () => {
     expect(result).toBe(true);
   });
 
+  test("pet close should skip backend cleanup when app is quitting", async () => {
+    mockBackendClient.loadPet.mockResolvedValue({
+      png_base64: "abc123",
+      tiles_x: 4,
+      tiles_y: 1,
+    });
+    mockBackendClient.addPet.mockResolvedValue({ pet_id: "pet_1", x: 321, y: 654, flip_h: false });
+
+    const mockWin = {
+      loadFile: jest.fn().mockResolvedValue(undefined),
+      show: jest.fn(),
+      showInactive: jest.fn(),
+      once: jest.fn(),
+      on: jest.fn(),
+      webContents: {
+        on: jest.fn(),
+        send: jest.fn(),
+      },
+      setPosition: jest.fn(),
+      getBounds: jest.fn(() => ({ x: 100, y: 200, width: 64, height: 64 })),
+      getPosition: jest.fn(() => [100, 200]),
+      getSize: jest.fn(() => [64, 64]),
+      isDestroyed: jest.fn(() => false),
+    };
+
+    mockWindowManager.createPetWindow.mockReturnValue(mockWin);
+    await manager.loadAndCreatePet("../pets/sheep");
+
+    const closedCb = mockWin.on.mock.calls.find(c => c[0] === "closed")[1];
+    manager.appIsQuitting = true;
+    closedCb();
+
+    expect(mockBackendClient.removePet).not.toHaveBeenCalled();
+    expect(manager.pets.has("pet_1")).toBe(false);
+  });
+
   test("shutdown should stop timers and close pet windows without backend cleanup", () => {
     const mockWin1 = { isDestroyed: jest.fn(() => false) };
     const mockWin2 = { isDestroyed: jest.fn(() => false) };
