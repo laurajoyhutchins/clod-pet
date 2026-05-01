@@ -5,8 +5,8 @@
   "main": "main.js",
   "scripts": {
     "build:ts": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
-    "start": "npm run build:ts && electron .",
-    "dev": "npm run build:ts && cross-env NODE_ENV=development electron .",
+    "start": "npm run build:ts && electron --no-sandbox .",
+    "dev": "npm run build:ts && cross-env NODE_ENV=development electron --no-sandbox .",
     "test": "npm run build:ts && jest",
     "test:watch": "jest --watch",
     "test:e2e": "jest e2e --runInBand --forceExit --testPathIgnorePatterns=/node_modules/"
