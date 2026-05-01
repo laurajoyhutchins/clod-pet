@@ -226,6 +226,9 @@
       <label class="checkbox-label">
         <input type="checkbox" id="show-advanced"> Show advanced settings
       </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="show-diagnostics"> Show diagnostics
+      </label>
     </div>
 
     <div id="advanced-settings" style="display: none; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
@@ -241,18 +244,18 @@
         <label for="autostart">Autostart pets</label>
         <input type="number" id="autostart" min="0" max="10" value="1">
       </div>
-    </div>
 
-    <div style="margin-top: 16px;">
-      <label class="checkbox-label">
-        <input type="checkbox" id="multi-screen"> Multi-screen support
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="win-foreground"> Keep on top
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="steal-focus"> Steal focus (drag)
-      </label>
+      <div style="margin-top: 16px;">
+        <label class="checkbox-label">
+          <input type="checkbox" id="multi-screen"> Multi-screen support
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="win-foreground"> Keep on top
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="steal-focus"> Steal focus (drag)
+        </label>
+      </div>
     </div>
   </div>
 
@@ -279,7 +282,7 @@
   </div>
 
   <!-- Diagnostics -->
-  <div class="card">
+  <div class="card" id="diagnostics-card" style="display: none;">
     <div class="card-title">
       <span>Diagnostics</span>
       <button class="btn btn-secondary btn-small" id="refresh-diagnostics-btn">Refresh</button>
@@ -289,12 +292,10 @@
       <span class="diag-value">Loading...</span>
     </div>
     <div class="diag-log" id="diagnostics-log">No diagnostics yet.</div>
-  </div>
-
-  <!-- Pet Tracker (Debug) -->
-  <div class="card" id="pet-tracker-card" style="display: none;">
-    <div class="card-title">Pet Tracker (Debug)</div>
-    <div id="pet-tracker-content" style="font-size: 11px; font-family: monospace;"></div>
+    <div id="pet-tracker-card" style="display: none; margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+      <div class="card-title" style="margin-bottom: 8px;">Pet Tracker</div>
+      <div id="pet-tracker-content" style="font-size: 11px; font-family: monospace;"></div>
+    </div>
   </div>
 
   <div class="status" id="status">Loading...</div>

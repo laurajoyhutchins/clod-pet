@@ -356,6 +356,7 @@ func (s *Service) Settings() map[string]interface{} {
 		"AutostartPets":        s.settings.AutostartPets,
 		"Scale":                s.settings.Scale,
 		"ShowAdvancedSettings": s.settings.ShowAdvancedSettings,
+		"ShowDiagnostics":      s.settings.ShowDiagnostics,
 		"MultiScreenEnabled":   s.settings.MultiScreenEnabled,
 		"CurrentPet":           s.settings.CurrentPet,
 	}
@@ -375,6 +376,11 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 	if v, ok := settings["ShowAdvancedSettings"]; ok {
 		if show, ok := v.(bool); ok {
 			s.settings.ShowAdvancedSettings = show
+		}
+	}
+	if v, ok := settings["ShowDiagnostics"]; ok {
+		if show, ok := v.(bool); ok {
+			s.settings.ShowDiagnostics = show
 		}
 	}
 	if v, ok := settings["WinForeGround"]; ok {

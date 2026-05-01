@@ -5,6 +5,7 @@
   "AutostartPets": 5,
   "Scale": 3,
   "ShowAdvancedSettings": false,
+  "ShowDiagnostics": false,
   "MultiScreenEnabled": false,
   "CurrentPet": "other-pet",
   "LLM": {
