@@ -41,12 +41,15 @@ function renderSettings() {
   const volume = settings.Volume ?? 0.3;
   const scale = settings.Scale ?? 1.0;
   const showAdvanced = settings.ShowAdvancedSettings || false;
+  const showDiagnostics = settings.ShowDiagnostics || false;
 
   input("volume").value = String(volume);
   el("volume-value").textContent = Math.round(volume * 100) + "%";
   
   input("show-advanced").checked = showAdvanced;
   el("advanced-settings").style.display = showAdvanced ? "block" : "none";
+  input("show-diagnostics").checked = showDiagnostics;
+  el("diagnostics-card").style.display = showDiagnostics ? "block" : "none";
   
   input("scale").value = String(scale);
   el("scale-value").textContent = scale.toFixed(1) + "x";
@@ -304,6 +307,16 @@ el("show-advanced").addEventListener("change", async (e: Event) => {
   el("advanced-settings").style.display = show ? "block" : "none";
   try {
     await api.setSettings({ ShowAdvancedSettings: show });
+  } catch (err: any) {
+    updateStatus("Error: " + err.message, "error");
+  }
+});
+
+el("show-diagnostics").addEventListener("change", async (e: Event) => {
+  const show = (e.target as HTMLInputElement).checked;
+  el("diagnostics-card").style.display = show ? "block" : "none";
+  try {
+    await api.setSettings({ ShowDiagnostics: show });
   } catch (err: any) {
     updateStatus("Error: " + err.message, "error");
   }
