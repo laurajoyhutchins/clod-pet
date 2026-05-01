@@ -786,6 +786,40 @@ func TestEngineSideTaskbarDoesNotSuppressGravity(t *testing.T) {
 	}
 }
 
+func TestEngineGravityTakesPriorityWhenAirborneAtScreenBorder(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+		BorderNext: []pet.NextAnimation{
+			{ID: 3, Probability: 100, Only: "none"},
+		},
+		GravityNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetPosition(0, 0)
+
+	result, err := e.Step(WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	})
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result.NextAnimID != 2 {
+		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
+	}
+}
+
 func TestEngineInvalidAnimation(t *testing.T) {
 	p := testPet()
 	e := NewEngine(p)

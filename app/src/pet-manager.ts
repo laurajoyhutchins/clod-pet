@@ -269,6 +269,10 @@ class PetManager {
         const [winX, winY] = petEntry.win.getPosition();
         const [winW, winH] = petEntry.win.getSize();
 
+        if (!isDragging) {
+          await this._syncBackendPositionIfWindowMoved(petId, petEntry, winX, winY);
+        }
+
         const world = this.borderDetector.getRawWorldContext(winX, winY, winW, winH);
         if (!world) return;
 
@@ -314,6 +318,26 @@ class PetManager {
 
     if (entry.interval) clearTimeout(entry.interval);
     schedule(200);
+  }
+
+  async _syncBackendPositionIfWindowMoved(petId: string, petEntry: any, winX: number, winY: number) {
+    const state = petEntry.state;
+    if (!state || typeof state.x !== "number" || typeof state.y !== "number") return;
+
+    const actualX = Math.round(winX);
+    const actualY = Math.round(winY);
+    const expectedX = Math.round(state.x);
+    const expectedY = Math.round(state.y);
+
+    if (Math.abs(actualX - expectedX) <= 1 && Math.abs(actualY - expectedY) <= 1) return;
+
+    const offsetY = typeof state.offsetY === "number" ? state.offsetY : 0;
+    await this.backendClient.setPosition(petId, actualX, actualY - offsetY);
+    petEntry.state = {
+      ...state,
+      x: actualX,
+      y: actualY,
+    };
   }
 
   _setupIpcHandlers() {
