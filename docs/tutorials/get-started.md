@@ -22,14 +22,14 @@ This script will:
 - Build the Go backend
 - Sign the executable (if Windows SDK is installed)
 - Add Windows Defender exclusion
-- Install frontend dependencies
-- Compile the frontend TypeScript when the app starts
+- Install app dependencies
+- Compile the app TypeScript when the app starts
 - Create Start Menu shortcut
 
 **Manual install (alternative):**
 
 ```bash
-cd frontend
+cd app
 npm install
 ```
 
@@ -37,16 +37,16 @@ npm install
 
 **If you used the install script:**
 - Use the Start Menu shortcut "ClodPet", or
-- Run `npm start` in the frontend directory
+- Run `npm start` in the app directory
 
 **Manual start:**
 
 ```bash
-cd frontend
+cd app
 npm start
 ```
 
-`npm start` compiles the frontend TypeScript and then launches Electron.
+`npm start` compiles the app TypeScript and then launches Electron.
 
 You will see:
 1. A system tray icon appear
@@ -69,7 +69,7 @@ Select **Quit** from the tray menu. The Go backend process terminates automatica
 
 ## What happens under the hood
 
-1. `frontend/main.ts` compiles to `frontend/main.js`, which Electron runs
+1. `app/main.ts` compiles to `app/dist/main.js`, which Electron runs
 2. The Go backend reads `pets/esheep64/animations.xml` — a sprite sheet and 77 animation definitions
 3. `addPet()` loads the pet data, creates a transparent `BrowserWindow`
 4. The animation loop polls `/api` every 200ms for the next frame

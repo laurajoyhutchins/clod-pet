@@ -54,13 +54,18 @@ func newCommonMockService(petName, title string) *commonMockService {
 	}
 }
 
-func (m *commonMockService) AddPet(petPath string, spawnID int) (string, error) {
+func (m *commonMockService) AddPet(petPath string, spawnID int, world ...engine.WorldContext) (*PetState, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	e := engine.NewEngine(m.petDef)
-	e.Start(spawnID)
+	e.Start(spawnID, world...)
 	m.engines[petPath] = e
-	return petPath, nil
+	x, y := e.Position()
+	return &PetState{
+		PetID: petPath,
+		X:     x,
+		Y:     y,
+	}, nil
 }
 
 func (m *commonMockService) RemovePet(petID string) {

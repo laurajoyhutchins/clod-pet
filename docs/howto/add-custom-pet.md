@@ -64,7 +64,7 @@ A spawn determines where the pet appears:
 
 ## Step 5: Load the pet
 
-Edit `frontend/main.ts`, change the default pet path passed to `createPet()`:
+Edit `app/main.ts`, change the default pet path passed to `createPet()`:
 
 ```ts
 async function createPet(petPath = "../pets/my-pet", opts = {}) {
@@ -73,7 +73,7 @@ async function createPet(petPath = "../pets/my-pet", opts = {}) {
 Then start the app:
 
 ```bash
-cd frontend && npm start
+cd app && npm start
 ```
 
 `npm start` rebuilds the generated JavaScript before launching Electron.

@@ -1,5 +1,5 @@
 site_name: Clod Pet
-site_description: A desktop pet application with a Go backend and Electron frontend.
+site_description: A desktop pet application with a Go backend and Electron app.
 repo_url: https://github.com/yourname/clod-pet
 
 theme:

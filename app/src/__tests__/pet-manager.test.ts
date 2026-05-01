@@ -154,7 +154,7 @@ describe("PetManager", () => {
       tiles_x: 4,
       tiles_y: 1,
     });
-    mockBackendClient.addPet.mockResolvedValue({ pet_id: "pet_1" });
+    mockBackendClient.addPet.mockResolvedValue({ pet_id: "pet_1", x: 321, y: 654, flip_h: false });
     
     const mockWin = {
       loadFile: jest.fn().mockResolvedValue(undefined),
@@ -178,8 +178,15 @@ describe("PetManager", () => {
     const petId = await manager.loadAndCreatePet("../pets/sheep");
 
     expect(mockBackendClient.loadPet).toHaveBeenCalledWith("../pets/sheep");
-    expect(mockBackendClient.addPet).toHaveBeenCalledWith("../pets/sheep", 1);
-    expect(mockWindowManager.createPetWindow).toHaveBeenCalledWith("pet_1", expect.any(Object));
+    expect(mockBackendClient.addPet).toHaveBeenCalledWith("../pets/sheep", 1, expect.objectContaining({
+      screen: expect.objectContaining({ x: 0, y: 0, w: 1920, h: 1080 }),
+      work_area: expect.objectContaining({ x: 0, y: 0, w: 1920, h: 1080 }),
+      taskbar: expect.objectContaining({ x: 0, y: 0, w: 0, h: 0 }),
+    }));
+    expect(mockWindowManager.createPetWindow).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      x: 321,
+      y: 654,
+    }));
     expect(mockWin.loadFile).toHaveBeenCalledWith(expect.stringContaining("pet.html"), { query: { petId: "pet_1" } });
     expect(petId).toBe("pet_1");
 

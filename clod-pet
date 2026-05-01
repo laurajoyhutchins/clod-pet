@@ -2,11 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-frontend_dir="$repo_root/frontend"
+app_dir="$repo_root/app"
 settings_path="${XDG_CONFIG_HOME:-$HOME/.config}/clod-pet/clod-pet-settings.json"
 
 export PETS_DIR="${PETS_DIR:-$repo_root/pets}"
 export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 
-cd "$frontend_dir"
+cd "$app_dir"
 exec npm start "$@"

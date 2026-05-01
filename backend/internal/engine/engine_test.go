@@ -101,6 +101,34 @@ func TestEngineStartFallbackToFirstSpawn(t *testing.T) {
 	}
 }
 
+func TestEngineStartUsesWorldContextForSpawnExpressions(t *testing.T) {
+	p := testPet()
+	p.Spawns[0] = pet.Spawn{
+		ID:          1,
+		Probability: 100,
+		X:           "screenW+10",
+		Y:           "areaH-imageH",
+		NextAnimID:  1,
+	}
+
+	e := NewEngine(p)
+	err := e.Start(1, WorldContext{
+		Screen:   Rect{W: 1920, H: 1080},
+		WorkArea: Rect{W: 1920, H: 1040},
+	})
+	if err != nil {
+		t.Fatalf("Start error: %v", err)
+	}
+
+	x, y := e.Position()
+	if math.Abs(x-1930) > 0.01 {
+		t.Errorf("X = %v, want 1930", x)
+	}
+	if math.Abs(y-976) > 0.01 {
+		t.Errorf("Y = %v, want 976", y)
+	}
+}
+
 func TestEngineStepProducesFrames(t *testing.T) {
 	p := testPet()
 	e := NewEngine(p)
@@ -161,6 +189,46 @@ func TestEngineStepAccumulatesPosition(t *testing.T) {
 	want := 100.0 + (-2)*3
 	if math.Abs(x-want) > 0.01 {
 		t.Errorf("X = %v, want %v", x, want)
+	}
+}
+
+func TestEngineRandomStaysStableWithinAnimation(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:     1,
+		Name:   "random-walk",
+		Start:  pet.Movement{X: "random+1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:    pet.Movement{X: "random+1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames: []int{0},
+		Repeat: "2",
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetPosition(0, 0)
+	e.env.Random = 10
+	e.env.RandS = 20
+
+	first, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("first Step error: %v", err)
+	}
+	if first == nil {
+		t.Fatal("first Step returned nil")
+	}
+	if math.Abs(first.X-11) > 0.01 {
+		t.Errorf("first X = %v, want 11", first.X)
+	}
+
+	second, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("second Step error: %v", err)
+	}
+	if second == nil {
+		t.Fatal("second Step returned nil")
+	}
+	if math.Abs(second.X-22) > 0.01 {
+		t.Errorf("second X = %v, want 22", second.X)
 	}
 }
 
@@ -736,13 +804,9 @@ func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
 
 	// Step triggers end of sequence
 	result, _ := e.Step(WorldContext{})
-	
+
 	// Should return self ID (1) because SequenceNext is present but no match
 	if result.NextAnimID != 1 {
 		t.Errorf("NextAnimID = %d, want 1 (self-reset)", result.NextAnimID)
 	}
 }
-
-
-
-

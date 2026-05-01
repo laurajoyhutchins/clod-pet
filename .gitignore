@@ -1,5 +1,6 @@
 node_modules/
 dist/
+app/coverage/
 site/
 backend/backend.exe
 backend/clod-pet-backend.exe

@@ -39,6 +39,7 @@ class BackendClient {
     return new Promise((resolve, reject) => {
       let settled = false;
       let timer: NodeJS.Timeout | undefined;
+      let req: http.ClientRequest;
       const finish = (fn: (value?: any) => void, value?: any) => {
         if (settled) return;
         settled = true;
@@ -46,7 +47,13 @@ class BackendClient {
         fn(value);
       };
 
-      const req = http.request(`${this.baseUrl}${path}`, {
+      timer = setTimeout(() => {
+        this.connected = false;
+        req.destroy(new Error(`backend request timed out after ${this.timeoutMs}ms`));
+        finish(reject, new Error(`backend request timed out after ${this.timeoutMs}ms`));
+      }, this.timeoutMs);
+
+      req = http.request(`${this.baseUrl}${path}`, {
         method: opts.method || "GET",
         headers: opts.headers,
       }, (res) => {
@@ -73,12 +80,6 @@ class BackendClient {
           }
         });
       });
-
-      timer = setTimeout(() => {
-        this.connected = false;
-        req.destroy(new Error(`backend request timed out after ${this.timeoutMs}ms`));
-        finish(reject, new Error(`backend request timed out after ${this.timeoutMs}ms`));
-      }, this.timeoutMs);
 
       req.on("error", (err) => {
         this.connected = false;
@@ -147,8 +148,12 @@ class BackendClient {
     return this.request("list_active");
   }
 
-  async addPet(petPath: string, spawnId = 0) {
-    return this.request("add_pet", { pet_path: petPath, spawn_id: spawnId });
+  async addPet(petPath: string, spawnId = 0, world?: Record<string, unknown>) {
+    return this.request("add_pet", {
+      pet_path: petPath,
+      spawn_id: spawnId,
+      ...(world ? { world } : {}),
+    });
   }
 
   async chat(messages: { role: string; content: string }[], stream = false) {

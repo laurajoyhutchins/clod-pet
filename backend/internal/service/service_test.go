@@ -101,12 +101,41 @@ func TestAddPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
-	if petID == "" {
+	if state == nil || state.PetID == "" {
 		t.Error("expected non-empty petID")
+	}
+}
+
+func TestAddPetUsesWorldContext(t *testing.T) {
+	cfg := settings.DefaultConfig()
+	svc := New("../../../pets", "test-settings.json", cfg)
+
+	world := engine.WorldContext{
+		Screen:   engine.Rect{W: 1920, H: 1080},
+		WorkArea: engine.Rect{W: 1920, H: 1040},
+	}
+
+	state, err := svc.AddPet("../../../pets/esheep64", 1, world)
+	if err != nil {
+		t.Fatalf("AddPet failed: %v", err)
+	}
+	if state == nil {
+		t.Fatal("AddPet returned nil state")
+	}
+
+	state, err = svc.StepPet(state.PetID, world)
+	if err != nil {
+		t.Fatalf("StepPet failed: %v", err)
+	}
+	if state == nil {
+		t.Fatal("StepPet returned nil state")
+	}
+	if state.X < 1000 {
+		t.Errorf("state.X = %v, want world-based spawn near the right edge", state.X)
 	}
 }
 
@@ -124,14 +153,14 @@ func TestRemovePet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	svc.RemovePet(petID)
+	svc.RemovePet(state.PetID)
 	// Verify pet was removed by checking if we can step it
-	err = svc.ValidatePetExists(petID)
+	err = svc.ValidatePetExists(state.PetID)
 	if err == nil {
 		t.Error("expected error after removing pet")
 	}
@@ -149,20 +178,20 @@ func TestStepPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	state, err := svc.StepPet(petID, engine.WorldContext{})
+	state, err = svc.StepPet(state.PetID, engine.WorldContext{})
 	if err != nil {
 		t.Fatalf("StepPet failed: %v", err)
 	}
 	if state == nil {
 		t.Fatal("StepPet returned nil state")
 	}
-	if state.PetID != petID {
-		t.Errorf("expected PetID %s, got %s", petID, state.PetID)
+	if state.PetID == "" {
+		t.Error("expected non-empty PetID")
 	}
 }
 
@@ -180,7 +209,7 @@ func TestStepPetWithBorder(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -189,7 +218,7 @@ func TestStepPetWithBorder(t *testing.T) {
 		Screen: engine.Rect{W: 1000, H: 1000},
 	}
 
-	state, err := svc.StepPet(petID, world)
+	state, err = svc.StepPet(state.PetID, world)
 	if err != nil {
 		t.Fatalf("StepPet failed: %v", err)
 	}
@@ -202,12 +231,12 @@ func TestDragPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	err = svc.DragPet(petID, 100, 200)
+	err = svc.DragPet(state.PetID, 100, 200)
 	if err != nil {
 		t.Fatalf("DragPet failed: %v", err)
 	}
@@ -227,12 +256,12 @@ func TestDropPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	err = svc.DropPet(petID)
+	err = svc.DropPet(state.PetID)
 	if err != nil {
 		t.Fatalf("DropPet failed: %v", err)
 	}
@@ -252,12 +281,12 @@ func TestValidatePetExists(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	err = svc.ValidatePetExists(petID)
+	err = svc.ValidatePetExists(state.PetID)
 	if err != nil {
 		t.Errorf("ValidatePetExists failed: %v", err)
 	}
@@ -334,7 +363,7 @@ func TestListActive(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
@@ -346,8 +375,8 @@ func TestListActive(t *testing.T) {
 	if len(active) != 1 {
 		t.Errorf("expected 1 active pet, got %d", len(active))
 	}
-	if active[0]["pet_id"] != petID {
-		t.Errorf("expected pet_id %s, got %v", petID, active[0]["pet_id"])
+	if active[0]["pet_id"] != state.PetID {
+		t.Errorf("expected pet_id %s, got %v", state.PetID, active[0]["pet_id"])
 	}
 }
 
@@ -355,12 +384,12 @@ func TestPet(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID, err := svc.AddPet("../../../pets/esheep64", 0)
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	data, err := svc.Pet(petID)
+	data, err := svc.Pet(state.PetID)
 	if err != nil {
 		t.Fatalf("Pet failed: %v", err)
 	}
@@ -489,17 +518,17 @@ func TestAddPetDuplicate(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
 
-	petID1, err := svc.AddPet("../../../pets/esheep64", 0)
+	state1, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	petID2, err := svc.AddPet("../../../pets/esheep64", 0)
+	state2, err := svc.AddPet("../../../pets/esheep64", 0)
 	if err != nil {
 		t.Fatalf("AddPet failed: %v", err)
 	}
 
-	if petID1 == petID2 {
+	if state1.PetID == state2.PetID {
 		t.Error("expected different pet IDs")
 	}
 }

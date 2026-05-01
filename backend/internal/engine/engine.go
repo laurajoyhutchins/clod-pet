@@ -56,16 +56,16 @@ type StepResult struct {
 }
 
 type Engine struct {
-	petDef         *pet.Pet
-	animationIDs   map[string]int
-	currentAnim    int
-	frameIdx       int
-	totalStepsDone int
-	state          PetState
-	flipH          bool
-	parentX        float64
-	parentY        float64
-	env            *expression.Env
+	petDef           *pet.Pet
+	animationIDs     map[string]int
+	currentAnim      int
+	frameIdx         int
+	totalStepsDone   int
+	state            PetState
+	flipH            bool
+	parentX          float64
+	parentY          float64
+	env              *expression.Env
 	animFrames       []int
 	animTotalSteps   int
 	animRepeatFrom   int
@@ -102,7 +102,7 @@ func NewEngine(p *pet.Pet) *Engine {
 	return engine
 }
 
-func (e *Engine) Start(spawnID int) error {
+func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	var spawn *pet.Spawn
 	for i := range e.petDef.Spawns {
 		if e.petDef.Spawns[i].ID == spawnID {
@@ -117,6 +117,11 @@ func (e *Engine) Start(spawnID int) error {
 		spawn = &e.petDef.Spawns[0]
 	}
 
+	world := WorldContext{}
+	if len(worlds) > 0 {
+		world = worlds[0]
+	}
+	e.setWorldContext(world)
 	e.env.RegenerateRandom()
 
 	x, _ := expression.Eval(spawn.X, e.env)
@@ -132,6 +137,13 @@ func (e *Engine) Start(spawnID int) error {
 
 	e.loadAnimation()
 	return nil
+}
+
+func (e *Engine) setWorldContext(world WorldContext) {
+	e.env.ScreenW = world.Screen.W
+	e.env.ScreenH = world.Screen.H
+	e.env.AreaW = world.WorkArea.W
+	e.env.AreaH = world.WorkArea.H
 }
 
 func (e *Engine) Step(world WorldContext) (*StepResult, error) {
@@ -160,8 +172,6 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	}
 
 	frame := e.animFrames[e.frameIdx]
-
-	e.env.RegenerateRandom()
 
 	progress := expression.Clamp(float64(e.totalStepsDone)/float64(e.animTotalSteps), 0, 1)
 
@@ -358,6 +368,7 @@ func (e *Engine) Reset() {
 }
 
 func (e *Engine) TransitionTo(animID int) {
+	e.env.RegenerateRandom()
 	e.currentAnim = animID
 	e.frameIdx = 0
 	e.totalStepsDone = 0
