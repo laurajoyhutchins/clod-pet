@@ -5,6 +5,7 @@ import PetManager = require("./src/pet-manager");
 import TrayManager = require("./src/tray-manager");
 import ChatManager = require("./src/chat-manager");
 import globalStore from "./src/store";
+import { StoreBridge } from "./src/store-bridge";
 import path = require("path");
 
 const log = logger.createLogger("main");
@@ -158,6 +159,9 @@ function setupControlPanelHandlers() {
 }
 
 app.whenReady().then(async () => {
+  const bridge = new StoreBridge(globalStore);
+  bridge.init();
+
   backendManager = new BackendManager({ preferSource: !app.isPackaged, store: globalStore });
   const backendUrl = await backendManager.start();
 

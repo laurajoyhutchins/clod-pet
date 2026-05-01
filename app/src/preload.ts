@@ -10,6 +10,14 @@ contextBridge.exposeInMainWorld("clodPet", {
   off: (channel: string, callback: (...args: any[]) => void) => ipcRenderer.removeListener(channel, callback),
   once: (channel: string, callback: (data: any) => void) => ipcRenderer.once(channel, (_event, data) => callback(data)),
   invoke: (channel: string, data?: unknown) => ipcRenderer.invoke(channel, data),
+  store: {
+    getState: () => ipcRenderer.invoke("store:get-state"),
+    subscribe: (callback: (state: any) => void) => {
+      const listener = (_event: unknown, state: any) => callback(state);
+      ipcRenderer.on("store:updated", listener);
+      return () => ipcRenderer.removeListener("store:updated", listener);
+    },
+  },
   control: {
     getSettings: () => ipcRenderer.invoke("control:get-settings"),
     setSettings: (settings: unknown) => ipcRenderer.invoke("control:set-settings", settings),
