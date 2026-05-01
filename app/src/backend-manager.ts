@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import http = require("http");
 import path = require("path");
 import fs = require("fs");
@@ -37,6 +37,8 @@ class BackendManager {
   shuttingDown: boolean;
   fatalError: string | null;
   nextRestartAt: string | null;
+  shutdownReason: string | null;
+  exitReason: string | null;
 
   constructor(opts: { preferSource?: boolean } = {}) {
     this.process = null;
@@ -62,10 +64,14 @@ class BackendManager {
     this.shuttingDown = false;
     this.fatalError = null;
     this.nextRestartAt = null;
+    this.shutdownReason = null;
+    this.exitReason = null;
   }
 
   async start(portOverride?: number) {
     this.shuttingDown = false;
+    this.shutdownReason = null;
+    this.exitReason = null;
     this.lastError = null;
     this.fatalError = null;
     this.available = false;
@@ -110,16 +116,29 @@ class BackendManager {
       useExe,
       exeExists,
       backendMode,
+      executionMode: useExe ? "binary" : "go-run",
       restartEnabled: this.restartEnabled,
     };
-    log.info("starting backend", this.launch);
 
     this.process = spawn(cmd, args, {
       cwd: backendPath,
       env: { ...process.env, PORT: String(port), PETS_DIR: this.petsDir, VERBOSE: "true" },
     });
 
+    const pid = this.process.pid;
     this.url = `http://localhost:${port}`;
+    this.launch.pid = pid;
+    log.info("starting backend", {
+      ...this.launch,
+      pid,
+    });
+    log.info("backend process spawned", {
+      pid,
+      executionMode: this.launch.executionMode,
+      command: cmd,
+      args,
+      url: this.url,
+    });
 
     this.process.stdout.on("data", (d: Buffer) => {
       this.lastStdout = appendRecent(this.lastStdout, d.toString());
@@ -139,7 +158,8 @@ class BackendManager {
       this.lastError = err.message;
       this.available = false;
       this.state = "spawn_error";
-      log.error("spawn error:", err);
+      this.exitReason = `spawn error: ${err.message}`;
+      log.error("spawn error:", { pid, err });
     });
     this.process.on("close", (code: number) => {
       this.exitCode = code;
@@ -154,10 +174,16 @@ class BackendManager {
           : `backend exited unexpectedly with code ${code}`;
         this.lastError = message;
         this.fatalError = message;
+        this.exitReason = message;
         this.available = false;
         this.ready = false;
         this.state = this.restartEnabled ? "restarting" : "fatal";
-        log.error("backend exited after readiness", { code, restartEnabled: this.restartEnabled });
+        log.error("backend exited after readiness", {
+          pid,
+          code,
+          reason: message,
+          restartEnabled: this.restartEnabled,
+        });
         if (this.restartEnabled) {
           this._scheduleRestart(code);
         }
@@ -170,10 +196,15 @@ class BackendManager {
           : `backend exited before readiness with code ${code}`;
         this.lastError = message;
         this.fatalError = message;
+        this.exitReason = message;
         this.available = false;
         this.ready = false;
         this.state = "failed";
-        log.error("backend exited before readiness", { code });
+        log.error("backend exited before readiness", {
+          pid,
+          code,
+          reason: message,
+        });
       } else {
         this.state = "stopped";
       }
@@ -186,7 +217,11 @@ class BackendManager {
     this.state = "ready";
     this.restartAttempt = 0;
     this.nextRestartAt = null;
-    log.info("backend ready", { url: this.url });
+    log.info("backend ready", {
+      pid,
+      url: this.url,
+      executionMode: this.launch?.executionMode,
+    });
     return this.url;
   }
 
@@ -222,7 +257,12 @@ class BackendManager {
   }
 
   stop() {
+    this.stopWithReason("manual stop");
+  }
+
+  stopWithReason(reason: string) {
     this.shuttingDown = true;
+    this.shutdownReason = reason;
     this.ready = false;
     this.available = false;
     this.state = "stopped";
@@ -231,15 +271,35 @@ class BackendManager {
       clearTimeout(this.readyTimer);
       this.readyTimer = null;
     }
+    const pid = this.process?.pid ?? this.launch?.pid ?? null;
+    log.info("stopping backend", {
+      pid,
+      reason,
+      url: this.url,
+      executionMode: this.launch?.executionMode,
+    });
     if (this.process) {
       this.process.removeAllListeners();
       this.process.stdout.removeAllListeners();
       this.process.stderr.removeAllListeners();
-      
+
       if (process.platform === "win32") {
         // Use taskkill to ensure child processes (like the actual backend binary) are killed
         try {
-          spawn("taskkill", ["/F", "/T", "/PID", this.process.pid.toString()]);
+          const result = spawnSync("taskkill", ["/F", "/T", "/PID", this.process.pid.toString()], { stdio: "pipe" });
+          if (result.error) {
+            log.error("taskkill failed", { pid, reason, error: result.error.message });
+          } else if (typeof result.status === "number" && result.status !== 0) {
+            log.error("taskkill exited nonzero", {
+              pid,
+              reason,
+              status: result.status,
+              signal: result.signal,
+              stderr: result.stderr ? result.stderr.toString().trim() : "",
+            });
+          } else {
+            log.info("taskkill completed", { pid, reason });
+          }
         } catch (err) {
           log.error("taskkill error:", err);
         }
@@ -248,12 +308,25 @@ class BackendManager {
       }
       this.process = null;
     }
+
+    this.url = null;
+    this.port = null;
+    this.launch = null;
+    this.lastStdout = "";
+    this.lastStderr = "";
+    this.lastError = null;
+    this.exitCode = null;
+    this.fatalError = null;
+    this.nextRestartAt = null;
+    this.restartAttempt = 0;
+    this.exitReason = null;
   }
 
   getDiagnostics() {
     return {
       url: this.url,
       port: this.port,
+      pid: this.process?.pid ?? this.launch?.pid ?? null,
       launch: this.launch,
       lastStdout: this.lastStdout,
       lastStderr: this.lastStderr,
@@ -268,6 +341,8 @@ class BackendManager {
       restartMaxAttempts: this.restartMaxAttempts,
       nextRestartAt: this.nextRestartAt,
       fatalError: this.fatalError,
+      shutdownReason: this.shutdownReason,
+      exitReason: this.exitReason,
     };
   }
 
@@ -404,7 +479,15 @@ class BackendManager {
     this.state = "restarting";
     this.available = false;
     this.nextRestartAt = new Date(Date.now() + delay).toISOString();
-    log.warn("scheduling backend restart", { delay, attempt: this.restartAttempt, maxAttempts: this.restartMaxAttempts });
+      log.warn("scheduling backend restart", {
+        pid: this.process?.pid ?? this.launch?.pid ?? null,
+        delay,
+        attempt: this.restartAttempt,
+        maxAttempts: this.restartMaxAttempts,
+        reason: code === null || code === undefined
+          ? "unexpected exit"
+          : `unexpected exit code ${code}`,
+      });
 
     this.restartTimer = setTimeout(async () => {
       this.restartTimer = null;
@@ -419,7 +502,7 @@ class BackendManager {
         this.fatalError = err.message;
         this.available = false;
         this.state = "fatal";
-        log.error("backend restart failed", err);
+        log.error("backend restart failed", { pid: this.process?.pid ?? this.launch?.pid ?? null, err });
       }
     }, delay);
   }

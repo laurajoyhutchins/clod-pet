@@ -14,7 +14,7 @@ class PetManager {
   pets: Map<string, any>;
   windowToPetId: WeakMap<any, string>;
   ipcHandlersRegistered: boolean;
-  shuttingDown: boolean;
+  appIsQuitting: boolean;
   lastError: string | null;
   lastPetLoad: any;
   scale: number;
@@ -27,7 +27,7 @@ class PetManager {
     this.pets = new Map();
     this.windowToPetId = new WeakMap();
     this.ipcHandlersRegistered = false;
-    this.shuttingDown = false;
+    this.appIsQuitting = false;
     this.lastError = null;
     this.lastPetLoad = null;
     this.scale = 1.0;
@@ -172,7 +172,7 @@ class PetManager {
     });
 
     win.on("closed", () => {
-      if (!this.shuttingDown && this.pets.has(petEntry.backendPetId)) {
+      if (!this.appIsQuitting && this.pets.has(petEntry.backendPetId)) {
         this.backendClient.removePet(petEntry.backendPetId);
       }
       if (petEntry.interval) clearInterval(petEntry.interval);
@@ -221,7 +221,7 @@ class PetManager {
   }
 
   shutdown() {
-    this.shuttingDown = true;
+    this.appIsQuitting = true;
 
     for (const entry of this.pets.values()) {
       if (entry.interval) {
