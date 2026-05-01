@@ -2,71 +2,108 @@
 # Run with: powershell -ExecutionPolicy Bypass -File uninstall.ps1
 
 $ErrorActionPreference = "Continue"
+
+# Helper functions for consistent output
+function Write-Info($msg) {
+    Write-Host "→ $msg" -ForegroundColor Cyan
+}
+
+function Write-Success($msg) {
+    Write-Host "✓ $msg" -ForegroundColor Green
+}
+
+function Write-Warn($msg) {
+    Write-Host "  • $msg" -ForegroundColor Yellow
+}
+
+function Write-Error($msg) {
+    Write-Host "✗ $msg" -ForegroundColor Red
+}
+
+function Write-Header($title) {
+    Write-Host ""
+    Write-Host "══ $title ══" -ForegroundColor Blue
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 $backendDir = Join-Path $repoRoot "backend"
 $backendBinDir = Join-Path $backendDir "bin"
+$backendOutput = if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }
 
-Write-Host "Uninstalling ClodPet..." -ForegroundColor Yellow
+Write-Header "Uninstalling ClodPet"
 
 # Remove Start Menu shortcut
+Write-Info "Removing Start Menu shortcut..."
 $shortcutPath = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\ClodPet.lnk"
 if (Test-Path $shortcutPath) {
     Remove-Item $shortcutPath -Force
-    Write-Host "Removed Start Menu shortcut" -ForegroundColor Green
+    Write-Success "Removed: Start Menu shortcut"
+} else {
+    Write-Warn "Not found: Start Menu shortcut"
 }
 
 # Remove settings file
+Write-Info "Removing settings..."
 $settingsPath = Join-Path $env:APPDATA "clod-pet-settings.json"
 if (Test-Path $settingsPath) {
     Remove-Item $settingsPath -Force
-    Write-Host "Removed settings file" -ForegroundColor Green
+    Write-Success "Removed: $settingsPath"
+} else {
+    Write-Warn "Not found: $settingsPath"
 }
 
 # Remove wrapper script
+Write-Info "Removing wrapper script..."
 $wrapperPath = Join-Path $repoRoot "clod-pet.cmd"
 if (Test-Path $wrapperPath) {
     Remove-Item $wrapperPath -Force
-    Write-Host "Removed wrapper script" -ForegroundColor Green
+    Write-Success "Removed: $wrapperPath"
+} else {
+    Write-Warn "Not found: $wrapperPath"
 }
 
-# Remove backend exe
+# Remove backend executables
+Write-Info "Removing backend executables..."
 $backendExecutables = @(
-    (Join-Path $backendBinDir "clod-pet-backend.exe"),
-    (Join-Path $backendDir "clod-pet-backend.exe")
+    (Join-Path $backendBinDir "$backendOutput.exe"),
+    (Join-Path $backendDir "$backendOutput.exe")
 )
 foreach ($backendExe in $backendExecutables) {
     if (Test-Path $backendExe) {
         Remove-Item $backendExe -Force
-        Write-Host "Removed backend executable: $backendExe" -ForegroundColor Green
+        Write-Success "Removed: $backendExe"
     }
 }
 
-# Optional: Remove Defender exclusion
+# Remove Defender exclusions
+Write-Info "Removing Defender exclusions..."
 try {
     Remove-MpPreference -ExclusionPath $backendBinDir -ErrorAction SilentlyContinue
     Remove-MpPreference -ExclusionPath $backendDir -ErrorAction SilentlyContinue
-    Write-Host "Removed Defender exclusion" -ForegroundColor Green
-}
-catch {
-    Write-Host "Could not remove Defender exclusion (may need admin rights)" -ForegroundColor Yellow
+    Write-Success "Removed Defender exclusions"
+} catch {
+    Write-Warn "Could not remove Defender exclusion (may need admin rights)"
 }
 
-# Optional: Remove self-signed cert
+# Remove self-signed cert
+Write-Info "Checking for self-signed certificate..."
 $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object {
     $_.Subject -like "*ClodPet*"
 } | Select-Object -First 1
 if ($cert) {
     try {
         Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force
-        Write-Host "Removed self-signed certificate" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "Could not remove certificate (may need admin rights)" -ForegroundColor Yellow
+        Write-Success "Removed certificate: $($cert.FriendlyName)"
+    } catch {
+        Write-Warn "Could not remove certificate (may need admin rights)"
     }
 }
 
 Write-Host ""
-Write-Host "ClodPet uninstalled!" -ForegroundColor Green
-Write-Host "Note: Node modules and pets folder were not removed." -ForegroundColor Cyan
-Write-Host "To fully clean up, delete: $repoRoot" -ForegroundColor Cyan
+Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Green
+Write-Host "║  ClodPet uninstall complete!            ║" -ForegroundColor Green
+Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Green
+Write-Host ""
+Write-Warn "Note: Node modules and pets folder were not removed."
+Write-Warn "To fully clean up, delete: $repoRoot"
