@@ -12,8 +12,8 @@ Clod Pet follows a client-server architecture split across two processes.
 | - Tray menu        |                             | - Animation state  |
 | - Pet windows      |                             |   machine          |
 | - Sprite rendering |                             | - Physics & Collision|
-| - Drag/drop        |                             | - XML parsing      |
-| - Sensory Provding |                             | - Expression eval  |
+| - Drag/drop        |                             | - JSON pet parsing |
+| - Sensory Providing |                             | - Expression eval  |
 |   (Screen Rects)   |                             | - Sound playback   |
 +-------------------+                             +--------------------+
 ```
