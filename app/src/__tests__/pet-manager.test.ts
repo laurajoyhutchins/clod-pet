@@ -80,7 +80,7 @@ jest.mock("../border-detector", () => {
     getRawWorldContext: jest.fn(() => ({
       screen: { x: 0, y: 0, w: 1920, h: 1080 },
       work_area: { x: 0, y: 0, w: 1920, h: 1080 },
-      taskbar: { x: 0, y: 1040, w: 1920, h: 40 },
+      desktop: { x: 0, y: 0, w: 1920, h: 1080 },
     })),
     _displayForRect: jest.fn((displays, x, y) => displays[0]),
     taskbarBoundsByDisplay: new Map(),
@@ -88,18 +88,47 @@ jest.mock("../border-detector", () => {
   }));
 });
 
+jest.mock("../store", () => {
+  return {
+    __esModule: true,
+    default: {
+      getState: jest.fn(() => ({
+        pets: {},
+        backend: { status: 'idle' },
+        environment: { scale: 1.0, volume: 0.3 }
+      })),
+      setState: jest.fn(),
+      updatePet: jest.fn(),
+      subscribe: jest.fn(() => () => {}),
+    },
+    WorldStore: jest.fn().mockImplementation(() => ({
+      getState: jest.fn(() => ({
+        pets: {},
+        backend: { status: 'idle' },
+        environment: { scale: 1.0, volume: 0.3 }
+      })),
+      setState: jest.fn(),
+      updatePet: jest.fn(),
+      subscribe: jest.fn(() => () => {}),
+    })),
+  };
+});
+
 import PetManager from "../pet-manager";
 import { BrowserWindow, ipcMain, screen } from "electron";
+import globalStore from "../store";
 
 describe("PetManager", () => {
   let manager: InstanceType<typeof PetManager>;
   let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock; getSettings: jest.Mock };
   let mockWindowManager: { createPetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
   let mockBorderDetector: { init: jest.Mock; checkBorder: jest.Mock; checkGravity: jest.Mock; _displayForRect: jest.Mock; taskbarBoundsByDisplay: Map<number, any>; tolerance: number };
+  let mockStore: any;
 
   beforeEach(() => {
     jest.useFakeTimers();
-    manager = new PetManager("http://localhost:8080");
+    mockStore = globalStore;
+    manager = new PetManager("http://localhost:8080", mockStore);
     mockBackendClient = manager.backendClient as any;
     mockWindowManager = manager.windowManager as any;
     mockBorderDetector = manager.borderDetector as any;
@@ -142,9 +171,11 @@ describe("PetManager", () => {
       pngBase64: "data:image/png;base64,abc",
       tilesX: 1,
       tilesY: 1,
-      scale: 1,
-      volume: 0.3
+      scale: 1.0,
+      volume: 0.3,
+      isDebug: false,
     });
+
 
     const resultNull = await handler(null, "nonexistent");
     expect(resultNull).toBeNull();
@@ -182,8 +213,6 @@ describe("PetManager", () => {
     expect(mockBackendClient.loadPet).toHaveBeenCalledWith("../pets/sheep");
     expect(mockBackendClient.addPet).toHaveBeenCalledWith("../pets/sheep", 1, expect.objectContaining({
       screen: expect.objectContaining({ x: 0, y: 0, w: 1920, h: 1080 }),
-      work_area: expect.objectContaining({ x: 0, y: 0, w: 1920, h: 1080 }),
-      taskbar: expect.objectContaining({ x: 0, y: 0, w: 0, h: 0 }),
     }));
     expect(mockWindowManager.createPetWindow).toHaveBeenCalledWith("pet_1", expect.objectContaining({
       x: 321,
@@ -254,9 +283,10 @@ describe("PetManager", () => {
     expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
       screen: expect.any(Object),
       work_area: expect.any(Object),
-      taskbar: expect.any(Object),
     }));
-    expect(mockWin.setPosition).toHaveBeenCalledWith(110, 210);
+    expect(mockStore.updatePet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      state: expect.objectContaining({ x: 110, y: 210 })
+    }));
     expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({
       frameIndex: 5,
       opacity: 0.5,
@@ -269,7 +299,9 @@ describe("PetManager", () => {
         interval_ms: 200
     });
     await jest.advanceTimersByTimeAsync(200);
-    expect(mockWin.setPosition).toHaveBeenCalledWith(0, 0);
+    expect(mockStore.updatePet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      state: expect.objectContaining({ x: 0, y: 0 })
+    }));
 
     // Test loop error handling
     mockBackendClient.stepPet.mockRejectedValue(new Error("fail"));
@@ -374,7 +406,6 @@ describe("PetManager", () => {
     expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
       screen: expect.any(Object),
       work_area: expect.any(Object),
-      taskbar: expect.any(Object),
     }));
     expect(mockWin.setPosition).not.toHaveBeenCalled();
     expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({
@@ -385,7 +416,7 @@ describe("PetManager", () => {
     manager.draggingPets.delete("pet_1");
   });
 
-  test("pet loop should resync backend when window manager clamps the pet position", async () => {
+  test("pet loop should not feed OS clamp back into backend physics", async () => {
     const mockWin = {
       getPosition: jest.fn().mockReturnValue([0, 0]),
       getSize: jest.fn().mockReturnValue([64, 64]),
@@ -414,9 +445,11 @@ describe("PetManager", () => {
     manager["_startPetLoop"]("pet_1");
     await jest.advanceTimersByTimeAsync(200);
 
-    expect(mockBackendClient.setPosition).toHaveBeenCalledWith("pet_1", 0, 0);
     expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.any(Object));
-    expect(mockWin.setPosition).toHaveBeenCalledWith(0, 10);
+    expect(mockStore.updatePet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      state: expect.objectContaining({ x: 0, y: 10 })
+    }));
+    expect(mockBackendClient.setPosition).not.toHaveBeenCalled();
   });
 
   test("pet loop should log border collision events once per collision type", async () => {

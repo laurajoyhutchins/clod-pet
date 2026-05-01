@@ -114,7 +114,7 @@ class PetManager {
         const width = Math.round(entry.frameW * scale);
         const height = Math.round(entry.frameH * scale);
         entry.win.setSize(width, height);
-        entry.win.webContents.send("pet:scale", scale);
+        // Renderer now subscribes to store:scale
       }
     }
   }
@@ -123,11 +123,7 @@ class PetManager {
     this.volume = volume;
     log.info("Setting volume to:", volume);
     this._syncStore();
-    for (const entry of this.pets.values()) {
-      if (!entry.win.isDestroyed()) {
-        entry.win.webContents.send("pet:volume", volume);
-      }
-    }
+    // Renderer now subscribes to store:volume
   }
 
   async loadAndCreatePet(petPath: string, spawnId = 1) {
@@ -428,18 +424,14 @@ class PetManager {
         }
 
         if (!petEntry.win.isDestroyed()) {
-          if (!isDragging) {
-            petEntry.win.setPosition(Math.round(finalX), Math.round(finalY));
-            petEntry.state = nextPetState;
-          } else {
-            petEntry.state = nextPetState;
-          }
+          petEntry.state = nextPetState;
           petEntry.win.webContents.send("pet:frame", {
             frameIndex: result.frame_index,
             flipH: result.flip_h,
             opacity: result.opacity ?? 1.0,
             sound: result.sound,
             borders: collision,
+            // Optimization: Renderer will soon read world/pos from store
             world,
             windowPos: { x: winX, y: winY, w: winW, h: winH },
           });

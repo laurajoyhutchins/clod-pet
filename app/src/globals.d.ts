@@ -5,6 +5,10 @@ interface Window {
     off(channel: string, callback: (data: any) => void): void;
     once(channel: string, callback: (data: any) => void): void;
     invoke(channel: string, data?: unknown): Promise<any>;
+    store: {
+      getState(): Promise<any>;
+      subscribe(callback: (state: any) => void): () => void;
+    };
     control: {
       getSettings(): Promise<any>;
       setSettings(settings: any): Promise<any>;

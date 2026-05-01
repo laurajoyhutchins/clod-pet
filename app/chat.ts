@@ -1,5 +1,6 @@
 (function() {
 const api = (window as any).clodPet.control;
+const store = (window as any).clodPet.store;
 
 const chatContainer = document.getElementById("chat-container") as HTMLDivElement;
 const chatInput = document.getElementById("chat-input") as HTMLInputElement;
@@ -37,12 +38,11 @@ function ensureBackendStatusBanner() {
   return backendStatusBanner;
 }
 
-function updateBackendStatus(diag: any) {
+function updateBackendStatus(backend: any) {
   const banner = ensureBackendStatusBanner();
-  const backend = diag?.backend || {};
-  const fatal = backend.fatalError || backend.lastError || "unexpected crash";
+  const fatal = backend.lastError || "unexpected crash";
 
-  if (backend.state === "fatal" || backend.state === "failed" || backend.available === false) {
+  if (backend.status === "fatal" || backend.status === "failed" || backend.available === false) {
     banner.textContent = `Backend unavailable: ${fatal}`;
     banner.style.display = "block";
     chatInput.disabled = true;
@@ -51,7 +51,7 @@ function updateBackendStatus(diag: any) {
     return;
   }
 
-  if (backend.state === "restarting") {
+  if (backend.status === "restarting") {
     banner.textContent = "Backend restarting after a crash. Chat is temporarily disabled.";
     banner.style.display = "block";
     chatInput.disabled = true;
@@ -64,20 +64,6 @@ function updateBackendStatus(diag: any) {
   chatInput.disabled = false;
   sendBtn.disabled = false;
   chatInput.placeholder = "Type a message...";
-}
-
-async function refreshBackendStatus() {
-  try {
-    const diag = await api.diagnostics();
-    updateBackendStatus(diag);
-  } catch (err: any) {
-    const banner = ensureBackendStatusBanner();
-    banner.textContent = `Backend unavailable: ${err.message}`;
-    banner.style.display = "block";
-    chatInput.disabled = true;
-    sendBtn.disabled = true;
-    chatInput.placeholder = "Backend unavailable";
-  }
 }
 
 async function sendMessage() {
@@ -125,8 +111,17 @@ chatInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
 });
 
-refreshBackendStatus();
-backendStatusRefreshTimer = setInterval(refreshBackendStatus, 2000);
+// Subscribe to store for real-time status updates
+const unsubscribeStore = store.subscribe((state: any) => {
+  updateBackendStatus(state.backend);
+});
+
+// Initial state
+store.getState().then((state: any) => updateBackendStatus(state.backend));
+
+window.addEventListener("beforeunload", () => {
+  unsubscribeStore();
+});
 
 chatInput.focus();
 })();
