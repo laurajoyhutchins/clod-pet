@@ -249,12 +249,12 @@ func TestHandleAddPet(t *testing.T) {
 		t.Fatalf("resp.OK = false, want true, error: %s", resp.Error)
 	}
 
-	var result map[string]string
+	var result PetState
 	if err := json.Unmarshal(resp.Payload, &result); err != nil {
 		t.Fatalf("unmarshal payload error: %v", err)
 	}
-	if result["pet_id"] != "new-pet" {
-		t.Errorf("pet_id = %s, want new-pet", result["pet_id"])
+	if result.PetID != "new-pet" {
+		t.Errorf("pet_id = %s, want new-pet", result.PetID)
 	}
 }
 

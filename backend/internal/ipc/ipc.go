@@ -40,8 +40,9 @@ type Response struct {
 }
 
 type AddPetPayload struct {
-	PetPath string `json:"pet_path"`
-	SpawnID int    `json:"spawn_id,omitempty"`
+	PetPath string              `json:"pet_path"`
+	SpawnID int                 `json:"spawn_id,omitempty"`
+	World   engine.WorldContext `json:"world,omitempty"`
 }
 
 type RemovePetPayload struct {
@@ -119,7 +120,7 @@ type PetInfo struct {
 }
 
 type Service interface {
-	AddPet(petPath string, spawnID int) (string, error)
+	AddPet(petPath string, spawnID int, world ...engine.WorldContext) (*PetState, error)
 	RemovePet(petID string)
 	StepPet(petID string, world engine.WorldContext) (*PetState, error)
 	SetPosition(petID string, x, y float64) error
@@ -217,12 +218,12 @@ func (h *Handler) handleAddPet(payload json.RawMessage) *Response {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	petID, err := h.svc.AddPet(p.PetPath, p.SpawnID)
+	state, err := h.svc.AddPet(p.PetPath, p.SpawnID, p.World)
 	if err != nil {
 		return errorResponse(err.Error())
 	}
 
-	return marshalSuccess(map[string]string{"pet_id": petID})
+	return marshalSuccess(state)
 }
 
 func (h *Handler) handleRemovePet(payload json.RawMessage) *Response {

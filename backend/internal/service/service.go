@@ -136,26 +136,26 @@ func (s *Service) LoadPet(petPath string) (*ipc.PetInfo, error) {
 	}, nil
 }
 
-func (s *Service) AddPet(petPath string, spawnID int) (string, error) {
+func (s *Service) AddPet(petPath string, spawnID int, world ...engine.WorldContext) (*ipc.PetState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	cleanPath, err := s.cleanPetPath(petPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	petDef, exists := s.petStore[cleanPath]
 	if !exists {
 		petDef, err = pet.LoadPet(cleanPath)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		s.petStore[cleanPath] = petDef
 	}
 
 	e := engine.NewEngine(petDef)
-	if err := e.Start(spawnID); err != nil {
-		return "", err
+	if err := e.Start(spawnID, world...); err != nil {
+		return nil, err
 	}
 
 	s.idCounter++
@@ -166,7 +166,19 @@ func (s *Service) AddPet(petPath string, spawnID int) (string, error) {
 	if soundPayload := s.soundForPet(petDef, e.CurrentAnim()); soundPayload != nil {
 		s.pendingSounds[petID] = soundPayload
 	}
-	return petID, nil
+
+	x, y := e.Position()
+	return &ipc.PetState{
+		PetID:      petID,
+		FrameIndex: 0,
+		X:          x,
+		Y:          y,
+		OffsetY:    0,
+		Opacity:    1,
+		IntervalMs: 0,
+		FlipH:      false,
+		NextAnimID: 0,
+	}, nil
 }
 
 func (s *Service) cleanPetPath(petPath string) (string, error) {

@@ -96,7 +96,8 @@ class PetManager {
       throw new Error(`invalid pet sprite data for ${petPath}`);
     }
 
-    const addResult = await this.backendClient.addPet(petPath, spawnId);
+    const world = this._buildWorldContext();
+    const addResult = await this.backendClient.addPet(petPath, spawnId, world);
     const backendPetId = addResult && addResult.pet_id;
     if (!backendPetId) {
       this.lastError = "backend did not return a pet id";
@@ -112,8 +113,8 @@ class PetManager {
     };
 
     const workArea = screen.getPrimaryDisplay().workArea;
-    const x = workArea.x + Math.floor(Math.random() * workArea.width);
-    const y = workArea.y + Math.floor(Math.random() * workArea.height * 0.8);
+    const x = typeof addResult.x === "number" ? addResult.x : workArea.x + Math.floor(Math.random() * workArea.width);
+    const y = typeof addResult.y === "number" ? addResult.y : workArea.y + Math.floor(Math.random() * workArea.height * 0.8);
 
     const frameW = petData.frame_w || 64;
     const frameH = petData.frame_h || 64;
@@ -135,7 +136,7 @@ class PetManager {
       backendPetId,
       frameW,
       frameH,
-      state: { frameIndex: 0, x, y, flipH: false },
+      state: { frameIndex: 0, x, y, flipH: !!addResult.flip_h },
       interval: null,
       stepFailures: 0,
       loaded: false,
@@ -178,6 +179,30 @@ class PetManager {
 
     await loadPromise;
     return petEntry.backendPetId;
+  }
+
+  _buildWorldContext() {
+    const display = screen.getPrimaryDisplay();
+    return {
+      screen: {
+        x: display.bounds.x,
+        y: display.bounds.y,
+        w: display.bounds.width,
+        h: display.bounds.height,
+      },
+      work_area: {
+        x: display.workArea.x,
+        y: display.workArea.y,
+        w: display.workArea.width,
+        h: display.workArea.height,
+      },
+      taskbar: {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+      },
+    };
   }
 
   async removePet(petId: string) {

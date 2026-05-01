@@ -355,6 +355,23 @@ describe("BackendClient", () => {
     );
   });
 
+  test("addPet should include world context when provided", async () => {
+    const mockBody = JSON.stringify({ ok: true, pet_id: "pet_1" });
+    const world = {
+      screen: { x: 0, y: 0, w: 1920, h: 1080 },
+      work_area: { x: 0, y: 0, w: 1920, h: 1040 },
+      taskbar: { x: 0, y: 1040, w: 1920, h: 40 },
+    };
+    const promise = client.addPet("../pets/sheep", 1, world);
+    dataCallback!(Buffer.from(mockBody));
+    endCallback!();
+    await promise;
+
+    expect(mockReq.write).toHaveBeenCalledWith(
+      JSON.stringify({ command: "add_pet", payload: { pet_path: "../pets/sheep", spawn_id: 1, world } })
+    );
+  });
+
   test("isConnected getter should return connected state", () => {
     expect(client.isConnected).toBe(false);
     client.connected = true;

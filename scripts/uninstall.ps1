@@ -4,6 +4,8 @@
 $ErrorActionPreference = "Continue"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
+$backendDir = Join-Path $repoRoot "backend"
+$backendBinDir = Join-Path $backendDir "bin"
 
 Write-Host "Uninstalling ClodPet..." -ForegroundColor Yellow
 
@@ -29,15 +31,21 @@ if (Test-Path $wrapperPath) {
 }
 
 # Remove backend exe
-$backendExe = Join-Path $repoRoot "backend\clod-pet-backend.exe"
-if (Test-Path $backendExe) {
-    Remove-Item $backendExe -Force
-    Write-Host "Removed backend executable" -ForegroundColor Green
+$backendExecutables = @(
+    (Join-Path $backendBinDir "clod-pet-backend.exe"),
+    (Join-Path $backendDir "clod-pet-backend.exe")
+)
+foreach ($backendExe in $backendExecutables) {
+    if (Test-Path $backendExe) {
+        Remove-Item $backendExe -Force
+        Write-Host "Removed backend executable: $backendExe" -ForegroundColor Green
+    }
 }
 
 # Optional: Remove Defender exclusion
 try {
-    Remove-MpPreference -ExclusionPath (Join-Path $repoRoot "backend") -ErrorAction SilentlyContinue
+    Remove-MpPreference -ExclusionPath $backendBinDir -ErrorAction SilentlyContinue
+    Remove-MpPreference -ExclusionPath $backendDir -ErrorAction SilentlyContinue
     Write-Host "Removed Defender exclusion" -ForegroundColor Green
 }
 catch {

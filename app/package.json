@@ -2,9 +2,9 @@
   "name": "clod-pet",
   "version": "0.1.0",
   "description": "Desktop pet app",
-  "main": "main.js",
+  "main": "dist/main.js",
   "scripts": {
-    "build:ts": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json",
+    "build:ts": "node scripts/build.js",
     "start": "npm run build:ts && electron --no-sandbox .",
     "dev": "npm run build:ts && cross-env NODE_ENV=development electron --no-sandbox .",
     "test": "npm run build:ts && jest",

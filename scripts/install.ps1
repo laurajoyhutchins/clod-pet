@@ -5,7 +5,9 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 $backendDir = Join-Path $repoRoot "backend"
-$frontendDir = Join-Path $repoRoot "frontend"
+$backendBuildScript = Join-Path $backendDir "build.ps1"
+$backendBinDir = Join-Path $backendDir "bin"
+$appDir = Join-Path $repoRoot "app"
 $distDir = Join-Path $repoRoot "dist"
 $logFile = Join-Path $env:TEMP "clodpet-install.log"
 $signtool = $null
@@ -68,18 +70,15 @@ if (-not (Test-CommandExists "go")) {
     exit 1
 }
 
-$binaryPath = Join-Path $backendDir "clod-pet-backend.exe"
-Push-Location $backendDir
+$binaryPath = Join-Path $backendBinDir "clod-pet-backend.exe"
 try {
-    go build -o clod-pet-backend.exe .
+    & $backendBuildScript
     Log "Backend built: $binaryPath"
 }
 catch {
     Log "ERROR: Failed to build backend: $_"
-    Pop-Location
     exit 1
 }
-Pop-Location
 
 # 3 Sign the backend executable
 if ($cert) {
@@ -96,29 +95,29 @@ if ($cert) {
 }
 
 # 4 Add Windows Defender exclusion for backend folder
-Log "Adding Windows Defender exclusion for backend directory..."
+Log "Adding Windows Defender exclusion for backend bin directory..."
 try {
-    Add-MpPreference -ExclusionPath $backendDir -ErrorAction Stop
-    Log "Defender exclusion added for: $backendDir"
+    Add-MpPreference -ExclusionPath $backendBinDir -ErrorAction Stop
+    Log "Defender exclusion added for: $backendBinDir"
 }
 catch {
     Log "WARNING: Could not add Defender exclusion (may need admin rights): $_"
 }
 
-# 5 Install frontend dependencies
-Log "Installing frontend dependencies..."
+# 5 Install app dependencies
+Log "Installing app dependencies..."
 if (-not (Test-CommandExists "npm")) {
     Log "ERROR: npm is not installed or not in PATH. Please install Node.js from https://nodejs.org/"
     exit 1
 }
 
-Push-Location $frontendDir
+Push-Location $appDir
 try {
     npm ci --loglevel=error
-    Log "Frontend dependencies installed"
+    Log "App dependencies installed"
 }
 catch {
-    Log "ERROR: Failed to install frontend dependencies: $_"
+    Log "ERROR: Failed to install app dependencies: $_"
     Pop-Location
     exit 1
 }
@@ -128,10 +127,10 @@ Pop-Location
 $electronExe = Get-ChildItem $distDir -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $electronExe) {
     Log "Building Electron app..."
-    Push-Location $frontendDir
+    Push-Location $appDir
     try {
         # Check if electron-builder is available locally or globally
-        $localBuilder = Join-Path $frontendDir "node_modules\.bin\electron-builder.cmd"
+        $localBuilder = Join-Path $appDir "node_modules\.bin\electron-builder.cmd"
         if (Test-Path $localBuilder) {
             & $localBuilder --dir
             Log "Electron app built"
@@ -166,7 +165,7 @@ if ($cert -and $electronExe -and $signtool) {
 Log "Creating Start Menu shortcut..."
 $installedExe = if ($electronExe) { $electronExe.FullName } else {
     # Fallback: point to electron in dev mode
-    Join-Path $frontendDir "node_modules\.bin\electron.cmd"
+    Join-Path $appDir "node_modules\.bin\electron.cmd"
 }
 
 $shortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
@@ -177,7 +176,7 @@ try {
     $shortcut = $shell.CreateShortcut($lnkPath)
     $shortcut.TargetPath = $installedExe
     $shortcut.WorkingDirectory = Split-Path $installedExe
-    $shortcut.IconLocation = Join-Path $frontendDir "assets\icon.png"
+    $shortcut.IconLocation = Join-Path $appDir "assets\icon.png"
     $shortcut.Save()
     Log "Start Menu shortcut created: $lnkPath"
 }

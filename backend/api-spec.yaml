@@ -43,7 +43,11 @@ paths:
                   enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active]
                 payload:
                   type: object
-      responses:
+                  properties:
+                    world:
+                      type: object
+                      description: Optional screen/work-area context used when spawning pets
+              responses:
         '200':
           description: Command response
           content:

@@ -4,6 +4,7 @@
   "StealTaskbarFocus": true,
   "AutostartPets": 5,
   "Scale": 3,
+  "ShowAdvancedSettings": false,
   "MultiScreenEnabled": false,
   "CurrentPet": "other-pet",
   "LLM": {

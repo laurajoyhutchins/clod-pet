@@ -52,8 +52,8 @@ class ApiAdapter {
     return this.client.version();
   }
 
-  async addPet(petPath: string, spawnId = 0) {
-    const resp = await this.client.addPet(petPath, spawnId);
+  async addPet(petPath: string, spawnId = 0, world?: Record<string, unknown>) {
+    const resp = await this.client.addPet(petPath, spawnId, world);
     return resp.payload;
   }
 

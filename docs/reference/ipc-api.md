@@ -1,6 +1,6 @@
 # Reference: IPC API
 
-The frontend communicates with the Go backend via HTTP POST to `http://localhost:{PORT}/api`.
+The app communicates with the Go backend via HTTP POST to `http://localhost:{PORT}/api`.
 
 ## Request format
 

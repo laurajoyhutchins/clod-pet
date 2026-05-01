@@ -1,6 +1,6 @@
 # Clod Pet
 
-A desktop pet application. Go backend handles animation logic; the TypeScript/Electron frontend renders transparent sprite windows.
+A desktop pet application. Go backend handles animation logic; the TypeScript/Electron app renders transparent sprite windows.
 
 ## Documentation (Diataxis)
 
@@ -17,10 +17,10 @@ powershell -ExecutionPolicy Bypass -File scripts/install.ps1
 
 # Linux/macOS build and run from source
 scripts/build.sh
-cd frontend && npm install && npm start
+cd app && npm install && npm start
 ```
 
-`npm start` compiles the frontend TypeScript first, then launches Electron. The emitted `.js` files are runtime artifacts used by Electron and browser windows; edit the `.ts` files.
+`npm start` compiles the app TypeScript first, then launches Electron. The emitted files live under `dist/` and are runtime artifacts used by Electron and browser windows; edit the `.ts` files.
 
 Sound playback runs in Electron/Chromium, so Linux builds do not need native ALSA development headers.
 
@@ -29,11 +29,11 @@ Sound playback runs in Electron/Chromium, so Linux builds do not need native ALS
 | Script | Purpose |
 |--------|---------|
 | `scripts/install.ps1` | Full install: builds backend, creates cert, adds Defender exclusion, creates shortcuts |
-| `scripts/build.ps1` | Quick rebuild of backend and frontend dependencies |
-| `scripts/test.ps1` | Run tests (backend Go tests, frontend Jest, E2E) |
+| `scripts/build.ps1` | Quick rebuild of backend and app dependencies |
+| `scripts/test.ps1` | Run tests (backend Go tests, app Jest, E2E) |
 | `scripts/uninstall.ps1` | Clean removal of shortcuts, settings, and generated files |
-| `scripts/build.sh` | Linux/macOS build: builds the Go backend and TypeScript frontend |
-| `scripts/test.sh` | Linux/macOS tests: backend Go tests, frontend Jest, optional E2E |
+| `scripts/build.sh` | Linux/macOS build: builds the Go backend and TypeScript app |
+| `scripts/test.sh` | Linux/macOS tests: backend Go tests, app Jest, optional E2E |
 
 ### MCP Server Stub
 
@@ -52,7 +52,7 @@ clod-pet/
 |       |-- ipc/              # HTTP JSON protocol types & handlers
 |       |-- settings/         # JSON config persistence
 |       `-- sound/            # Sound selection and browser-playable audio encoding
-|-- frontend/                 # TypeScript + Electron desktop shell
+|-- app/                      # TypeScript + Electron desktop shell
 |   |-- main.ts               # Source entry point
 |   |-- main.js               # Generated Electron entry point
 |   |-- control-panel.ts      # Source for the options UI renderer

@@ -7,7 +7,7 @@ Clod Pet follows a client-server architecture split across two processes.
 ```
 +-------------------+          HTTP POST          +--------------------+
 | TypeScript/Electron| --------------------------> | Go backend         |
-| frontend           | <-------------------------- | backend            |
+| app                | <-------------------------- | backend            |
 |                    |        JSON response        |                    |
 | - Tray menu        |                             | - Animation state  |
 | - Pet windows      |                             |   machine          |
@@ -18,7 +18,7 @@ Clod Pet follows a client-server architecture split across two processes.
 +-------------------+                             +--------------------+
 ```
 
-## Why split frontend and backend?
+## Why split app and backend?
 
 The original desktop pet (eSheep) was a single Windows application. This project separates concerns:
 
@@ -27,9 +27,9 @@ The original desktop pet (eSheep) was a single Windows application. This project
 
 The communication layer is HTTP JSON: simple to debug, language-agnostic, and sufficient for 200ms polling intervals.
 
-## Frontend build model
+## App build model
 
-The frontend source is TypeScript. `npm run build:ts` compiles:
+The app source is TypeScript. `npm run build:ts` compiles:
 
 - Main-process and preload code with `tsconfig.json`
 - Browser scripts such as `control-panel.ts` and `src/pet-renderer.ts` with `tsconfig.browser.json`
@@ -58,8 +58,8 @@ The state determines which animation plays:
 Transitions between animations are triggered by:
 
 - **Sequence completion** - the `<sequence>` finishes its repeats
-- **Internal Physics** - the engine detects the pet hit a screen edge or fell off a ledge using raw monitor geometry provided by the frontend.
-- **User interaction** - click-and-drag (front-end notifies backend of state changes)
+- **Internal Physics** - the engine detects the pet hit a screen edge or fell off a ledge using raw monitor geometry provided by the app.
+- **User interaction** - click-and-drag (the app notifies the backend of state changes)
 
 ## Sound playback
 

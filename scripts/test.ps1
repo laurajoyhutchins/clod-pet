@@ -5,7 +5,7 @@ $ErrorActionPreference = "Continue"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 $backendDir = Join-Path $repoRoot "backend"
-$frontendDir = Join-Path $repoRoot "frontend"
+$appDir = Join-Path $repoRoot "app"
 $logFile = Join-Path $env:TEMP "clodpet-test.log"
 
 function Log($msg) {
@@ -62,18 +62,18 @@ function Test-Backend {
     }
 }
 
-function Test-Frontend {
-    Write-Section "Running Frontend Jest Tests"
+function Test-App {
+    Write-Section "Running App Jest Tests"
 
-    if (-not (Test-Path $frontendDir)) {
-        Write-Host "Frontend directory not found: $frontendDir" -ForegroundColor Red
-        Log "Frontend tests: SKIPPED (directory not found)"
+    if (-not (Test-Path $appDir)) {
+        Write-Host "App directory not found: $appDir" -ForegroundColor Red
+        Log "App tests: SKIPPED (directory not found)"
         return @{ ExitCode = 1 }
     }
 
-    Push-Location $frontendDir
+    Push-Location $appDir
 
-    Log "Starting frontend tests..."
+    Log "Starting app tests..."
 
     $output = npm test -- --verbose 2>&1
     $exitCode = $LASTEXITCODE
@@ -82,12 +82,12 @@ function Test-Frontend {
 
     if ($exitCode -eq 0) {
         Write-Host ""
-        Write-Host "All frontend tests passed!" -ForegroundColor Green
-        Log "Frontend tests: ALL PASSED"
+        Write-Host "All app tests passed!" -ForegroundColor Green
+        Log "App tests: ALL PASSED"
     } else {
         Write-Host ""
-        Write-Host "Some frontend tests failed!" -ForegroundColor Red
-        Log "Frontend tests: FAILED"
+        Write-Host "Some app tests failed!" -ForegroundColor Red
+        Log "App tests: FAILED"
     }
 
     Pop-Location
@@ -97,18 +97,18 @@ function Test-Frontend {
     }
 }
 
-function Test-FrontendE2E {
-    Write-Section "Running Frontend E2E Tests"
+function Test-AppE2E {
+    Write-Section "Running App E2E Tests"
 
-    if (-not (Test-Path $frontendDir)) {
-        Write-Host "Frontend directory not found: $frontendDir" -ForegroundColor Red
+    if (-not (Test-Path $appDir)) {
+        Write-Host "App directory not found: $appDir" -ForegroundColor Red
         Log "E2E tests: SKIPPED (directory not found)"
         return @{ ExitCode = 1 }
     }
 
-    Push-Location $frontendDir
+    Push-Location $appDir
 
-    Log "Starting frontend E2E tests..."
+    Log "Starting app E2E tests..."
 
     $output = npm run test:e2e 2>&1
     $exitCode = $LASTEXITCODE
@@ -133,7 +133,7 @@ function Test-FrontendE2E {
 }
 
 function Show-Summary {
-    param($backendResult, $frontendResult, $e2eResult)
+    param($backendResult, $appResult, $e2eResult)
 
     $separator = "=" * 60
     Write-Host ""
@@ -149,11 +149,11 @@ function Show-Summary {
         }
     }
 
-    if ($frontendResult) {
-        if ($frontendResult.ExitCode -eq 0) {
-            Write-Host "Frontend Tests: PASSED" -ForegroundColor Green
+    if ($appResult) {
+        if ($appResult.ExitCode -eq 0) {
+            Write-Host "App Tests: PASSED" -ForegroundColor Green
         } else {
-            Write-Host "Frontend Tests: FAILED" -ForegroundColor Red
+            Write-Host "App Tests: FAILED" -ForegroundColor Red
         }
     }
 
@@ -174,22 +174,22 @@ if (Test-Path $logFile) { Remove-Item $logFile }
 Log "=== Starting ClodPet test suite ==="
 
 $runBackend = $true
-$runFrontend = $true
+$runApp = $true
 $runE2E = $false
 
 if ($args.Count -gt 0) {
     $runBackend = $false
-    $runFrontend = $false
+    $runApp = $false
     $runE2E = $false
 
     foreach ($arg in $args) {
         switch ($arg.ToLower()) {
             "backend" { $runBackend = $true }
-            "frontend" { $runFrontend = $true }
+            "app" { $runApp = $true }
             "e2e" { $runE2E = $true }
             "all" {
                 $runBackend = $true
-                $runFrontend = $true
+                $runApp = $true
                 $runE2E = $true
             }
         }
@@ -197,25 +197,25 @@ if ($args.Count -gt 0) {
 }
 
 $backendResult = $null
-$frontendResult = $null
+$appResult = $null
 $e2eResult = $null
 
 if ($runBackend) {
     $backendResult = Test-Backend
 }
 
-if ($runFrontend) {
-    $frontendResult = Test-Frontend
+if ($runApp) {
+    $appResult = Test-App
 }
 
 if ($runE2E) {
-    $e2eResult = Test-FrontendE2E
+    $e2eResult = Test-AppE2E
 }
 
-Show-Summary $backendResult $frontendResult $e2eResult
+Show-Summary $backendResult $appResult $e2eResult
 
 $anyFailed = ($backendResult -and $backendResult.ExitCode -ne 0) -or
-             ($frontendResult -and $frontendResult.ExitCode -ne 0) -or
+             ($appResult -and $appResult.ExitCode -ne 0) -or
              ($e2eResult -and $e2eResult.ExitCode -ne 0)
 
 if ($anyFailed) {

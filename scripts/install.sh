@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 backend_dir="$repo_root/backend"
-frontend_dir="$repo_root/frontend"
+app_dir="$repo_root/app"
 backend_output="${CLOD_PET_BACKEND_OUTPUT:-clod-pet-backend}"
 settings_dir="${XDG_CONFIG_HOME:-$HOME/.config}/clod-pet"
 settings_path="$settings_dir/clod-pet-settings.json"
@@ -41,17 +41,17 @@ log "Building Go backend..."
 (cd "$backend_dir" && go build -o "$backend_output" .)
 log "Backend built: $backend_dir/$backend_output"
 
-log "Installing frontend dependencies..."
-if [[ -f "$frontend_dir/package-lock.json" ]]; then
-  (cd "$frontend_dir" && npm ci --loglevel=error)
+log "Installing app dependencies..."
+if [[ -f "$app_dir/package-lock.json" ]]; then
+  (cd "$app_dir" && npm ci --loglevel=error)
 else
-  (cd "$frontend_dir" && npm install --loglevel=error)
+  (cd "$app_dir" && npm install --loglevel=error)
 fi
-log "Frontend dependencies installed"
+log "App dependencies installed"
 
-log "Building frontend TypeScript..."
-(cd "$frontend_dir" && npm run build:ts)
-log "Frontend TypeScript build complete"
+log "Building app TypeScript..."
+(cd "$app_dir" && npm run build:ts)
+log "App TypeScript build complete"
 
 log "Ensuring default settings path exists..."
 mkdir -p "$settings_dir"
@@ -74,13 +74,13 @@ cat >"$launcher_path" <<EOF
 set -euo pipefail
 
 repo_root="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-frontend_dir="\$repo_root/frontend"
+app_dir="\$repo_root/app"
 settings_path="\${XDG_CONFIG_HOME:-\$HOME/.config}/clod-pet/clod-pet-settings.json"
 
 export PETS_DIR="\${PETS_DIR:-\$repo_root/pets}"
 export SETTINGS_PATH="\${SETTINGS_PATH:-\$settings_path}"
 
-cd "\$frontend_dir"
+cd "\$app_dir"
 exec npm start "\$@"
 EOF
 chmod +x "$launcher_path"
