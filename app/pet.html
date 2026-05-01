@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'">
+  <title>Pet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: transparent; overflow: hidden; width: 100%; height: 100%; }
+    canvas { display: block; pointer-events: none; }
+    #backend-status {
+      position: fixed;
+      left: 8px;
+      top: 8px;
+      max-width: calc(100% - 16px);
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(233, 69, 96, 0.9);
+      color: #fff;
+      font: 12px/1.3 system-ui, -apple-system, Segoe UI, sans-serif;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+      display: none;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #click-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      cursor: grab;
+    }
+    #click-layer.dragging { cursor: grabbing; }
+  </style>
+</head>
+<body>
+  <div id="backend-status"></div>
+  <canvas id="sprite"></canvas>
+  <div id="click-layer"></div>
+  <script src="src/pet-renderer.js"></script>
+</body>
+</html>
