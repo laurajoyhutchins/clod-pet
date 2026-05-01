@@ -80,19 +80,23 @@ Write-Success "Backend built: $backendDir\$backendOutput"
 Write-Info "Building app..."
 Push-Location $appDir
 
-# Install dependencies
-Write-Info "Installing app dependencies..."
-if (Test-Path "package-lock.json") {
-    npm ci --loglevel=error
+# Install dependencies only if node_modules doesn't exist
+if (-not (Test-Path "node_modules")) {
+    Write-Info "Installing app dependencies..."
+    if (Test-Path "package-lock.json") {
+        npm ci --loglevel=error
+    } else {
+        npm install --loglevel=error
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install app dependencies"
+        Pop-Location
+        exit 1
+    }
+    Write-Success "Dependencies installed"
 } else {
-    npm install --loglevel=error
+    Write-Warn "Skipping dependency install (node_modules exists)"
 }
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to install app dependencies"
-    Pop-Location
-    exit 1
-}
-Write-Success "Dependencies installed"
 
 # Build TypeScript
 Write-Info "Compiling TypeScript..."

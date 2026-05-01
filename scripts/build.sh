@@ -54,13 +54,17 @@ info "Building Go backend..."
 (cd "$backend_dir" && go build -o "$backend_output" .)
 success "Backend built: $backend_output"
 
-info "Installing app dependencies..."
-if [[ -f "$app_dir/package-lock.json" ]]; then
-  (cd "$app_dir" && npm ci --loglevel=error)
+if [[ -d "$app_dir/node_modules" ]]; then
+  warn "Skipping dependency install (node_modules exists)"
 else
-  (cd "$app_dir" && npm install --loglevel=error)
+  info "Installing app dependencies..."
+  if [[ -f "$app_dir/package-lock.json" ]]; then
+    (cd "$app_dir" && npm ci --loglevel=error)
+  else
+    (cd "$app_dir" && npm install --loglevel=error)
+  fi
+  success "Dependencies installed"
 fi
-success "Dependencies installed"
 
 info "Building TypeScript app..."
 (cd "$app_dir" && npm run build:ts)

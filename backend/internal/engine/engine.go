@@ -231,16 +231,16 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	// Physics Snapping
 	e.applyPhysics(world, petW, petH, borderCtx)
 
-	if borderCtx != ContextNone && !e.borderTriggered {
-		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
-			e.borderTriggered = true
+	if gravity && !e.gravityTriggered {
+		if nextID := e.pickGravityTransition(); nextID > 0 {
+			e.gravityTriggered = true
 			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 		}
 	}
 
-	if gravity && !e.gravityTriggered {
-		if nextID := e.pickGravityTransition(); nextID > 0 {
-			e.gravityTriggered = true
+	if borderCtx != ContextNone && !e.borderTriggered {
+		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
+			e.borderTriggered = true
 			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
 		}
 	}

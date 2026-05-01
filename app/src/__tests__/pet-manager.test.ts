@@ -52,6 +52,7 @@ jest.mock("../api-adapter", () => {
     addPet: jest.fn(),
     removePet: jest.fn(),
     stepPet: jest.fn(),
+    setPosition: jest.fn(),
     dragPet: jest.fn(),
     dropPet: jest.fn(),
     getSettings: jest.fn().mockResolvedValue({ Scale: 1.0, Volume: 0.3 }),
@@ -247,8 +248,7 @@ describe("PetManager", () => {
     manager["_startPetLoop"]("pet_1");
     
     // Fast-forward 200ms for first loop
-    jest.advanceTimersByTime(200);
-    await Promise.resolve(); // Wait for loop async work
+    await jest.advanceTimersByTimeAsync(200);
 
     expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
       screen: expect.any(Object),
@@ -267,20 +267,17 @@ describe("PetManager", () => {
         frame_index: 6,
         interval_ms: 200
     });
-    jest.advanceTimersByTime(200);
-    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(200);
     expect(mockWin.setPosition).toHaveBeenCalledWith(0, 0);
 
     // Test loop error handling
     mockBackendClient.stepPet.mockRejectedValue(new Error("fail"));
-    jest.advanceTimersByTime(200);
-    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(200);
     expect(manager.pets.get("pet_1").stepFailures).toBe(1);
     
     // Test loop termination after failures
     for (let i = 0; i < 5; i++) {
-        jest.advanceTimersByTime(200);
-        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(200);
     }
     expect(manager.pets.get("pet_1").interval).toBeNull();
   });
@@ -377,6 +374,40 @@ describe("PetManager", () => {
     }));
 
     manager.draggingPets.delete("pet_1");
+  });
+
+  test("pet loop should resync backend when window manager clamps the pet position", async () => {
+    const mockWin = {
+      getPosition: jest.fn().mockReturnValue([0, 0]),
+      getSize: jest.fn().mockReturnValue([64, 64]),
+      setPosition: jest.fn(),
+      isDestroyed: jest.fn().mockReturnValue(false),
+      webContents: { send: jest.fn() }
+    };
+    const petEntry = {
+      backendPetId: "pet_1",
+      win: mockWin,
+      loaded: true,
+      interval: null,
+      state: { frameIndex: 0, x: 1930, y: 976, offsetY: 0, flipH: false }
+    };
+    manager.pets.set("pet_1", petEntry);
+
+    mockBackendClient.setPosition.mockResolvedValue({ ok: true });
+    mockBackendClient.stepPet.mockResolvedValue({
+      frame_index: 5,
+      x: 0,
+      y: 10,
+      opacity: 1,
+      interval_ms: 100
+    });
+
+    manager["_startPetLoop"]("pet_1");
+    await jest.advanceTimersByTimeAsync(200);
+
+    expect(mockBackendClient.setPosition).toHaveBeenCalledWith("pet_1", 0, 0);
+    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.any(Object));
+    expect(mockWin.setPosition).toHaveBeenCalledWith(0, 10);
   });
 
   test("removePet should call backend removePet and cleanup when entry exists", async () => {
