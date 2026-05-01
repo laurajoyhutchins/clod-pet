@@ -336,6 +336,34 @@ describe("PetManager", () => {
     expect(mockBackendClient.dropPet).toHaveBeenCalledWith("pet_1");
   });
 
+  test("pet loop should pause while dragging", async () => {
+    const mockWin = {
+      getPosition: jest.fn().mockReturnValue([100, 200]),
+      getSize: jest.fn().mockReturnValue([64, 64]),
+      setPosition: jest.fn(),
+      isDestroyed: jest.fn().mockReturnValue(false),
+      webContents: { send: jest.fn() }
+    };
+    const petEntry = {
+      backendPetId: "pet_1",
+      win: mockWin,
+      loaded: true,
+      interval: null
+    };
+    manager.pets.set("pet_1", petEntry);
+    manager.draggingPets.add("pet_1");
+
+    mockBackendClient.stepPet = jest.fn();
+
+    manager["_startPetLoop"]("pet_1");
+    jest.advanceTimersByTime(200);
+    await Promise.resolve();
+
+    expect(mockBackendClient.stepPet).not.toHaveBeenCalled();
+
+    manager.draggingPets.delete("pet_1");
+  });
+
   test("removePet should call backend removePet and cleanup when entry exists", async () => {
     const mockWin = { id: 1 };
     const entry = {

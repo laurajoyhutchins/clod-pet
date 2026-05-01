@@ -32,7 +32,9 @@ Sound playback runs in Electron/Chromium, so Linux builds do not need native ALS
 | `scripts/build.ps1` | Quick rebuild of backend and app dependencies |
 | `scripts/test.ps1` | Run tests (backend Go tests, app Jest, E2E) |
 | `scripts/uninstall.ps1` | Clean removal of shortcuts, settings, and generated files |
+| `scripts/install.sh` | Linux/macOS install: builds backend, installs deps, writes launcher and settings |
 | `scripts/build.sh` | Linux/macOS build: builds the Go backend and TypeScript app |
+| `scripts/uninstall.sh` | Linux/macOS uninstall: removes launcher, backend binary, settings, and generated dist files |
 | `scripts/test.sh` | Linux/macOS tests: backend Go tests, app Jest, optional E2E |
 
 ### MCP Server Stub

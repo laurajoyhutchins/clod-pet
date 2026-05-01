@@ -13,6 +13,7 @@ class PetManager {
   borderDetector: any;
   pets: Map<string, any>;
   windowToPetId: WeakMap<any, string>;
+  draggingPets: Set<string>;
   ipcHandlersRegistered: boolean;
   appIsQuitting: boolean;
   lastError: string | null;
@@ -26,6 +27,7 @@ class PetManager {
     this.borderDetector = new BorderDetector();
     this.pets = new Map();
     this.windowToPetId = new WeakMap();
+    this.draggingPets = new Set();
     this.ipcHandlersRegistered = false;
     this.appIsQuitting = false;
     this.lastError = null;
@@ -174,6 +176,7 @@ class PetManager {
 
     win.on("closed", () => {
       petEntry.stopped = true;
+      this.draggingPets.delete(petEntry.backendPetId);
       if (petEntry.interval) clearTimeout(petEntry.interval);
       if (!this.appIsQuitting && this.pets.has(petEntry.backendPetId)) {
         this.backendClient.removePet(petEntry.backendPetId);
@@ -215,6 +218,7 @@ class PetManager {
       return this.backendClient.removePet(petId);
     }
 
+    this.draggingPets.delete(petId);
     entry.stopped = true;
     if (entry.interval) clearTimeout(entry.interval);
     await this.backendClient.removePet(petId);
@@ -233,6 +237,8 @@ class PetManager {
         entry.interval = null;
       }
     }
+
+    this.draggingPets.clear();
 
     for (const petId of Array.from(this.pets.keys())) {
       this.windowManager.removePetWindow(petId);
@@ -257,6 +263,11 @@ class PetManager {
       if (!petEntry || petEntry.stopped || !petEntry.loaded || petEntry.win.isDestroyed()) return;
 
       petEntry.interval = null;
+
+      if (this.draggingPets.has(petId)) {
+        schedule(100);
+        return;
+      }
 
       try {
         const [winX, winY] = petEntry.win.getPosition();
@@ -314,13 +325,17 @@ class PetManager {
     ipcMain.on("pet:drag", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const petId = this._getPetIdByWindow(win);
-      if (petId) this.backendClient.dragPet(petId, ...this._safeWindowPosition(win));
+      if (petId) {
+        this.draggingPets.add(petId);
+        this.backendClient.dragPet(petId, ...this._safeWindowPosition(win));
+      }
     });
 
     ipcMain.on("pet:drag:move", (event, data) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const petId = this._getPetIdByWindow(win);
       if (petId) {
+        this.draggingPets.add(petId);
         this.backendClient.dragPet(petId, data.x, data.y);
         if (!win.isDestroyed()) win.setPosition(Math.round(data.x), Math.round(data.y));
       }
@@ -329,7 +344,10 @@ class PetManager {
     ipcMain.on("pet:drop", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const petId = this._getPetIdByWindow(win);
-      if (petId) this.backendClient.dropPet(petId);
+      if (petId) {
+        this.draggingPets.delete(petId);
+        this.backendClient.dropPet(petId);
+      }
     });
   }
 
