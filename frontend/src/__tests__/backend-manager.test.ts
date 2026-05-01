@@ -43,6 +43,8 @@ describe("BackendManager", () => {
   let mockGet: jest.MockedFunction<typeof http.get>;
 
   beforeEach(() => {
+    const fs = require("fs");
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
     mockProcess = {
       stdout: { on: jest.fn(), removeAllListeners: jest.fn() },
       stderr: { on: jest.fn(), removeAllListeners: jest.fn() },
@@ -110,7 +112,7 @@ describe("BackendManager", () => {
     await manager.start();
     
     expect(spawn).toHaveBeenCalledWith(
-      expect.stringContaining("clod-pet.exe"),
+      expect.stringContaining(process.platform === "win32" ? "clod-pet-backend.exe" : "clod-pet-backend"),
       [],
       expect.any(Object)
     );

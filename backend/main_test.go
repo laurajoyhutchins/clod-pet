@@ -137,7 +137,7 @@ func TestApiHandler(t *testing.T) {
 }
 
 func TestApiHandlerSuccess(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig(), nil)
+	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
 	h := ipc.NewHandler(svc)
 	handler := apiHandler(h)
 
@@ -162,7 +162,7 @@ func TestApiHandlerSuccess(t *testing.T) {
 }
 
 func TestApiHandlerUnknownCommand(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig(), nil)
+	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
 	h := ipc.NewHandler(svc)
 	handler := apiHandler(h)
 
@@ -191,7 +191,7 @@ func TestLoadPetHandler(t *testing.T) {
 }
 
 func TestLoadPetHandlerSuccess(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig(), nil)
+	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
 	h := ipc.NewHandler(svc)
 	handler := loadPetHandler(h)
 
@@ -210,7 +210,7 @@ func TestLoadPetHandlerSuccess(t *testing.T) {
 func TestHealthHandlerOK(t *testing.T) {
 	rr := httptest.NewRecorder()
 	cfg := settings.DefaultConfig()
-	svc := service.New("../pets", "test-settings.json", cfg, nil)
+	svc := service.New("../pets", "test-settings.json", cfg)
 	// Add a pet to make it OK
 	svc.AddPet("../pets/esheep64", 1)
 
@@ -240,7 +240,7 @@ func TestLoadPetHandlerInvalidJSON(t *testing.T) {
 }
 
 func TestLoadPetHandlerFail(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig(), nil)
+	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
 	h := ipc.NewHandler(svc)
 	handler := loadPetHandler(h)
 
@@ -271,7 +271,7 @@ func TestHealthHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 	// Use a simple mock or skip if service creation fails
 	cfg := settings.DefaultConfig()
-	svc := service.New("../pets", "test-settings.json", cfg, nil)
+	svc := service.New("../pets", "test-settings.json", cfg)
 	if svc == nil {
 		t.Skip("service creation returned nil")
 	}
@@ -306,7 +306,7 @@ func TestDescribeHandler(t *testing.T) {
 func TestHealthHandlerDegraded(t *testing.T) {
 	rr := httptest.NewRecorder()
 	cfg := settings.DefaultConfig()
-	svc := service.New("../pets", "test-settings.json", cfg, nil)
+	svc := service.New("../pets", "test-settings.json", cfg)
 	if svc == nil {
 		t.Skip("service creation returned nil")
 	}
@@ -319,20 +319,6 @@ func TestHealthHandlerDegraded(t *testing.T) {
 	if status, ok := result["status"]; ok && status != "degraded" {
 		t.Errorf("expected degraded status, got %v", status)
 	}
-}
-
-// Helper to create a service for testing
-func newServiceForTest(cfg *settings.Config) *service.Service {
-	// This is a bit tricky since service.New requires sound player
-	// For now, return nil and skip those tests or use a mock
-	return nil
-}
-
-func TestNewSoundPlayer(t *testing.T) {
-	player := newSoundPlayer(0.5)
-	// Player might be nil if oto is not available
-	// Just ensure no panic
-	_ = player
 }
 
 func TestWriteResponseNil(t *testing.T) {

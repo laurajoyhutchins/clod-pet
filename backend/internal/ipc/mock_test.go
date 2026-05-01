@@ -1,10 +1,12 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 
 	"clod-pet/backend/internal/engine"
+	"clod-pet/backend/internal/llm"
 	"clod-pet/backend/internal/pet"
 )
 
@@ -201,4 +203,10 @@ func (m *commonMockService) LoadPet(petPath string) (*PetInfo, error) {
 
 func (m *commonMockService) LLMChat(payload json.RawMessage) (*Response, error) {
 	return &Response{OK: true}, nil
+}
+
+func (m *commonMockService) LLMStream(ctx context.Context, payload json.RawMessage) (<-chan llm.StreamEvent, error) {
+	ch := make(chan llm.StreamEvent)
+	close(ch)
+	return ch, nil
 }

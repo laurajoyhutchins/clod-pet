@@ -1,9 +1,17 @@
 "use strict";
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
 const logDir = process.env.CLOD_PET_LOG_DIR
-    || path.join(process.env.APPDATA || process.cwd(), "clod-pet", "logs");
+    || defaultLogDir();
+function defaultLogDir() {
+    if (process.env.APPDATA)
+        return path.join(process.env.APPDATA, "clod-pet", "logs");
+    if (process.env.XDG_STATE_HOME)
+        return path.join(process.env.XDG_STATE_HOME, "clod-pet", "logs");
+    return path.join(os.homedir(), ".local", "state", "clod-pet", "logs");
+}
 class Logger {
     constructor(name, level = "info") {
         this.name = name;

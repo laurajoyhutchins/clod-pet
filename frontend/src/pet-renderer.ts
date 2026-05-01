@@ -72,9 +72,39 @@ class SpriteRenderer {
   }
 }
 
+type SoundPayload = {
+  mime_type?: string;
+  data_base64?: string;
+  loop?: number;
+};
+
+class SoundPlayer {
+  volume: number;
+
+  constructor(volume = 0.3) {
+    this.volume = volume;
+  }
+
+  setVolume(volume: number) {
+    this.volume = Math.max(0, Math.min(1, volume));
+  }
+
+  play(sound?: SoundPayload) {
+    if (!sound || !sound.data_base64) return;
+
+    const mimeType = sound.mime_type || "audio/wav";
+    const audio = new Audio(`data:${mimeType};base64,${sound.data_base64}`);
+    audio.volume = this.volume;
+    audio.play().catch((err) => {
+      console.warn("[pet-renderer] Failed to play sound:", err);
+    });
+  }
+}
+
 const canvas = document.getElementById("sprite") as HTMLCanvasElement;
 const clickLayer = document.getElementById("click-layer") as HTMLElement;
 const renderer = new SpriteRenderer(canvas);
+const soundPlayer = new SoundPlayer();
 
 let isDragging = false;
 
@@ -86,6 +116,7 @@ async function initPetRenderer() {
     const data = await window.clodPet.invoke("get-pet-init", petId);
     console.log("[pet-renderer] Received init data, loading sprite...");
     if (data.scale) renderer.setScale(data.scale);
+    if (typeof data.volume === "number") soundPlayer.setVolume(data.volume);
     await renderer.loadSpriteSheet(data.pngBase64, data.tilesX, data.tilesY);
     renderer.drawFrame(0);
     console.log("[pet-renderer] Pet initialized successfully");
@@ -97,10 +128,15 @@ async function initPetRenderer() {
 const removeFrameListener = window.clodPet.on("pet:frame", (data) => {
   renderer.drawFrame(data.frameIndex, data.flipH);
   renderer.setOpacity(data.opacity);
+  soundPlayer.play(data.sound);
 });
 
 const removeScaleListener = window.clodPet.on("pet:scale", (scale) => {
   renderer.setScale(scale);
+});
+
+const removeVolumeListener = window.clodPet.on("pet:volume", (volume) => {
+  soundPlayer.setVolume(volume);
 });
 
 clickLayer.addEventListener("pointerdown", (e) => {
@@ -129,6 +165,7 @@ clickLayer.addEventListener("pointerup", (e) => {
 window.addEventListener("beforeunload", () => {
   removeFrameListener();
   removeScaleListener();
+  removeVolumeListener();
 });
 
 initPetRenderer();

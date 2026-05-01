@@ -387,6 +387,7 @@ func TestPetStateJSON(t *testing.T) {
 		IntervalMs: 200,
 		FlipH:      true,
 		NextAnimID: 2,
+		Sound:      &SoundPayload{MIMEType: "audio/wav", DataBase64: "abc"},
 	}
 
 	data, err := json.Marshal(state)
@@ -407,5 +408,9 @@ func TestPetStateJSON(t *testing.T) {
 	}
 	if int(decoded["next_anim_id"].(float64)) != 2 {
 		t.Errorf("next_anim_id = %v, want 2", decoded["next_anim_id"])
+	}
+	soundPayload := decoded["sound"].(map[string]interface{})
+	if soundPayload["mime_type"] != "audio/wav" {
+		t.Errorf("sound.mime_type = %v, want audio/wav", soundPayload["mime_type"])
 	}
 }

@@ -85,7 +85,11 @@ function setupControlPanelHandlers() {
     electron_1.ipcMain.handle("control:set-settings", (_event, settings) => petManager.backendClient.setSettings(settings));
     electron_1.ipcMain.handle("control:list-pets", () => petManager.backendClient.listPets());
     electron_1.ipcMain.handle("control:list-active", () => petManager.backendClient.listActive());
-    electron_1.ipcMain.handle("control:set-volume", (_event, volume) => petManager.backendClient.setVolume(volume));
+    electron_1.ipcMain.handle("control:set-volume", async (_event, volume) => {
+        const result = await petManager.backendClient.setVolume(volume);
+        petManager.setVolume(volume);
+        return result;
+    });
     electron_1.ipcMain.handle("control:set-scale", async (_event, scale) => {
         await petManager.backendClient.setScale(scale);
         petManager.setScale(scale);

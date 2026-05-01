@@ -54,6 +54,7 @@ jest.mock("../api-adapter", () => {
     stepPet: jest.fn(),
     dragPet: jest.fn(),
     dropPet: jest.fn(),
+    getSettings: jest.fn().mockResolvedValue({ Scale: 1.0, Volume: 0.3 }),
   }));
 });
 
@@ -90,7 +91,7 @@ import { BrowserWindow, ipcMain, screen } from "electron";
 
 describe("PetManager", () => {
   let manager: InstanceType<typeof PetManager>;
-  let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock };
+  let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock; getSettings: jest.Mock };
   let mockWindowManager: { createPetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
   let mockBorderDetector: { init: jest.Mock; checkBorder: jest.Mock; checkGravity: jest.Mock; _displayForRect: jest.Mock; taskbarBoundsByDisplay: Map<number, any>; tolerance: number };
 
@@ -138,7 +139,9 @@ describe("PetManager", () => {
       petId: "pet_1",
       pngBase64: "data:image/png;base64,abc",
       tilesX: 1,
-      tilesY: 1
+      tilesY: 1,
+      scale: 1,
+      volume: 0.3
     });
 
     const resultNull = await handler(null, "nonexistent");
@@ -230,7 +233,8 @@ describe("PetManager", () => {
       x: 110,
       y: 210,
       opacity: 0.5,
-      interval_ms: 200
+      interval_ms: 200,
+      sound: { mime_type: "audio/wav", data_base64: "abc" }
     });
 
     manager["_startPetLoop"]("pet_1");
@@ -245,7 +249,11 @@ describe("PetManager", () => {
       taskbar: expect.any(Object),
     }));
     expect(mockWin.setPosition).toHaveBeenCalledWith(110, 210);
-    expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({ frameIndex: 5, opacity: 0.5 }));
+    expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({
+      frameIndex: 5,
+      opacity: 0.5,
+      sound: { mime_type: "audio/wav", data_base64: "abc" }
+    }));
 
     // Test default x, y
     mockBackendClient.stepPet.mockResolvedValue({

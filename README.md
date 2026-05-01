@@ -12,14 +12,17 @@ A desktop pet application. Go backend handles animation logic; the TypeScript/El
 ### Quick start
 
 ```bash
-# Full install (recommended)
+# Windows full install (recommended on Windows)
 powershell -ExecutionPolicy Bypass -File scripts/install.ps1
 
-# Or manually:
+# Linux/macOS build and run from source
+scripts/build.sh
 cd frontend && npm install && npm start
 ```
 
 `npm start` compiles the frontend TypeScript first, then launches Electron. The emitted `.js` files are runtime artifacts used by Electron and browser windows; edit the `.ts` files.
+
+Sound playback runs in Electron/Chromium, so Linux builds do not need native ALSA development headers.
 
 ### Scripts
 
@@ -29,6 +32,8 @@ cd frontend && npm install && npm start
 | `scripts/build.ps1` | Quick rebuild of backend and frontend dependencies |
 | `scripts/test.ps1` | Run tests (backend Go tests, frontend Jest, E2E) |
 | `scripts/uninstall.ps1` | Clean removal of shortcuts, settings, and generated files |
+| `scripts/build.sh` | Linux/macOS build: builds the Go backend and TypeScript frontend |
+| `scripts/test.sh` | Linux/macOS tests: backend Go tests, frontend Jest, optional E2E |
 
 ### MCP Server Stub
 
@@ -46,7 +51,7 @@ clod-pet/
 |       |-- expression/       # Expression evaluator (screenW, random, etc.)
 |       |-- ipc/              # HTTP JSON protocol types & handlers
 |       |-- settings/         # JSON config persistence
-|       `-- sound/            # Audio playback
+|       `-- sound/            # Sound selection and browser-playable audio encoding
 |-- frontend/                 # TypeScript + Electron desktop shell
 |   |-- main.ts               # Source entry point
 |   |-- main.js               # Generated Electron entry point

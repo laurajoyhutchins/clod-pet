@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import http = require("http");
 import path = require("path");
+import fs = require("fs");
 import logger = require("./logger");
 
 const log = logger.createLogger("backend-manager");
@@ -41,12 +42,12 @@ class BackendManager {
       port = await this._findFreePort(port + 1);
     }
     const backendPath = path.join(__dirname, "..", "..", "backend");
-    const backendExe = path.join(backendPath, "clod-pet.exe");
+    const backendExe = this._resolveBackendBinary(backendPath);
 
     const backendMode = process.env.CLOD_PET_BACKEND_MODE || "";
-    const exeExists = require("fs").existsSync(backendExe);
-    const useExe = backendMode === "exe" || (backendMode !== "source" && !this.preferSource && exeExists);
-    const cmd = useExe ? backendExe : "go";
+    const exeExists = Boolean(backendExe);
+    const useExe = (backendMode === "exe" && exeExists) || (backendMode !== "source" && !this.preferSource && exeExists);
+    const cmd = useExe && backendExe ? backendExe : "go";
     const args = useExe ? [] : ["run", "."];
 
     this.launch = { cmd, args, cwd: backendPath, port, petsDir: this.petsDir, useExe, exeExists };
@@ -79,6 +80,21 @@ class BackendManager {
     await this._waitForReady();
     log.info("backend ready", { url: this.url });
     return this.url;
+  }
+
+  _resolveBackendBinary(backendPath: string) {
+    const explicitPath = process.env.CLOD_PET_BACKEND_PATH;
+    if (explicitPath && fs.existsSync(explicitPath)) return explicitPath;
+
+    const names = process.platform === "win32"
+      ? ["clod-pet-backend.exe", "clod-pet.exe"]
+      : ["clod-pet-backend", "clod-pet"];
+
+    for (const name of names) {
+      const candidate = path.join(backendPath, name);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    return null;
   }
 
   stop() {

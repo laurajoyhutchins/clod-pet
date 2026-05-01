@@ -21,26 +21,26 @@ import (
 )
 
 type Service struct {
-	petsDir      string
-	settings     *settings.Config
-	settingsPath string
-	petStore     map[string]*pet.Pet
-	engines      map[string]*engine.Engine
-	petPaths     map[string]string
-	mu           sync.RWMutex
-	soundPlayer  *sound.Player
-	idCounter    int
+	petsDir       string
+	settings      *settings.Config
+	settingsPath  string
+	petStore      map[string]*pet.Pet
+	engines       map[string]*engine.Engine
+	petPaths      map[string]string
+	pendingSounds map[string]*ipc.SoundPayload
+	mu            sync.RWMutex
+	idCounter     int
 }
 
-func New(petsDir, settingsPath string, cfg *settings.Config, soundPlayer *sound.Player) *Service {
+func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
 	svc := &Service{
-		petsDir:      petsDir,
-		settings:     cfg,
-		settingsPath: settingsPath,
-		petStore:     make(map[string]*pet.Pet),
-		engines:      make(map[string]*engine.Engine),
-		petPaths:     make(map[string]string),
-		soundPlayer:  soundPlayer,
+		petsDir:       petsDir,
+		settings:      cfg,
+		settingsPath:  settingsPath,
+		petStore:      make(map[string]*pet.Pet),
+		engines:       make(map[string]*engine.Engine),
+		petPaths:      make(map[string]string),
+		pendingSounds: make(map[string]*ipc.SoundPayload),
 	}
 
 	return svc
@@ -163,7 +163,9 @@ func (s *Service) AddPet(petPath string, spawnID int) (string, error) {
 	s.engines[petID] = e
 	s.petPaths[petID] = cleanPath
 
-	s.playSoundForPet(petDef, e.CurrentAnim())
+	if soundPayload := s.soundForPet(petDef, e.CurrentAnim()); soundPayload != nil {
+		s.pendingSounds[petID] = soundPayload
+	}
 	return petID, nil
 }
 
@@ -211,6 +213,7 @@ func (s *Service) RemovePet(petID string) {
 	defer s.mu.Unlock()
 	delete(s.engines, petID)
 	delete(s.petPaths, petID)
+	delete(s.pendingSounds, petID)
 }
 
 func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetState, error) {
@@ -230,6 +233,7 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 		return nil, nil
 	}
 
+	var soundPayload *ipc.SoundPayload
 	if step.NextAnimID > 0 {
 		oldAnim := e.CurrentAnim()
 		e.TransitionTo(step.NextAnimID)
@@ -238,9 +242,15 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 			petDef := e.PetDef()
 			s.mu.RUnlock()
 			if petDef != nil {
-				s.playSoundForPet(petDef, step.NextAnimID)
+				soundPayload = s.soundForPet(petDef, step.NextAnimID)
 			}
 		}
+	}
+	if soundPayload == nil {
+		s.mu.Lock()
+		soundPayload = s.pendingSounds[petID]
+		delete(s.pendingSounds, petID)
+		s.mu.Unlock()
 	}
 
 	return &ipc.PetState{
@@ -253,6 +263,7 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 		IntervalMs: step.IntervalMs,
 		FlipH:      step.ShouldFlip,
 		NextAnimID: step.NextAnimID,
+		Sound:      soundPayload,
 	}, nil
 }
 
@@ -310,9 +321,6 @@ func (s *Service) Status() map[string]int {
 }
 
 func (s *Service) UpdateVolume(volume float64) error {
-	if s.soundPlayer != nil {
-		s.soundPlayer.UpdateVolume(volume)
-	}
 	s.settings.Volume = volume
 	if err := s.settings.Save(s.settingsPath); err != nil {
 		log.Warn("could not save settings", "path", s.settingsPath, "error", err)
@@ -330,14 +338,14 @@ func (s *Service) UpdateScale(scale float64) error {
 
 func (s *Service) Settings() map[string]interface{} {
 	return map[string]interface{}{
-		"Volume":             s.settings.Volume,
-		"WinForeGround":      s.settings.WinForeGround,
-		"StealTaskbarFocus":  s.settings.StealTaskbarFocus,
-		"AutostartPets":      s.settings.AutostartPets,
-		"Scale":              s.settings.Scale,
+		"Volume":               s.settings.Volume,
+		"WinForeGround":        s.settings.WinForeGround,
+		"StealTaskbarFocus":    s.settings.StealTaskbarFocus,
+		"AutostartPets":        s.settings.AutostartPets,
+		"Scale":                s.settings.Scale,
 		"ShowAdvancedSettings": s.settings.ShowAdvancedSettings,
-		"MultiScreenEnabled": s.settings.MultiScreenEnabled,
-		"CurrentPet":         s.settings.CurrentPet,
+		"MultiScreenEnabled":   s.settings.MultiScreenEnabled,
+		"CurrentPet":           s.settings.CurrentPet,
 	}
 }
 
@@ -345,9 +353,6 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 	if v, ok := settings["Volume"]; ok {
 		if vol, ok := v.(float64); ok {
 			s.settings.Volume = vol
-			if s.soundPlayer != nil {
-				s.soundPlayer.UpdateVolume(vol)
-			}
 		}
 	}
 	if v, ok := settings["Scale"]; ok {
@@ -455,14 +460,10 @@ func (s *Service) Pet(petID string) (json.RawMessage, error) {
 	return data, nil
 }
 
-func (s *Service) playSoundForPet(petDef *pet.Pet, animID int) {
-	if s.soundPlayer == nil {
-		return
-	}
-
+func (s *Service) soundForPet(petDef *pet.Pet, animID int) *ipc.SoundPayload {
 	sounds, ok := petDef.Sounds[animID]
 	if !ok || len(sounds) == 0 {
-		return
+		return nil
 	}
 
 	var soundEntries []sound.SoundEntry
@@ -477,10 +478,15 @@ func (s *Service) playSoundForPet(petDef *pet.Pet, animID int) {
 
 	soundEntry := sound.PickSound(soundEntries)
 	if soundEntry == nil {
-		return
+		return nil
 	}
-
-	if err := s.soundPlayer.PlayRawPCM(soundEntry.Data); err != nil {
-		log.Error("sound play failed", "error", err)
+	payload := sound.PayloadFor(soundEntry)
+	if payload == nil {
+		return nil
+	}
+	return &ipc.SoundPayload{
+		MIMEType:   payload.MIMEType,
+		DataBase64: base64.StdEncoding.EncodeToString(payload.Data),
+		Loop:       payload.Loop,
 	}
 }

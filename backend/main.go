@@ -16,7 +16,6 @@ import (
 	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/service"
 	"clod-pet/backend/internal/settings"
-	"clod-pet/backend/internal/sound"
 
 	"github.com/rs/cors"
 )
@@ -30,9 +29,8 @@ func main() {
 	settingsPath := envOr("SETTINGS_PATH", "clod-pet-settings.json")
 
 	cfg := loadSettings(settingsPath)
-	soundPlayer := newSoundPlayer(cfg.Volume)
 
-	svc := service.New(petsDir, settingsPath, cfg, soundPlayer)
+	svc := service.New(petsDir, settingsPath, cfg)
 	handler := ipc.NewHandler(svc)
 
 	mux := http.NewServeMux()
@@ -93,15 +91,6 @@ func loadSettings(path string) *settings.Config {
 		return settings.DefaultConfig()
 	}
 	return cfg
-}
-
-func newSoundPlayer(volume float64) *sound.Player {
-	player, err := sound.NewPlayer(44100, volume)
-	if err != nil {
-		log.Warn("could not initialize sound", "error", err)
-		return nil
-	}
-	return player
 }
 
 func apiHandler(h *ipc.Handler) http.HandlerFunc {

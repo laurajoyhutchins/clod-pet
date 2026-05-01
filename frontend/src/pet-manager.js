@@ -17,6 +17,7 @@ class PetManager {
         this.lastError = null;
         this.lastPetLoad = null;
         this.scale = 1.0;
+        this.volume = 0.3;
     }
     async init() {
         await this.borderDetector.init();
@@ -25,6 +26,9 @@ class PetManager {
             const settings = await this.backendClient.getSettings();
             if (settings && settings.Scale) {
                 this.scale = settings.Scale;
+            }
+            if (settings && typeof settings.Volume === "number") {
+                this.volume = settings.Volume;
             }
         }
         catch (err) {
@@ -40,6 +44,7 @@ class PetManager {
                 tilesX: targetEntry.petData.tiles_x,
                 tilesY: targetEntry.petData.tiles_y,
                 scale: this.scale,
+                volume: this.volume,
             };
         });
     }
@@ -52,6 +57,15 @@ class PetManager {
                 const height = Math.round(entry.frameH * scale);
                 entry.win.setSize(width, height);
                 entry.win.webContents.send("pet:scale", scale);
+            }
+        }
+    }
+    setVolume(volume) {
+        this.volume = volume;
+        log.info("Setting volume to:", volume);
+        for (const entry of this.pets.values()) {
+            if (!entry.win.isDestroyed()) {
+                entry.win.webContents.send("pet:volume", volume);
             }
         }
     }
@@ -178,6 +192,7 @@ class PetManager {
                         frameIndex: result.frame_index,
                         flipH: result.flip_h,
                         opacity: result.opacity ?? 1.0,
+                        sound: result.sound,
                     });
                 }
                 if (result.interval_ms > 0 && petEntry.interval) {

@@ -2,109 +2,9 @@ package sound
 
 import (
 	"bytes"
-	"encoding/base64"
-	"io"
+	"encoding/binary"
 	"math/rand"
-	"sync"
-
-	"github.com/ebitengine/oto/v3"
-	"github.com/hajimehoshi/go-mp3"
 )
-
-type Player struct {
-	ctx     *oto.Context
-	volume  float64
-	mu      sync.Mutex
-	players []*oto.Player
-}
-
-func NewPlayer(sampleRate int, volume float64) (*Player, error) {
-	opts := &oto.NewContextOptions{
-		SampleRate:   sampleRate,
-		ChannelCount: 2,
-		Format:       oto.FormatSignedInt16LE,
-	}
-	ctx, ready, err := oto.NewContext(opts)
-	if err != nil {
-		return nil, err
-	}
-	<-ready
-
-	p := &Player{
-		ctx:    ctx,
-		volume: volume,
-	}
-	return p, nil
-}
-
-func (p *Player) PlayBase64PCM(base64Data string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	data, err := base64.StdEncoding.DecodeString(base64Data)
-	if err != nil {
-		return err
-	}
-
-	p.playPCM(data)
-	return nil
-}
-
-func (p *Player) PlayRawPCM(data []byte) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.playPCM(data)
-	return nil
-}
-
-func (p *Player) playPCM(data []byte) {
-	p.cleanup()
-
-	var r io.Reader = bytes.NewReader(data)
-
-	// Try to decode as MP3 first
-	if d, err := mp3.NewDecoder(bytes.NewReader(data)); err == nil {
-		// If it's not a valid MP3, NewDecoder might return an error or a decoder that fails on first Read
-		// For now, if no error, we assume it's MP3.
-		r = d
-	}
-
-	player := p.ctx.NewPlayer(r)
-	player.SetVolume(p.volume)
-	player.Play()
-
-	p.players = append(p.players, player)
-}
-
-func (p *Player) cleanup() {
-	var active []*oto.Player
-	for _, pl := range p.players {
-		if pl.IsPlaying() {
-			active = append(active, pl)
-		} else {
-			_ = pl.Close()
-		}
-	}
-	p.players = active
-}
-
-func (p *Player) Release() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for _, pl := range p.players {
-		_ = pl.Close()
-	}
-	p.players = nil
-}
-
-func (p *Player) UpdateVolume(v float64) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.volume = v
-}
 
 func PickSound(sounds []SoundEntry) *SoundEntry {
 	if len(sounds) == 0 {
@@ -135,4 +35,75 @@ type SoundEntry struct {
 	Probability int
 	Loop        int
 	Data        []byte
+}
+
+type Payload struct {
+	MIMEType string
+	Data     []byte
+	Loop     int
+}
+
+func PayloadFor(entry *SoundEntry) *Payload {
+	if entry == nil || len(entry.Data) == 0 {
+		return nil
+	}
+	mimeType, data := playableAudio(entry.Data)
+	return &Payload{
+		MIMEType: mimeType,
+		Data:     data,
+		Loop:     entry.Loop,
+	}
+}
+
+func playableAudio(data []byte) (string, []byte) {
+	switch {
+	case isWAV(data):
+		return "audio/wav", data
+	case isMP3(data):
+		return "audio/mpeg", data
+	default:
+		return "audio/wav", rawPCMToWAV(data, 44100, 2, 16)
+	}
+}
+
+func isWAV(data []byte) bool {
+	return len(data) >= 12 && bytes.Equal(data[0:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WAVE"))
+}
+
+func isMP3(data []byte) bool {
+	if len(data) >= 3 && bytes.Equal(data[0:3], []byte("ID3")) {
+		return true
+	}
+	return len(data) >= 2 && data[0] == 0xff && data[1]&0xe0 == 0xe0
+}
+
+func rawPCMToWAV(data []byte, sampleRate, channels, bitsPerSample int) []byte {
+	byteRate := sampleRate * channels * bitsPerSample / 8
+	blockAlign := channels * bitsPerSample / 8
+	size := 44 + len(data)
+
+	buf := bytes.NewBuffer(make([]byte, 0, size))
+	buf.WriteString("RIFF")
+	writeUint32(buf, uint32(size-8))
+	buf.WriteString("WAVE")
+	buf.WriteString("fmt ")
+	writeUint32(buf, 16)
+	writeUint16(buf, 1)
+	writeUint16(buf, uint16(channels))
+	writeUint32(buf, uint32(sampleRate))
+	writeUint32(buf, uint32(byteRate))
+	writeUint16(buf, uint16(blockAlign))
+	writeUint16(buf, uint16(bitsPerSample))
+	buf.WriteString("data")
+	writeUint32(buf, uint32(len(data)))
+	buf.Write(data)
+	return buf.Bytes()
+}
+
+func writeUint16(buf *bytes.Buffer, v uint16) {
+	_ = binary.Write(buf, binary.LittleEndian, v)
+}
+
+func writeUint32(buf *bytes.Buffer, v uint32) {
+	_ = binary.Write(buf, binary.LittleEndian, v)
 }

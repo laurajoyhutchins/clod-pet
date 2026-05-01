@@ -63,7 +63,7 @@ Transitions between animations are triggered by:
 
 ## Sound playback
 
-When an animation transition occurs, the engine checks `pet.Sounds[animationID]` for associated sounds. If found, `sound.PickSound()` selects one based on weighted probability and plays it via the `oto` audio library.
+When an animation transition occurs, the engine checks `pet.Sounds[animationID]` for associated sounds. If found, `sound.PickSound()` selects one based on weighted probability, encodes it as browser-playable audio, and includes it in the next `step_pet` response. The Electron renderer plays the sound through Chromium audio APIs.
 
 Volume is controlled via the `set_volume` command and persisted to `clod-pet-settings.json`.
 

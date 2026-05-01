@@ -1,6 +1,6 @@
 # Scripts Reference
 
-Clod Pet provides PowerShell scripts to automate building, testing, and installing the application on Windows.
+Clod Pet provides PowerShell scripts for Windows and shell scripts for Linux/macOS build and test workflows.
 
 ## Available Scripts
 
@@ -10,6 +10,8 @@ Clod Pet provides PowerShell scripts to automate building, testing, and installi
 | `build.ps1` | Quick rebuild of backend and frontend dependencies |
 | `test.ps1` | Run test suites (backend, frontend, E2E) |
 | `uninstall.ps1` | Clean removal of installed components |
+| `build.sh` | Linux/macOS build for the Go backend and TypeScript frontend |
+| `test.sh` | Linux/macOS test runner for backend, frontend, and optional E2E tests |
 
 ---
 
@@ -88,6 +90,20 @@ powershell -ExecutionPolicy Bypass -File scripts/test.ps1 all
 ```
 
 **Output:** Log file saved to `%TEMP%\clodpet-test.log`
+
+---
+
+## build.sh and test.sh
+
+Unix-like systems can use the shell scripts from the repo root.
+
+**Usage:**
+```bash
+scripts/build.sh
+scripts/test.sh [backend|frontend|e2e|all]
+```
+
+Sound playback runs in Electron/Chromium, so Unix backend builds do not need native audio development headers.
 
 ---
 
