@@ -14,6 +14,7 @@ class PetManager {
   pets: Map<string, any>;
   windowToPetId: WeakMap<any, string>;
   ipcHandlersRegistered: boolean;
+  shuttingDown: boolean;
   lastError: string | null;
   lastPetLoad: any;
   scale: number;
@@ -26,6 +27,7 @@ class PetManager {
     this.pets = new Map();
     this.windowToPetId = new WeakMap();
     this.ipcHandlersRegistered = false;
+    this.shuttingDown = false;
     this.lastError = null;
     this.lastPetLoad = null;
     this.scale = 1.0;
@@ -170,11 +172,11 @@ class PetManager {
     });
 
     win.on("closed", () => {
-      if (this.pets.has(petEntry.backendPetId)) {
+      if (!this.shuttingDown && this.pets.has(petEntry.backendPetId)) {
         this.backendClient.removePet(petEntry.backendPetId);
-        this.pets.delete(petEntry.backendPetId);
       }
       if (petEntry.interval) clearInterval(petEntry.interval);
+      this.pets.delete(petEntry.backendPetId);
     });
 
     await loadPromise;
@@ -216,6 +218,23 @@ class PetManager {
     if (entry.interval) clearInterval(entry.interval);
     this.windowManager.removePetWindow(petId);
     return true;
+  }
+
+  shutdown() {
+    this.shuttingDown = true;
+
+    for (const entry of this.pets.values()) {
+      if (entry.interval) {
+        clearInterval(entry.interval);
+        entry.interval = null;
+      }
+    }
+
+    for (const petId of Array.from(this.pets.keys())) {
+      this.windowManager.removePetWindow(petId);
+    }
+
+    this.pets.clear();
   }
 
   _startPetLoop(petId: string) {

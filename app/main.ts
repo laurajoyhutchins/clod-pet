@@ -19,6 +19,7 @@ let trayManager: any = null;
 let chatManager: ChatManager;
 let controlPanelWindow: any = null;
 let controlPanelHandlersRegistered = false;
+let shutdownStarted = false;
 
 async function createPet(petPath = "../pets/esheep64", opts: { throwOnError?: boolean } = {}) {
   try {
@@ -79,6 +80,31 @@ function showControlPanel() {
   controlPanelWindow.on("closed", () => {
     controlPanelWindow = null;
   });
+}
+
+function shutdown() {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+
+  if (petManager) {
+    petManager.shutdown();
+  }
+
+  if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+    controlPanelWindow.close();
+  }
+
+  if (chatManager) {
+    chatManager.closeChat();
+  }
+
+  if (trayManager) {
+    trayManager.destroy();
+  }
+
+  if (backendManager) {
+    backendManager.stop();
+  }
 }
 
 function setupControlPanelHandlers() {
@@ -207,5 +233,5 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  if (backendManager) backendManager.stop();
+  shutdown();
 });
