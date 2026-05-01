@@ -622,17 +622,17 @@ func TestEngineBorderTransition(t *testing.T) {
 		Repeat:     "1",
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "taskbar"},
+			{ID: 2, Probability: 100, Only: "horizontal"},
 		},
 	}
 
 	e := NewEngine(p)
 	e.Start(1)
-	e.SetPosition(0, 900) // Touching taskbar below
+	e.SetPosition(100, 936)
 
 	result, err := e.Step(WorldContext{
 		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Taskbar: Rect{X: 0, Y: 900, W: 1000, H: 100},
+		Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
 	})
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
@@ -662,11 +662,11 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 
 	e := NewEngine(p)
 	e.Start(1)
-	e.SetPosition(0, 900)
+	e.SetPosition(100, 936)
 
 	result, err := e.Step(WorldContext{
 		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Taskbar: Rect{X: 0, Y: 900, W: 1000, H: 100},
+		Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
 	})
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
@@ -675,45 +675,40 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 		t.Fatal("Step returned nil")
 	}
 	if result.NextAnimID != 0 {
-		t.Errorf("NextAnimID = %d, want 0 (no match for taskbar)", result.NextAnimID)
+		t.Errorf("NextAnimID = %d, want 0 (no matching window border)", result.NextAnimID)
 	}
 }
 
-func TestEngineTaskbarSnap(t *testing.T) {
+func TestEngineDesktopSnap(t *testing.T) {
 	tests := []struct {
 		name  string
 		start Rect
-		tb    Rect
 		wantX float64
 		wantY float64
 	}{
 		{
-			name:  "left taskbar",
-			start: Rect{X: 30, Y: 100},
-			tb:    Rect{X: 0, Y: 0, W: 40, H: 1000},
-			wantX: 40,
+			name:  "left edge",
+			start: Rect{X: 1, Y: 100},
+			wantX: 0,
 			wantY: 100,
 		},
 		{
-			name:  "right taskbar",
-			start: Rect{X: 930, Y: 100},
-			tb:    Rect{X: 960, Y: 0, W: 40, H: 1000},
-			wantX: 896,
+			name:  "right edge",
+			start: Rect{X: 935, Y: 100},
+			wantX: 936,
 			wantY: 100,
 		},
 		{
-			name:  "top taskbar",
-			start: Rect{X: 100, Y: 30},
-			tb:    Rect{X: 0, Y: 0, W: 1000, H: 40},
+			name:  "top edge",
+			start: Rect{X: 100, Y: 1},
 			wantX: 100,
-			wantY: 40,
+			wantY: 0,
 		},
 		{
-			name:  "bottom taskbar",
-			start: Rect{X: 100, Y: 930},
-			tb:    Rect{X: 0, Y: 960, W: 1000, H: 40},
+			name:  "bottom edge",
+			start: Rect{X: 100, Y: 935},
 			wantX: 100,
-			wantY: 896,
+			wantY: 936,
 		},
 	}
 
@@ -736,7 +731,7 @@ func TestEngineTaskbarSnap(t *testing.T) {
 
 			result, err := e.Step(WorldContext{
 				Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-				Taskbar: tt.tb,
+				Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
 			})
 			if err != nil {
 				t.Fatalf("Step error: %v", err)
@@ -751,7 +746,7 @@ func TestEngineTaskbarSnap(t *testing.T) {
 	}
 }
 
-func TestEngineSideTaskbarDoesNotSuppressGravity(t *testing.T) {
+func TestEngineVerticalEdgeDoesNotSuppressGravity(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
 		ID:         1,
@@ -768,18 +763,18 @@ func TestEngineSideTaskbarDoesNotSuppressGravity(t *testing.T) {
 
 	e := NewEngine(p)
 	e.Start(1)
-	e.SetPosition(30, 100)
+	e.SetPosition(1, 100)
 
 	result, err := e.Step(WorldContext{
 		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
 		WorkArea: Rect{X: 40, Y: 0, W: 960, H: 1000},
-		Taskbar:  Rect{X: 0, Y: 0, W: 40, H: 1000},
+		Desktop:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
 	})
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
 	}
-	if result.X != 40 {
-		t.Errorf("X = %v, want 40", result.X)
+	if result.X != 0 {
+		t.Errorf("X = %v, want 0", result.X)
 	}
 	if result.NextAnimID != 2 {
 		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
@@ -1001,17 +996,17 @@ func TestEngineBorderTriggeredOnce(t *testing.T) {
 		Repeat:     "10",
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "taskbar"},
+			{ID: 2, Probability: 100, Only: "horizontal"},
 		},
 	}
 
 	e := NewEngine(p)
 	e.Start(1)
-	e.SetPosition(0, 900)
+	e.SetPosition(100, 936)
 
 	world := WorldContext{
 		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Taskbar: Rect{X: 0, Y: 900, W: 1000, H: 100},
+		Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
 	}
 
 	// First collision
@@ -1064,7 +1059,7 @@ func TestEngineSelfTransitionReset(t *testing.T) {
 
 func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
 	p := testPet()
-	// Animation with SequenceNext but none match (e.g., only taskbar but we are none)
+	// Animation with SequenceNext but none match.
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
@@ -1074,7 +1069,7 @@ func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
 		Repeat:     "1",
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "taskbar"},
+			{ID: 2, Probability: 100, Only: "window"},
 		},
 	}
 

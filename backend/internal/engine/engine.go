@@ -42,7 +42,7 @@ type Rect struct {
 type WorldContext struct {
 	Screen   Rect `json:"screen"`
 	WorkArea Rect `json:"work_area"`
-	Taskbar  Rect `json:"taskbar"`
+	Desktop  Rect `json:"desktop"`
 }
 
 type StepResult struct {
@@ -143,10 +143,18 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 }
 
 func (e *Engine) setWorldContext(world WorldContext) {
+	e.env.ScreenX = world.Screen.X
+	e.env.ScreenY = world.Screen.Y
 	e.env.ScreenW = world.Screen.W
 	e.env.ScreenH = world.Screen.H
+	e.env.AreaX = world.WorkArea.X
+	e.env.AreaY = world.WorkArea.Y
 	e.env.AreaW = world.WorkArea.W
 	e.env.AreaH = world.WorkArea.H
+	e.env.DesktopX = world.Desktop.X
+	e.env.DesktopY = world.Desktop.Y
+	e.env.DesktopW = world.Desktop.W
+	e.env.DesktopH = world.Desktop.H
 }
 
 func (e *Engine) Step(world WorldContext) (*StepResult, error) {
@@ -158,10 +166,7 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	petH := float64(e.petDef.FrameH)
 
 	if world.Screen.W > 0 {
-		e.env.ScreenW = world.Screen.W
-		e.env.ScreenH = world.Screen.H
-		e.env.AreaW = world.WorkArea.W
-		e.env.AreaH = world.WorkArea.H
+		e.setWorldContext(world)
 	}
 
 	anim, ok := e.petDef.Animations[e.currentAnim]
@@ -271,23 +276,22 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 }
 
 func (e *Engine) detectBorder(world WorldContext, width, height float64) BorderContext {
-	if world.Screen.W == 0 {
+	b := world.Desktop
+	if b.W == 0 {
+		b = world.Screen
+	}
+	if b.W == 0 {
 		return ContextNone
 	}
 
 	x, y := e.parentX, e.parentY
-	b := world.Screen
 	t := e.tolerance
 
 	onTop := y <= b.Y+t
 	onBottom := y+height >= b.Y+b.H-t
 	onLeft := x <= b.X+t
 	onRight := x+width >= b.X+b.W-t
-	onTaskbar := e.onTaskbar(world.Taskbar, x, y, width, height)
 
-	if onTaskbar {
-		return ContextTaskbar
-	}
 	if onTop || onBottom {
 		return ContextHorizontal
 	}
@@ -306,80 +310,31 @@ func (e *Engine) detectGravity(world WorldContext, width, height float64) bool {
 	bottom := e.parentY + height
 	wa := world.WorkArea
 
-	// If we are above the work area bottom, we fall.
-	if bottom < wa.Y+wa.H-e.tolerance {
-		// A bottom taskbar acts like floor; side/top taskbars are barriers, not support.
-		if e.bottomTaskbarSupportsPet(world) && e.onTaskbar(world.Taskbar, e.parentX, e.parentY, width, height) {
-			return false
-		}
-		return true
-	}
-
-	return false
-}
-
-func (e *Engine) onTaskbar(tb Rect, x, y, width, height float64) bool {
-	if tb.W == 0 || tb.H == 0 {
-		return false
-	}
-	t := e.tolerance
-	return !(x+width < tb.X-t || x > tb.X+tb.W+t || y+height < tb.Y-t || y > tb.Y+tb.H+t)
-}
-
-func (e *Engine) bottomTaskbarSupportsPet(world WorldContext) bool {
-	tb := world.Taskbar
-	screen := world.Screen
-	if tb.W == 0 || tb.H == 0 || screen.W == 0 || screen.H == 0 {
-		return false
-	}
-	return tb.Y > screen.Y+e.tolerance && tb.Y+tb.H >= screen.Y+screen.H-e.tolerance
+	return bottom < wa.Y+wa.H-e.tolerance
 }
 
 func (e *Engine) applyPhysics(world WorldContext, width, height float64, ctx BorderContext) {
-	if world.Screen.W == 0 {
+	b := world.Desktop
+	if b.W == 0 {
+		b = world.Screen
+	}
+	if b.W == 0 {
 		return
 	}
 
-	if ctx == ContextTaskbar {
-		e.snapToTaskbar(world, width, height)
-	} else if ctx == ContextHorizontal {
-		// Snap to Screen Floor
-		if e.parentY+height >= world.Screen.Y+world.Screen.H-e.tolerance {
-			e.parentY = world.Screen.Y + world.Screen.H - height
-		} else if e.parentY <= world.Screen.Y+e.tolerance {
-			e.parentY = world.Screen.Y
+	switch ctx {
+	case ContextHorizontal:
+		if e.parentY+height >= b.Y+b.H-e.tolerance {
+			e.parentY = b.Y + b.H - height
+		} else if e.parentY <= b.Y+e.tolerance {
+			e.parentY = b.Y
 		}
-	}
-}
-
-func (e *Engine) snapToTaskbar(world WorldContext, width, height float64) {
-	tb := world.Taskbar
-	screen := world.Screen
-	t := e.tolerance
-
-	if tb.W == 0 || tb.H == 0 {
-		return
-	}
-
-	taskbarTouchesTop := tb.Y <= screen.Y+t
-	taskbarTouchesBottom := tb.Y+tb.H >= screen.Y+screen.H-t
-	taskbarTouchesLeft := tb.X <= screen.X+t
-	taskbarTouchesRight := tb.X+tb.W >= screen.X+screen.W-t
-
-	if taskbarTouchesLeft && e.parentX < tb.X+tb.W && e.parentX+width > tb.X+tb.W {
-		e.parentX = tb.X + tb.W
-		return
-	}
-	if taskbarTouchesRight && e.parentX+width > tb.X && e.parentX < tb.X {
-		e.parentX = tb.X - width
-		return
-	}
-	if taskbarTouchesTop && e.parentY < tb.Y+tb.H && e.parentY+height > tb.Y+tb.H {
-		e.parentY = tb.Y + tb.H
-		return
-	}
-	if taskbarTouchesBottom && e.parentY+height > tb.Y && e.parentY < tb.Y {
-		e.parentY = tb.Y - height
+	case ContextVertical:
+		if e.parentX+width >= b.X+b.W-e.tolerance {
+			e.parentX = b.X + b.W - width
+		} else if e.parentX <= b.X+e.tolerance {
+			e.parentX = b.X
+		}
 	}
 }
 

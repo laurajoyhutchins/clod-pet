@@ -15,10 +15,10 @@ describe("WorldStore", () => {
   test("should update state with setState", () => {
     const newState = {
       backend: {
+        ...initialState.backend,
         status: 'ready' as const,
         url: 'http://localhost:8080',
         version: '1.0.0',
-        lastError: null,
       }
     };
     store.setState(newState);

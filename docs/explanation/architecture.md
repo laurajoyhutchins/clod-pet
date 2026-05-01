@@ -23,7 +23,7 @@ Clod Pet follows a client-server architecture split across two processes.
 The original desktop pet (eSheep) was a single Windows application. This project separates concerns:
 
 - **Go** owns the animation logic and physics (gravity, collision, snapping) because it is computationally simple, testable in isolation, and allows for a language-agnostic "headless" engine.
-- **TypeScript/Electron** owns window management and sensory input (monitor bounds, taskbar positions) because transparent frameless windows and native display APIs are well-supported.
+- **TypeScript/Electron** owns window management and sensory input (monitor bounds and work-area geometry) because transparent frameless windows and native display APIs are well-supported.
 
 The communication layer is HTTP JSON: simple to debug, language-agnostic, and sufficient for 200ms polling intervals.
 
@@ -38,9 +38,9 @@ Electron still loads generated JavaScript (`main.js`, `preload.js`, and browser 
 
 ## Animation pipeline
 
-1. **Load** - `POST /api/pet/load` reads `animations.xml`, parses the sprite sheet, and returns base64 PNG plus metadata.
+1. **Load** - `POST /api/pet/load` reads `animations.json` when available, falls back to legacy `animations.xml`, parses the sprite sheet, and returns base64 PNG plus metadata.
 2. **Add** - `POST /api` with `add_pet` creates an `Engine` instance for the pet and starts at a spawn point.
-3. **Step** - `POST /api` with `step_pet` passes raw world geometry (screen/taskbar rects). The engine performs physics calculations and returns `{frame_index, x, y, flip_h, opacity}`.
+3. **Step** - `POST /api` with `step_pet` passes raw world geometry (screen, work area, and desktop bounds). The engine performs physics calculations and returns `{frame_index, x, y, flip_h, opacity}`.
 4. **Render** - the Electron renderer, compiled from TypeScript, draws the frame tile from the sprite sheet onto a transparent canvas at the coordinates provided by the backend.
 5. **Transition** - when an animation sequence completes, the engine picks the next animation via weighted probability.
 
@@ -57,7 +57,7 @@ The state determines which animation plays:
 
 Transitions between animations are triggered by:
 
-- **Sequence completion** - the `<sequence>` finishes its repeats
+- **Sequence completion** - the animation sequence finishes its repeats
 - **Internal Physics** - the engine detects the pet hit a screen edge or fell off a ledge using raw monitor geometry provided by the app.
 - **User interaction** - click-and-drag (the app notifies the backend of state changes)
 

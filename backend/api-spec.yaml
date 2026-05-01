@@ -74,6 +74,7 @@ paths:
               properties:
                 pet_path:
                   type: string
+      description: Load pet data from `animations.json`, or legacy `animations.xml` if the JSON file is absent.
       responses:
         '200':
           description: Pet definition loaded
