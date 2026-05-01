@@ -28,6 +28,14 @@ class WindowManager {
         }
       }
 
+      // Synchronize positions
+      for (const [id, pet] of Object.entries(state.pets)) {
+        const prevPet = prevState.pets[id];
+        if (!prevPet || pet.state.x !== prevPet.state.x || pet.state.y !== prevPet.state.y) {
+          this.updatePosition(id, pet.state.x, pet.state.y);
+        }
+      }
+
       // NOTE: Window creation is still handled by PetManager.loadAndCreatePet 
       // for now, as it involves complex async initialization and query params.
       // In a full redesign, loadAndCreatePet would just update the store, 
