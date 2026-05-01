@@ -1,54 +1,116 @@
 # Quick build script - rebuilds backend and app
 # Run with: powershell -ExecutionPolicy Bypass -File build.ps1
 
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
+
+# Helper functions for consistent output
+function Write-Info($msg) {
+    Write-Host "→ $msg" -ForegroundColor Cyan
+}
+
+function Write-Success($msg) {
+    Write-Host "✓ $msg" -ForegroundColor Green
+}
+
+function Write-Warn($msg) {
+    Write-Host "  • $msg" -ForegroundColor Yellow
+}
+
+function Write-Error($msg) {
+    Write-Host "✗ $msg" -ForegroundColor Red
+}
+
+function Write-Header($title) {
+    Write-Host ""
+    Write-Host "══ $title ══" -ForegroundColor Blue
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 $backendDir = Join-Path $repoRoot "backend"
 $backendBuildScript = Join-Path $backendDir "build.ps1"
 $appDir = Join-Path $repoRoot "app"
+$backendOutput = if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }
 
-Write-Host "Building ClodPet..." -ForegroundColor Cyan
+Write-Header "Building ClodPet"
+
+# Check required tools
+Write-Info "Checking required tools..."
+if (-not (Get-Command "go" -ErrorAction SilentlyContinue)) {
+    Write-Error "Go is not installed or not in PATH"
+    exit 1
+}
+if (-not (Get-Command "npm" -ErrorAction SilentlyContinue)) {
+    Write-Error "npm is not installed or not in PATH"
+    exit 1
+}
+Write-Success "Required tools found"
 
 # Close running instances to avoid file locks
-Write-Host "Closing running instances..." -ForegroundColor Yellow
+Write-Info "Closing running instances..."
 $processesToStop = @("electron", "clod-pet-backend")
 foreach ($proc in $processesToStop) {
     if (Get-Process -Name $proc -ErrorAction SilentlyContinue) {
-        Write-Host "Stopping $proc..." -ForegroundColor Gray
+        Write-Warn "Stopping $proc..."
         Stop-Process -Name $proc -Force -ErrorAction SilentlyContinue
     }
 }
 
 # Build Go backend
-Write-Host "Building backend..." -ForegroundColor Yellow
-try {
+Write-Info "Building Go backend..."
+if (Test-Path $backendBuildScript) {
     & $backendBuildScript
-    Write-Host "Backend built" -ForegroundColor Green
-}
-catch {
-    Write-Host "Backend build failed" -ForegroundColor Red
-    Write-Host $_ -ForegroundColor Red
-}
-
-# Install app deps and rebuild
-Write-Host "Building app..." -ForegroundColor Yellow
-Push-Location $appDir
-npm ci --loglevel=error
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "App dependencies installed" -ForegroundColor Green
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Backend build failed"
+        exit 1
+    }
 } else {
-    Write-Host "npm ci failed, trying npm install..." -ForegroundColor Yellow
+    Push-Location $backendDir
+    go build -o $backendOutput .
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Backend build failed"
+        Pop-Location
+        exit 1
+    }
+    Pop-Location
+}
+Write-Success "Backend built: $backendDir\$backendOutput"
+
+# Build app
+Write-Info "Building app..."
+Push-Location $appDir
+
+# Install dependencies
+Write-Info "Installing app dependencies..."
+if (Test-Path "package-lock.json") {
+    npm ci --loglevel=error
+} else {
     npm install --loglevel=error
 }
-
-Write-Host "Compiling TypeScript..." -ForegroundColor Yellow
-npm run build:ts
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "App built" -ForegroundColor Green
-} else {
-    Write-Host "App build failed" -ForegroundColor Red
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to install app dependencies"
+    Pop-Location
+    exit 1
 }
+Write-Success "Dependencies installed"
+
+# Build TypeScript
+Write-Info "Compiling TypeScript..."
+npm run build:ts
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "TypeScript build failed"
+    Pop-Location
+    exit 1
+}
+Write-Success "TypeScript build complete"
+
 Pop-Location
 
-Write-Host "Done!" -ForegroundColor Green
+Write-Host ""
+Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Green
+Write-Host "║  Build complete!                       ║" -ForegroundColor Green
+Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Green
+Write-Host ""
+Write-Host "Summary:" -ForegroundColor White
+Write-Warn "Backend:  $backendDir\$backendOutput"
+Write-Warn "App:      $appDir"
