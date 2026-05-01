@@ -3,7 +3,8 @@
   "WinForeGround": true,
   "StealTaskbarFocus": true,
   "AutostartPets": 1,
-  "Scale": 1,
+  "Scale": 1.5,
+  "ShowAdvancedSettings": false,
   "MultiScreenEnabled": true,
   "CurrentPet": "esheep64",
   "LLM": {

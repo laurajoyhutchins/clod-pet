@@ -58,6 +58,56 @@ class BorderDetector {
     return index >= 0 ? index : null;
   }
 
+  checkBorder(x: number, y: number, width: number, height: number) {
+    const displays = screen.getAllDisplays();
+    const display = this._displayForRect(displays, x, y, width, height);
+    if (!display || !display.bounds) return [];
+
+    const bounds = display.bounds;
+    const borders: string[] = [];
+
+    if (Math.abs(y - bounds.y) <= this.tolerance || Math.abs((y + height) - (bounds.y + bounds.height)) <= this.tolerance) {
+      borders.push("horizontal");
+    }
+    if (Math.abs(x - bounds.x) <= this.tolerance || Math.abs((x + width) - (bounds.x + bounds.width)) <= this.tolerance) {
+      borders.push("vertical");
+    }
+    if (this._onTaskbar(x, y, width, height, display)) {
+      borders.push("taskbar");
+    }
+
+    return borders;
+  }
+
+  checkGravity(x: number, y: number, width: number, height: number) {
+    const displays = screen.getAllDisplays();
+    const display = this._displayForRect(displays, x, y, width, height);
+    if (!display || !display.bounds || !display.workArea) return false;
+
+    const bottom = y + height;
+    const workBottom = display.workArea.y + display.workArea.height;
+    if (bottom < workBottom - this.tolerance) return true;
+
+    return displays.some((candidate) => {
+      if (candidate === display || !candidate.bounds) return false;
+      const horizontallyOverlaps = x + width > candidate.bounds.x && x < candidate.bounds.x + candidate.bounds.width;
+      return horizontallyOverlaps && candidate.bounds.y >= display.bounds.y + display.bounds.height - this.tolerance;
+    });
+  }
+
+  _onTaskbar(x: number, y: number, width: number, height: number, display: any) {
+    const displayId = display?.id ?? this._displayIndex(display);
+    if (displayId === null || displayId === undefined) return false;
+
+    const taskbar = this.taskbarBoundsByDisplay.get(displayId);
+    if (!taskbar) return false;
+
+    return x < taskbar.x + taskbar.width
+      && x + width > taskbar.x
+      && y < taskbar.y + taskbar.height
+      && y + height > taskbar.y;
+  }
+
   getRawWorldContext(x: number, y: number, width: number, height: number) {
     const displays = screen.getAllDisplays();
     const display = this._displayForRect(displays, x, y, width, height);

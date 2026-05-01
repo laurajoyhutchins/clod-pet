@@ -1,7 +1,6 @@
 package sound
 
 import (
-	"encoding/base64"
 	"testing"
 )
 
@@ -61,58 +60,6 @@ func TestPickSoundZeroProbability(t *testing.T) {
 	}
 }
 
-func TestPlayBase64PCMInvalid(t *testing.T) {
-	p, err := NewPlayer(44100, 0.5)
-	if err != nil {
-		t.Skip("oto context not available")
-	}
-	defer p.Release()
-
-	err = p.PlayBase64PCM("invalid base64!")
-	if err == nil {
-		t.Error("expected error for invalid base64")
-	}
-}
-
-func TestPlayBase64PCMValid(t *testing.T) {
-	p, err := NewPlayer(44100, 0.5)
-	if err != nil {
-		t.Skip("oto context not available")
-	}
-	defer p.Release()
-
-	// Silence as base64 (small buffer of zeros)
-	silence := base64.StdEncoding.EncodeToString(make([]byte, 1024))
-	err = p.PlayBase64PCM(silence)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestUpdateVolume(t *testing.T) {
-	p, err := NewPlayer(44100, 0.5)
-	if err != nil {
-		t.Skip("oto context not available")
-	}
-	defer p.Release()
-
-	p.UpdateVolume(0.8)
-	// No easy way to verify, just ensure no panic
-}
-
-func TestPlayRawPCM(t *testing.T) {
-	p, err := NewPlayer(44100, 0.5)
-	if err != nil {
-		t.Skip("oto context not available")
-	}
-	defer p.Release()
-
-	err = p.PlayRawPCM(make([]byte, 1024))
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
 func TestSoundEntry(t *testing.T) {
 	entry := SoundEntry{
 		AnimationID: 1,
@@ -122,5 +69,54 @@ func TestSoundEntry(t *testing.T) {
 	}
 	if entry.AnimationID != 1 {
 		t.Error("SoundEntry fields not set correctly")
+	}
+}
+
+func TestPayloadForWAV(t *testing.T) {
+	data := append([]byte("RIFF\x24\x00\x00\x00WAVE"), make([]byte, 16)...)
+	payload := PayloadFor(&SoundEntry{Data: data})
+	if payload == nil {
+		t.Fatal("expected payload")
+	}
+	if payload.MIMEType != "audio/wav" {
+		t.Errorf("MIMEType = %q, want audio/wav", payload.MIMEType)
+	}
+	if string(payload.Data[:4]) != "RIFF" {
+		t.Errorf("payload did not preserve WAV header")
+	}
+}
+
+func TestPayloadForMP3(t *testing.T) {
+	payload := PayloadFor(&SoundEntry{Data: []byte("ID3test")})
+	if payload == nil {
+		t.Fatal("expected payload")
+	}
+	if payload.MIMEType != "audio/mpeg" {
+		t.Errorf("MIMEType = %q, want audio/mpeg", payload.MIMEType)
+	}
+}
+
+func TestPayloadForRawPCMWrapsWAV(t *testing.T) {
+	payload := PayloadFor(&SoundEntry{Data: make([]byte, 1024), Loop: 2})
+	if payload == nil {
+		t.Fatal("expected payload")
+	}
+	if payload.MIMEType != "audio/wav" {
+		t.Errorf("MIMEType = %q, want audio/wav", payload.MIMEType)
+	}
+	if string(payload.Data[:4]) != "RIFF" || string(payload.Data[8:12]) != "WAVE" {
+		t.Errorf("raw PCM was not wrapped as WAV")
+	}
+	if payload.Loop != 2 {
+		t.Errorf("Loop = %d, want 2", payload.Loop)
+	}
+}
+
+func TestPayloadForEmpty(t *testing.T) {
+	if payload := PayloadFor(nil); payload != nil {
+		t.Error("expected nil payload for nil entry")
+	}
+	if payload := PayloadFor(&SoundEntry{}); payload != nil {
+		t.Error("expected nil payload for empty data")
 	}
 }

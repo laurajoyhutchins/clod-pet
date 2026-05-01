@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.38.0
-	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/rs/cors v1.11.1
 	google.golang.org/genai v1.55.0
 )
@@ -15,13 +14,11 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
-	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
