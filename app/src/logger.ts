@@ -55,7 +55,8 @@ class Logger {
 }
 
 function createLogger(name: string) {
-  const envLevel = process.env.NODE_ENV === "development" ? "debug" : "info";
+  const isDebug = process.env.NODE_ENV === "development" || process.env.VERBOSE === "true";
+  const envLevel = isDebug ? "debug" : "info";
   return new Logger(name, envLevel);
 }
 

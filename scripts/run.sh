@@ -30,7 +30,50 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 app_dir="$repo_root/app"
 settings_path="${XDG_CONFIG_HOME:-$HOME/.config}/clod-pet/clod-pet-settings.json"
 
+usage() {
+  echo "Usage: $0 [options] [-- [npm-args]]"
+  echo ""
+  echo "Options:"
+  echo "  -d, --debug    Enable debug logging (sets VERBOSE=true and NODE_ENV=development)"
+  echo "  -h, --help     Show this help"
+  echo ""
+  echo "Example:"
+  echo "  $0 --debug"
+  echo ""
+}
+
+DEBUG=false
+PASSTHROUGH_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -d|--debug)
+      DEBUG=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      PASSTHROUGH_ARGS+=("$@")
+      break
+      ;;
+    *)
+      PASSTHROUGH_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
 header "Running ClodPet"
+
+if [[ "$DEBUG" == "true" ]]; then
+  info "Debug mode enabled"
+  export VERBOSE=true
+  export NODE_ENV=development
+fi
 
 if ! command_exists go; then
   error "Go is not installed or not in PATH"
@@ -63,4 +106,4 @@ export PETS_DIR="${PETS_DIR:-$repo_root/pets}"
 export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 
 info "Starting Electron app..."
-(cd "$app_dir" && exec npm start "$@")
+(cd "$app_dir" && exec npm start "${PASSTHROUGH_ARGS[@]}")

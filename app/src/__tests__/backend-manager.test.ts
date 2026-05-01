@@ -256,6 +256,37 @@ describe("BackendManager", () => {
     warnSpy.mockRestore();
   });
 
+  test("should NOT suppress backend debug logs when VERBOSE=true", async () => {
+    const originalVerbose = process.env.VERBOSE;
+    process.env.VERBOSE = "true";
+    
+    try {
+      let stderrCallback: ((chunk: Buffer) => void) | undefined;
+      mockProcess.stderr.on.mockImplementation((event, cb) => {
+        if (event === "data") stderrCallback = cb;
+      });
+
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+      await manager.start();
+      warnSpy.mockClear();
+
+      if (stderrCallback) {
+        stderrCallback(Buffer.from('{"level":"DEBUG","msg":"test debug"}\n'));
+      }
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[backend-manager]",
+        "backend stderr:",
+        expect.stringContaining('"level":"DEBUG"')
+      );
+
+      warnSpy.mockRestore();
+    } finally {
+      process.env.VERBOSE = originalVerbose;
+    }
+  });
+
   test("appendRecent should truncate long output", async () => {
     let stdoutCallback: ((chunk: Buffer) => void) | undefined;
     mockProcess.stdout.on.mockImplementation((event, cb) => {

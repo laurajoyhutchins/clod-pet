@@ -62,12 +62,12 @@ Advance the pet's animation by one frame and process physics.
   "world": {
     "screen": { "x": 0, "y": 0, "w": 1920, "h": 1080 },
     "work_area": { "x": 0, "y": 0, "w": 1920, "h": 1040 },
-    "taskbar": { "x": 0, "y": 1040, "w": 1920, "h": 40 }
+    "desktop": { "x": 0, "y": 0, "w": 3840, "h": 1080 }
   }
 }
 ```
 
-`world`: Raw monitor and taskbar geometry used by the backend engine for collision detection and snapping.
+`world`: Raw display geometry used by the backend engine for collision detection and snapping. The backend currently reads only `screen`, `work_area`, and `desktop`.
 
 **Response:**
 ```json
@@ -140,7 +140,7 @@ Set the audio volume for sound playback.
 
 ### `POST /api/pet/load`
 
-Load pet data from an `animations.xml` file.
+Load pet data from an `animations.json` file, or fall back to a legacy `animations.xml` pet when no JSON file is present.
 
 **Payload:**
 ```json

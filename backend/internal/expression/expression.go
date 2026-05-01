@@ -11,16 +11,24 @@ import (
 const RandomMax = 100
 
 type Env struct {
-	ScreenW float64
-	ScreenH float64
-	AreaW   float64
-	AreaH   float64
-	ImageW  float64
-	ImageH  float64
-	ImageX  float64
-	ImageY  float64
-	Random  float64
-	RandS   float64
+	ScreenX  float64
+	ScreenY  float64
+	ScreenW  float64
+	ScreenH  float64
+	AreaX    float64
+	AreaY    float64
+	AreaW    float64
+	AreaH    float64
+	DesktopX float64
+	DesktopY float64
+	DesktopW float64
+	DesktopH float64
+	ImageW   float64
+	ImageH   float64
+	ImageX   float64
+	ImageY   float64
+	Random   float64
+	RandS    float64
 }
 
 func Eval(expr string, env *Env) (float64, error) {
@@ -136,14 +144,30 @@ func evalExpr(expr string, env *Env) (float64, error) {
 	}
 
 	switch expr {
+	case "screenX":
+		return env.ScreenX, nil
+	case "screenY":
+		return env.ScreenY, nil
 	case "screenW":
 		return env.ScreenW, nil
 	case "screenH":
 		return env.ScreenH, nil
+	case "areaX":
+		return env.AreaX, nil
+	case "areaY":
+		return env.AreaY, nil
 	case "areaW":
 		return env.AreaW, nil
 	case "areaH":
 		return env.AreaH, nil
+	case "desktopX":
+		return env.DesktopX, nil
+	case "desktopY":
+		return env.DesktopY, nil
+	case "desktopW":
+		return env.DesktopW, nil
+	case "desktopH":
+		return env.DesktopH, nil
 	case "imageW":
 		return env.ImageW, nil
 	case "imageH":
