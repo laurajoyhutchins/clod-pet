@@ -2,6 +2,7 @@ package service
 
 import (
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"clod-pet/backend/internal/engine"
@@ -192,6 +193,42 @@ func TestStepPet(t *testing.T) {
 	}
 	if state.PetID == "" {
 		t.Error("expected non-empty PetID")
+	}
+}
+
+func TestStepPetConcurrentCalls(t *testing.T) {
+	cfg := settings.DefaultConfig()
+	svc := New("../../../pets", "test-settings.json", cfg)
+
+	state, err := svc.AddPet("../../../pets/esheep64", 0)
+	if err != nil {
+		t.Fatalf("AddPet failed: %v", err)
+	}
+
+	const workers = 8
+	const stepsPerWorker = 25
+	errCh := make(chan error, workers*stepsPerWorker)
+	var wg sync.WaitGroup
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < stepsPerWorker; j++ {
+				if _, err := svc.StepPet(state.PetID, engine.WorldContext{}); err != nil {
+					errCh <- err
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("StepPet concurrent call failed: %v", err)
+		}
 	}
 }
 

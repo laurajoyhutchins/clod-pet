@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"math"
 	"testing"
 
@@ -54,8 +55,8 @@ func TestNewEngineIdle(t *testing.T) {
 	}
 
 	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
+	if !errors.Is(err, ErrStepIdle) {
+		t.Fatalf("Step error = %v, want ErrStepIdle", err)
 	}
 	if result != nil {
 		t.Error("Step on idle engine should return nil")
@@ -156,6 +157,53 @@ func TestEngineStepProducesFrames(t *testing.T) {
 	}
 	if result.Opacity != 1.0 {
 		t.Errorf("Opacity = %v, want 1.0", result.Opacity)
+	}
+}
+
+func TestEngineStepWithEmptyAnimationFrames(t *testing.T) {
+	p := testPet()
+	p.Animations[3] = pet.Animation{
+		ID:     3,
+		Name:   "empty",
+		Start:  pet.Movement{X: "0", Y: "0", Interval: "100"},
+		End:    pet.Movement{X: "0", Y: "0", Interval: "100"},
+		Frames: []int{},
+		Repeat: "1",
+	}
+
+	e := NewEngine(p)
+	e.currentAnim = 3
+	e.state = StateAnimating
+	e.loadAnimation()
+
+	if e.animTotalSteps != 0 {
+		t.Fatalf("animTotalSteps = %d, want 0", e.animTotalSteps)
+	}
+
+	result, err := e.Step(WorldContext{})
+	if !errors.Is(err, ErrStepAnimationEmpty) {
+		t.Fatalf("Step error = %v, want ErrStepAnimationEmpty", err)
+	}
+	if result != nil {
+		t.Fatal("Step on empty animation should return nil")
+	}
+}
+
+func TestEngineStepClampsFrameIndex(t *testing.T) {
+	p := testPet()
+	e := NewEngine(p)
+	e.Start(1)
+	e.frameIdx = len(e.animFrames)
+
+	result, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Step returned nil")
+	}
+	if result.FrameIndex != 0 {
+		t.Errorf("FrameIndex = %d, want 0 after clamping", result.FrameIndex)
 	}
 }
 
@@ -548,8 +596,8 @@ func TestEngineInvalidAnimation(t *testing.T) {
 
 	e.TransitionTo(999)
 	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
+	if !errors.Is(err, ErrStepAnimationMissing) {
+		t.Fatalf("Step error = %v, want ErrStepAnimationMissing", err)
 	}
 	if result != nil {
 		t.Error("Step on invalid animation should return nil")
@@ -573,8 +621,8 @@ func TestEngineNoFrames(t *testing.T) {
 	e.TransitionTo(3)
 
 	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
+	if !errors.Is(err, ErrStepAnimationEmpty) {
+		t.Fatalf("Step error = %v, want ErrStepAnimationEmpty", err)
 	}
 	if result != nil {
 		t.Error("Step on empty animation should return nil")

@@ -101,9 +101,23 @@ class SoundPlayer {
   }
 }
 
-const canvas = document.getElementById("sprite") as HTMLCanvasElement;
-const clickLayer = document.getElementById("click-layer") as HTMLElement;
-const backendStatus = document.getElementById("backend-status") as HTMLDivElement;
+const canvasEl = document.getElementById("sprite");
+const clickLayerEl = document.getElementById("click-layer");
+const backendStatusEl = document.getElementById("backend-status");
+
+if (!(canvasEl instanceof HTMLCanvasElement)) {
+  throw new Error("Missing #sprite canvas element");
+}
+if (!(clickLayerEl instanceof HTMLElement)) {
+  throw new Error("Missing #click-layer element");
+}
+if (!(backendStatusEl instanceof HTMLDivElement)) {
+  throw new Error("Missing #backend-status element");
+}
+
+const canvas = canvasEl;
+const clickLayer = clickLayerEl;
+const backendStatus = backendStatusEl;
 const renderer = new SpriteRenderer(canvas);
 const soundPlayer = new SoundPlayer();
 

@@ -421,6 +421,34 @@ func TestLoadPetInvalidBase64(t *testing.T) {
 	}
 }
 
+func TestLoadPetInvalidIconBase64(t *testing.T) {
+	xml := strings.Replace(minimalXML, `<icon></icon>`, `<icon>invalid base64</icon>`, 1)
+	dir := makeTestDir(t)
+	writeTestXML(t, dir, xml)
+
+	_, err := LoadPet(dir)
+	if err == nil {
+		t.Error("LoadPet(invalid icon base64) expected error, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "decode icon") {
+		t.Errorf("Error = %v, want to contain %q", err, "decode icon")
+	}
+}
+
+func TestLoadPetInvalidSoundBase64(t *testing.T) {
+	xml := strings.Replace(minimalXML, `<base64></base64>`, `<base64>invalid base64</base64>`, 1)
+	dir := makeTestDir(t)
+	writeTestXML(t, dir, xml)
+
+	_, err := LoadPet(dir)
+	if err == nil {
+		t.Error("LoadPet(invalid sound base64) expected error, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "decode sound base64") {
+		t.Errorf("Error = %v, want to contain %q", err, "decode sound base64")
+	}
+}
+
 func TestMovementClone(t *testing.T) {
 	m := Movement{
 		X:        "-2",

@@ -3,6 +3,7 @@ package ipc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 
 	"clod-pet/backend/internal/engine"
@@ -84,6 +85,9 @@ func (m *commonMockService) StepPet(petID string, world engine.WorldContext) (*P
 
 	step, err := e.Step(world)
 	if err != nil {
+		if errors.Is(err, engine.ErrStepIdle) || errors.Is(err, engine.ErrStepAnimationMissing) || errors.Is(err, engine.ErrStepAnimationEmpty) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if step == nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ type Service struct {
 	settingsPath  string
 	petStore      map[string]*pet.Pet
 	engines       map[string]*engine.Engine
+	petLocks      map[string]*sync.Mutex
 	petPaths      map[string]string
 	pendingSounds map[string]*ipc.SoundPayload
 	mu            sync.RWMutex
@@ -39,6 +41,7 @@ func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
 		settingsPath:  settingsPath,
 		petStore:      make(map[string]*pet.Pet),
 		engines:       make(map[string]*engine.Engine),
+		petLocks:      make(map[string]*sync.Mutex),
 		petPaths:      make(map[string]string),
 		pendingSounds: make(map[string]*ipc.SoundPayload),
 	}
@@ -82,20 +85,47 @@ func (s *Service) LLMStream(ctx context.Context, payload json.RawMessage) (<-cha
 	if err != nil {
 		return nil, fmt.Errorf("create llm client: %w", err)
 	}
-	// Note: client.Close() is not called here because we need it for the stream.
-	// In a real implementation, we'd need to ensure it's closed eventually.
 
 	var req llm.ChatRequest
 	if err := json.Unmarshal(payload, &req); err != nil {
+		_ = client.Close()
 		return nil, fmt.Errorf("unmarshal chat request: %w", err)
 	}
 
-	ch, err := client.StreamChat(ctx, &req)
+	src, err := client.StreamChat(ctx, &req)
 	if err != nil {
+		_ = client.Close()
 		return nil, fmt.Errorf("llm stream chat: %w", err)
 	}
 
-	return ch, nil
+	out := make(chan llm.StreamEvent)
+	go func() {
+		defer close(out)
+		defer client.Close()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-src:
+				if !ok {
+					return
+				}
+
+				select {
+				case out <- event:
+				case <-ctx.Done():
+					return
+				}
+
+				if event.Done || event.Error != nil {
+					return
+				}
+			}
+		}
+	}()
+
+	return out, nil
 }
 
 func (s *Service) LLMHealth(ctx context.Context) error {
@@ -161,6 +191,7 @@ func (s *Service) AddPet(petPath string, spawnID int, world ...engine.WorldConte
 	s.idCounter++
 	petID := fmt.Sprintf("pet_%d", s.idCounter)
 	s.engines[petID] = e
+	s.petLocks[petID] = &sync.Mutex{}
 	s.petPaths[petID] = cleanPath
 
 	if soundPayload := s.soundForPet(petDef, e.CurrentAnim()); soundPayload != nil {
@@ -221,24 +252,34 @@ func pathWithin(path, base string) bool {
 }
 
 func (s *Service) RemovePet(petID string) {
+	s.mu.RLock()
+	lock := s.petLocks[petID]
+	s.mu.RUnlock()
+	if lock != nil {
+		lock.Lock()
+		defer lock.Unlock()
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.engines, petID)
+	delete(s.petLocks, petID)
 	delete(s.petPaths, petID)
 	delete(s.pendingSounds, petID)
 }
 
 func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetState, error) {
-	s.mu.RLock()
-	e, ok := s.engines[petID]
-	s.mu.RUnlock()
-
-	if !ok {
-		return nil, engine.ErrPetNotFound
+	e, unlock, err := s.lockPet(petID)
+	if err != nil {
+		return nil, err
 	}
+	defer unlock.Unlock()
 
 	step, err := e.Step(world)
 	if err != nil {
+		if errors.Is(err, engine.ErrStepIdle) || errors.Is(err, engine.ErrStepAnimationMissing) || errors.Is(err, engine.ErrStepAnimationEmpty) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if step == nil {
@@ -280,24 +321,22 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 }
 
 func (s *Service) SetPosition(petID string, x, y float64) error {
-	s.mu.RLock()
-	e, ok := s.engines[petID]
-	s.mu.RUnlock()
-	if !ok {
-		return engine.ErrPetNotFound
+	e, unlock, err := s.lockPet(petID)
+	if err != nil {
+		return err
 	}
+	defer unlock.Unlock()
 
 	e.SetPosition(x, y)
 	return nil
 }
 
 func (s *Service) DragPet(petID string, x, y float64) error {
-	s.mu.RLock()
-	e, ok := s.engines[petID]
-	s.mu.RUnlock()
-	if !ok {
-		return engine.ErrPetNotFound
+	e, unlock, err := s.lockPet(petID)
+	if err != nil {
+		return err
 	}
+	defer unlock.Unlock()
 
 	e.SetDrag()
 	e.SetPosition(x, y)
@@ -305,12 +344,11 @@ func (s *Service) DragPet(petID string, x, y float64) error {
 }
 
 func (s *Service) DropPet(petID string) error {
-	s.mu.RLock()
-	e, ok := s.engines[petID]
-	s.mu.RUnlock()
-	if !ok {
-		return engine.ErrPetNotFound
+	e, unlock, err := s.lockPet(petID)
+	if err != nil {
+		return err
 	}
+	defer unlock.Unlock()
 
 	e.SetFall()
 	return nil
@@ -330,6 +368,29 @@ func (s *Service) Status() map[string]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return map[string]int{"pet_count": len(s.engines)}
+}
+
+func (s *Service) lockPet(petID string) (*engine.Engine, *sync.Mutex, error) {
+	s.mu.RLock()
+	e, ok := s.engines[petID]
+	lock := s.petLocks[petID]
+	s.mu.RUnlock()
+	if !ok || lock == nil {
+		return nil, nil, engine.ErrPetNotFound
+	}
+
+	lock.Lock()
+
+	s.mu.RLock()
+	currentEngine, ok := s.engines[petID]
+	currentLock := s.petLocks[petID]
+	s.mu.RUnlock()
+	if !ok || currentEngine != e || currentLock != lock {
+		lock.Unlock()
+		return nil, nil, engine.ErrPetNotFound
+	}
+
+	return e, lock, nil
 }
 
 func (s *Service) UpdateVolume(volume float64) error {

@@ -9,6 +9,9 @@ import (
 )
 
 var ErrPetNotFound = errors.New("pet not found")
+var ErrStepIdle = errors.New("engine step skipped: pet idle")
+var ErrStepAnimationMissing = errors.New("engine step skipped: animation not found")
+var ErrStepAnimationEmpty = errors.New("engine step skipped: animation has no frames")
 
 type BorderContext int
 
@@ -148,7 +151,7 @@ func (e *Engine) setWorldContext(world WorldContext) {
 
 func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	if e.state == StateIdle {
-		return nil, nil
+		return nil, ErrStepIdle
 	}
 
 	petW := float64(e.petDef.FrameW)
@@ -163,17 +166,23 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 
 	anim, ok := e.petDef.Animations[e.currentAnim]
 	if !ok {
-		return nil, nil
+		return nil, ErrStepAnimationMissing
 	}
 
 	frameLen := len(e.animFrames)
 	if frameLen == 0 {
-		return nil, nil
+		return nil, ErrStepAnimationEmpty
+	}
+	if e.frameIdx < 0 || e.frameIdx >= frameLen {
+		e.frameIdx = 0
 	}
 
 	frame := e.animFrames[e.frameIdx]
 
-	progress := expression.Clamp(float64(e.totalStepsDone)/float64(e.animTotalSteps), 0, 1)
+	progress := 0.0
+	if e.animTotalSteps > 0 {
+		progress = expression.Clamp(float64(e.totalStepsDone)/float64(e.animTotalSteps), 0, 1)
+	}
 
 	startX, _ := expression.Eval(anim.Start.X, e.env)
 	startY, _ := expression.Eval(anim.Start.Y, e.env)
@@ -385,6 +394,12 @@ func (e *Engine) loadAnimation() {
 	e.animRepeatFrom = anim.RepeatFrom
 	e.borderTriggered = false
 	e.gravityTriggered = false
+
+	if len(anim.Frames) == 0 {
+		e.animTotalSteps = 0
+		e.animRepeatFrom = 0
+		return
+	}
 
 	repeat, err := expression.EvalInt(anim.Repeat, e.env)
 	if err != nil || repeat <= 0 {
