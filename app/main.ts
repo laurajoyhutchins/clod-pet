@@ -4,6 +4,7 @@ import BackendManager = require("./src/backend-manager");
 import PetManager = require("./src/pet-manager");
 import TrayManager = require("./src/tray-manager");
 import ChatManager = require("./src/chat-manager");
+import globalStore from "./src/store";
 import path = require("path");
 
 const log = logger.createLogger("main");
@@ -157,10 +158,10 @@ function setupControlPanelHandlers() {
 }
 
 app.whenReady().then(async () => {
-  backendManager = new BackendManager({ preferSource: !app.isPackaged });
+  backendManager = new BackendManager({ preferSource: !app.isPackaged, store: globalStore });
   const backendUrl = await backendManager.start();
 
-  petManager = new PetManager(backendUrl);
+  petManager = new PetManager(backendUrl, globalStore);
   await petManager.init();
   setupControlPanelHandlers();
 
@@ -184,6 +185,7 @@ app.whenReady().then(async () => {
 });
 
 async function getDiagnostics() {
+  const state = globalStore.getState();
   const backend = backendManager ? backendManager.getDiagnostics() : null;
   const pets = petManager ? petManager.getDiagnostics() : null;
   let backendHealth = null;
@@ -197,6 +199,14 @@ async function getDiagnostics() {
     }
     try {
       backendVersion = await petManager.backendClient.version();
+      if (backendVersion && backendVersion.version) {
+        globalStore.setState({
+          backend: {
+            ...state.backend,
+            version: backendVersion.version
+          }
+        });
+      }
     } catch (err) {
       backendVersion = { ok: false, error: err.message };
     }
@@ -214,6 +224,7 @@ async function getDiagnostics() {
     backendVersion,
     pets,
     rendererErrors: diagnostics.rendererErrors,
+    state,
   };
 }
 
