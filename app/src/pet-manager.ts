@@ -141,6 +141,7 @@ class PetManager {
       state: { frameIndex: 0, x, y, flipH: !!addResult.flip_h },
       interval: null,
       stepFailures: 0,
+      stopped: false,
       loaded: false,
     };
 
@@ -172,10 +173,11 @@ class PetManager {
     });
 
     win.on("closed", () => {
+      petEntry.stopped = true;
+      if (petEntry.interval) clearTimeout(petEntry.interval);
       if (!this.appIsQuitting && this.pets.has(petEntry.backendPetId)) {
         this.backendClient.removePet(petEntry.backendPetId);
       }
-      if (petEntry.interval) clearInterval(petEntry.interval);
       this.pets.delete(petEntry.backendPetId);
     });
 
@@ -213,9 +215,10 @@ class PetManager {
       return this.backendClient.removePet(petId);
     }
 
+    entry.stopped = true;
+    if (entry.interval) clearTimeout(entry.interval);
     await this.backendClient.removePet(petId);
     this.pets.delete(petId);
-    if (entry.interval) clearInterval(entry.interval);
     this.windowManager.removePetWindow(petId);
     return true;
   }
@@ -224,8 +227,9 @@ class PetManager {
     this.appIsQuitting = true;
 
     for (const entry of this.pets.values()) {
+      entry.stopped = true;
       if (entry.interval) {
-        clearInterval(entry.interval);
+        clearTimeout(entry.interval);
         entry.interval = null;
       }
     }
@@ -241,9 +245,18 @@ class PetManager {
     const entry = this.pets.get(petId);
     if (!entry || entry.interval) return;
 
+    const schedule = (delay: number) => {
+      const petEntry = this.pets.get(petId);
+      if (!petEntry || petEntry.stopped || petEntry.win.isDestroyed()) return;
+      if (petEntry.interval) clearTimeout(petEntry.interval);
+      petEntry.interval = setTimeout(loop, delay);
+    };
+
     const loop = async () => {
       const petEntry = this.pets.get(petId);
-      if (!petEntry || !petEntry.loaded || petEntry.win.isDestroyed()) return;
+      if (!petEntry || petEntry.stopped || !petEntry.loaded || petEntry.win.isDestroyed()) return;
+
+      petEntry.interval = null;
 
       try {
         const [winX, winY] = petEntry.win.getPosition();
@@ -276,24 +289,22 @@ class PetManager {
           });
         }
 
-        if (result.interval_ms > 0 && petEntry.interval) {
-          clearInterval(petEntry.interval);
-          petEntry.interval = setInterval(loop, result.interval_ms);
-        }
+        schedule(result.interval_ms > 0 ? result.interval_ms : 200);
       } catch (err) {
         petEntry.stepFailures = (petEntry.stepFailures || 0) + 1;
         petEntry.lastStepError = err.message;
         this.lastError = err.message;
         log.warn("Step pet error:", err.message);
-        if (petEntry.stepFailures >= 5 && petEntry.interval) {
-          clearInterval(petEntry.interval);
-          petEntry.interval = null;
+        if (petEntry.stepFailures >= 5) {
+          petEntry.stopped = true;
+          return;
         }
+        schedule(200);
       }
     };
 
-    if (entry.interval) clearInterval(entry.interval);
-    entry.interval = setInterval(loop, 200);
+    if (entry.interval) clearTimeout(entry.interval);
+    schedule(200);
   }
 
   _setupIpcHandlers() {

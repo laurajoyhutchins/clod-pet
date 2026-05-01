@@ -204,7 +204,10 @@ func LoadPet(dir string) (*Pet, error) {
 		return nil, fmt.Errorf("parse xml: %w", err)
 	}
 
-	iconData, _ := base64.StdEncoding.DecodeString(root.Header.Icon)
+	iconData, err := base64.StdEncoding.DecodeString(root.Header.Icon)
+	if err != nil {
+		return nil, fmt.Errorf("decode icon: %w", err)
+	}
 	pngData, err := base64.StdEncoding.DecodeString(root.Image.PngBase64)
 	if err != nil {
 		return nil, fmt.Errorf("decode sprite png: %w", err)
@@ -322,7 +325,10 @@ func LoadPet(dir string) (*Pet, error) {
 	}
 
 	for _, xs := range root.Sounds.Sounds {
-		audioData, _ := base64.StdEncoding.DecodeString(xs.Base64)
+		audioData, err := base64.StdEncoding.DecodeString(xs.Base64)
+		if err != nil {
+			return nil, fmt.Errorf("decode sound base64 for animation %d: %w", xs.AnimationID, err)
+		}
 		loop := 0
 		if xs.Loop != nil {
 			loop = *xs.Loop

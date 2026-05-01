@@ -3,13 +3,16 @@ package llm
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	"google.golang.org/genai"
 )
 
 type geminiClient struct {
-	client *genai.Client
-	model  string
+	client     *genai.Client
+	httpClient *http.Client
+	model      string
 }
 
 func newGeminiClient(cfg *ProviderConfig) (Client, error) {
@@ -17,9 +20,14 @@ func newGeminiClient(cfg *ProviderConfig) (Client, error) {
 		return nil, fmt.Errorf("gemini: API key required")
 	}
 
+	httpClient := &http.Client{
+		Timeout: 60 * time.Second,
+	}
+
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
-		APIKey:  cfg.APIKey,
-		Backend: genai.BackendGeminiAPI,
+		APIKey:     cfg.APIKey,
+		Backend:    genai.BackendGeminiAPI,
+		HTTPClient: httpClient,
 		HTTPOptions: genai.HTTPOptions{
 			BaseURL: cfg.BaseURL,
 		},
@@ -33,7 +41,11 @@ func newGeminiClient(cfg *ProviderConfig) (Client, error) {
 		model = "gemini-1.5-flash"
 	}
 
-	return &geminiClient{client: client, model: model}, nil
+	return &geminiClient{
+		client:     client,
+		httpClient: httpClient,
+		model:      model,
+	}, nil
 }
 
 func (c *geminiClient) ProviderName() string { return "gemini" }
@@ -86,6 +98,9 @@ func (c *geminiClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 }
 
 func (c *geminiClient) Close() error {
+	if c.httpClient != nil {
+		c.httpClient.CloseIdleConnections()
+	}
 	return nil
 }
 

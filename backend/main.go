@@ -175,22 +175,30 @@ func llmStreamHandler(svc *service.Service) http.HandlerFunc {
 			return
 		}
 
-		for event := range ch {
-			if event.Error != nil {
-				fmt.Fprintf(w, "event: error\ndata: %s\n\n", event.Error.Error())
-				flusher.Flush()
+		for {
+			select {
+			case <-r.Context().Done():
 				return
-			}
-			if event.Done {
-				fmt.Fprintf(w, "event: done\ndata: {}\n\n")
-				flusher.Flush()
-				return
-			}
-			if event.Content != "" {
-				// Escape newlines for SSE data format
-				content := strings.ReplaceAll(event.Content, "\n", "\\n")
-				fmt.Fprintf(w, "data: %s\n\n", content)
-				flusher.Flush()
+			case event, ok := <-ch:
+				if !ok {
+					return
+				}
+				if event.Error != nil {
+					fmt.Fprintf(w, "event: error\ndata: %s\n\n", event.Error.Error())
+					flusher.Flush()
+					return
+				}
+				if event.Done {
+					fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+					flusher.Flush()
+					return
+				}
+				if event.Content != "" {
+					// Escape newlines for SSE data format
+					content := strings.ReplaceAll(event.Content, "\n", "\\n")
+					fmt.Fprintf(w, "data: %s\n\n", content)
+					flusher.Flush()
+				}
 			}
 		}
 	}
