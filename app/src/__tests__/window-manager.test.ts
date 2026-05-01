@@ -37,6 +37,7 @@ describe("WindowManager", () => {
     expect(BrowserWindow).toHaveBeenCalledWith(
       expect.objectContaining({
         frame: false,
+        resizable: false,
         transparent: true,
         alwaysOnTop: true,
         show: false,

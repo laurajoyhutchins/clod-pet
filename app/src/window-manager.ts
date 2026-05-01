@@ -21,6 +21,7 @@ class WindowManager {
       width,
       height,
       frame: false,
+      resizable: false,
       transparent: true,
       alwaysOnTop: true,
       show: false,
