@@ -25,10 +25,17 @@ export interface PetInstance {
 }
 
 export interface BackendStatus {
-  status: 'idle' | 'starting' | 'ready' | 'fatal' | 'disconnected';
+  status: 'idle' | 'starting' | 'ready' | 'fatal' | 'disconnected' | 'restarting' | 'stopped' | 'failed' | 'spawn_error';
   url: string | null;
+  port: number | null;
   version: string | null;
   lastError: string | null;
+  pid: number | null;
+  exitCode: number | null;
+  available: boolean;
+  ready: boolean;
+  restartAttempt: number;
+  nextRestartAt: string | null;
 }
 
 export interface Environment {
@@ -57,8 +64,15 @@ export const initialState: WorldState = {
   backend: {
     status: 'idle',
     url: null,
+    port: null,
     version: null,
     lastError: null,
+    pid: null,
+    exitCode: null,
+    available: false,
+    ready: false,
+    restartAttempt: 0,
+    nextRestartAt: null,
   },
   environment: {
     displayBounds: { x: 0, y: 0, w: 0, h: 0 },

@@ -1,10 +1,38 @@
 import { BrowserWindow } from "electron";
+import { WorldStore } from "./store";
 
 class WindowManager {
   windows: Map<string, any>;
+  store: WorldStore | null;
 
-  constructor() {
+  constructor(store?: WorldStore) {
     this.windows = new Map();
+    this.store = store || null;
+    if (this.store) {
+      this.subscribeToStore();
+    }
+  }
+
+  private subscribeToStore() {
+    if (!this.store) return;
+
+    this.store.subscribe((state, prevState) => {
+      // Synchronize window existence with state.pets
+      const currentIds = Object.keys(state.pets);
+      const prevIds = Object.keys(prevState.pets);
+
+      // Removed pets -> Close windows
+      for (const id of prevIds) {
+        if (!state.pets[id]) {
+          this.removePetWindow(id);
+        }
+      }
+
+      // NOTE: Window creation is still handled by PetManager.loadAndCreatePet 
+      // for now, as it involves complex async initialization and query params.
+      // In a full redesign, loadAndCreatePet would just update the store, 
+      // and this subscriber would handle the creation.
+    });
   }
 
   createPetWindow(petId: string, opts: { x?: number; y?: number; width?: number; height?: number; preload?: string } = {}) {

@@ -4,6 +4,7 @@ import path = require("path");
 import fs = require("fs");
 import logger = require("./logger");
 import { getBackendDir, getPetsDir } from "./project-paths";
+import { WorldStore } from "./store";
 
 const log = logger.createLogger("backend-manager");
 const DEFAULT_READY_RETRIES_SOURCE = 60;
@@ -39,8 +40,9 @@ class BackendManager {
   nextRestartAt: string | null;
   shutdownReason: string | null;
   exitReason: string | null;
+  store: WorldStore | null;
 
-  constructor(opts: { preferSource?: boolean } = {}) {
+  constructor(opts: { preferSource?: boolean; store?: WorldStore } = {}) {
     this.process = null;
     this.url = null;
     this.port = null;
@@ -66,6 +68,28 @@ class BackendManager {
     this.nextRestartAt = null;
     this.shutdownReason = null;
     this.exitReason = null;
+    this.store = opts.store || null;
+
+    this._syncStore();
+  }
+
+  _syncStore() {
+    if (!this.store) return;
+    this.store.setState({
+      backend: {
+        status: this.state as any,
+        url: this.url,
+        port: this.port,
+        version: this.store.getState().backend.version,
+        lastError: this.lastError,
+        pid: this.process?.pid ?? this.launch?.pid ?? null,
+        exitCode: this.exitCode,
+        available: this.available,
+        ready: this.ready,
+        restartAttempt: this.restartAttempt,
+        nextRestartAt: this.nextRestartAt,
+      }
+    });
   }
 
   async start(portOverride?: number) {
@@ -77,6 +101,7 @@ class BackendManager {
     this.available = false;
     this.ready = false;
     this.state = this.state === "restarting" ? "restarting" : "starting";
+    this._syncStore();
 
     this._clearRestartTimer();
 
@@ -122,12 +147,13 @@ class BackendManager {
 
     this.process = spawn(cmd, args, {
       cwd: backendPath,
-      env: { ...process.env, PORT: String(port), PETS_DIR: this.petsDir, VERBOSE: "true" },
+      env: { ...process.env, PORT: String(port), PETS_DIR: this.petsDir, VERBOSE: process.env.VERBOSE || "false" },
     });
 
     const pid = this.process.pid;
     this.url = `http://localhost:${port}`;
     this.launch.pid = pid;
+    this._syncStore();
     log.info("starting backend", {
       ...this.launch,
       pid,
@@ -159,6 +185,7 @@ class BackendManager {
       this.available = false;
       this.state = "spawn_error";
       this.exitReason = `spawn error: ${err.message}`;
+      this._syncStore();
       log.error("spawn error:", { pid, err });
     });
     this.process.on("close", (code: number) => {
@@ -178,6 +205,7 @@ class BackendManager {
         this.available = false;
         this.ready = false;
         this.state = this.restartEnabled ? "restarting" : "fatal";
+        this._syncStore();
         log.error("backend exited after readiness", {
           pid,
           code,
@@ -200,6 +228,7 @@ class BackendManager {
         this.available = false;
         this.ready = false;
         this.state = "failed";
+        this._syncStore();
         log.error("backend exited before readiness", {
           pid,
           code,
@@ -207,6 +236,7 @@ class BackendManager {
         });
       } else {
         this.state = "stopped";
+        this._syncStore();
       }
     });
 
@@ -217,6 +247,7 @@ class BackendManager {
     this.state = "ready";
     this.restartAttempt = 0;
     this.nextRestartAt = null;
+    this._syncStore();
     log.info("backend ready", {
       pid,
       url: this.url,
@@ -266,6 +297,7 @@ class BackendManager {
     this.ready = false;
     this.available = false;
     this.state = "stopped";
+    this._syncStore();
     this._clearRestartTimer();
     if (this.readyTimer) {
       clearTimeout(this.readyTimer);
@@ -320,6 +352,7 @@ class BackendManager {
     this.nextRestartAt = null;
     this.restartAttempt = 0;
     this.exitReason = null;
+    this._syncStore();
   }
 
   getDiagnostics() {
@@ -479,6 +512,7 @@ class BackendManager {
     this.state = "restarting";
     this.available = false;
     this.nextRestartAt = new Date(Date.now() + delay).toISOString();
+    this._syncStore();
       log.warn("scheduling backend restart", {
         pid: this.process?.pid ?? this.launch?.pid ?? null,
         delay,
@@ -497,11 +531,13 @@ class BackendManager {
         await this.start(this.port ?? undefined);
         this.restartAttempt = 0;
         this.fatalError = null;
+        this._syncStore();
       } catch (err: any) {
         this.lastError = err.message;
         this.fatalError = err.message;
         this.available = false;
         this.state = "fatal";
+        this._syncStore();
         log.error("backend restart failed", { pid: this.process?.pid ?? this.launch?.pid ?? null, err });
       }
     }, delay);
@@ -513,6 +549,7 @@ class BackendManager {
       this.restartTimer = null;
     }
     this.nextRestartAt = null;
+    this._syncStore();
   }
 }
 
@@ -532,6 +569,7 @@ function readPositiveIntEnv(name: string) {
 }
 
 function shouldSuppressBackendStderr(line: string) {
+  if (process.env.VERBOSE === "true") return false;
   if (!line.startsWith("{")) return false;
 
   try {
