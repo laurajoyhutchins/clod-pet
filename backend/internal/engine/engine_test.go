@@ -43,6 +43,18 @@ func testPet() *pet.Pet {
 					{ID: 1, Probability: 100, Only: "none"},
 				},
 			},
+			3: {
+				ID:         3,
+				Name:       "drag",
+				Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+				End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+				Frames:     []int{4, 5},
+				Repeat:     "1",
+				RepeatFrom: 0,
+				SequenceNext: []pet.NextAnimation{
+					{ID: 1, Probability: 100, Only: "none"},
+				},
+			},
 		},
 		Sounds: make(map[int][]pet.Sound),
 	}
@@ -302,6 +314,84 @@ func TestEngineSetDrag(t *testing.T) {
 	e.SetDrag()
 	if e.state != StateDragging {
 		t.Errorf("state = %v, want %v", e.state, StateDragging)
+	}
+	if e.currentAnim != 3 {
+		t.Errorf("currentAnim = %d, want 3", e.currentAnim)
+	}
+}
+
+func TestEngineSetDragDoesNotResetActiveDragAnimation(t *testing.T) {
+	p := testPet()
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetDrag()
+
+	if _, err := e.Step(WorldContext{}); err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+
+	e.SetDrag()
+	if e.frameIdx != 1 {
+		t.Errorf("frameIdx = %d, want 1", e.frameIdx)
+	}
+	if e.totalStepsDone != 1 {
+		t.Errorf("totalStepsDone = %d, want 1", e.totalStepsDone)
+	}
+}
+
+func TestEngineDragAnimationLoopsUntilDrop(t *testing.T) {
+	p := testPet()
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetDrag()
+
+	first, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("first Step error: %v", err)
+	}
+	if first.FrameIndex != 4 {
+		t.Errorf("first frame = %d, want 4", first.FrameIndex)
+	}
+
+	second, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("second Step error: %v", err)
+	}
+	if second.FrameIndex != 5 {
+		t.Errorf("second frame = %d, want 5", second.FrameIndex)
+	}
+	if second.NextAnimID != 0 {
+		t.Errorf("second NextAnimID = %d, want 0", second.NextAnimID)
+	}
+	if e.currentAnim != 3 {
+		t.Errorf("currentAnim = %d, want 3", e.currentAnim)
+	}
+
+	third, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("third Step error: %v", err)
+	}
+	if third.FrameIndex != 4 {
+		t.Errorf("third frame = %d, want 4", third.FrameIndex)
+	}
+}
+
+func TestEngineDragStepDoesNotSnapPosition(t *testing.T) {
+	p := testPet()
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetDrag()
+	e.SetPosition(-10, -20)
+
+	result, err := e.Step(WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 100, H: 100},
+		WorkArea: Rect{X: 0, Y: 0, W: 100, H: 100},
+	})
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result.X != -10 || result.Y != -20 {
+		t.Errorf("position = (%v, %v), want (-10, -20)", result.X, result.Y)
 	}
 }
 
