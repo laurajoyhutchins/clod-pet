@@ -39,7 +39,7 @@ import BackendManager from "../backend-manager";
 
 describe("BackendManager", () => {
   let manager: InstanceType<typeof BackendManager>;
-  let mockProcess: { stdout: { on: jest.Mock; removeAllListeners: jest.Mock }; stderr: { on: jest.Mock; removeAllListeners: jest.Mock }; on: jest.Mock; removeAllListeners: jest.Mock; kill: jest.Mock };
+  let mockProcess: { stdout: { on: jest.Mock; removeAllListeners: jest.Mock }; stderr: { on: jest.Mock; removeAllListeners: jest.Mock }; on: jest.Mock; once: jest.Mock; removeListener: jest.Mock; removeAllListeners: jest.Mock; kill: jest.Mock };
   let mockGet: jest.MockedFunction<typeof http.get>;
 
   beforeEach(() => {
@@ -49,6 +49,8 @@ describe("BackendManager", () => {
       stdout: { on: jest.fn(), removeAllListeners: jest.fn() },
       stderr: { on: jest.fn(), removeAllListeners: jest.fn() },
       on: jest.fn(),
+      once: jest.fn(),
+      removeListener: jest.fn(),
       removeAllListeners: jest.fn(),
       kill: jest.fn(),
     };
@@ -289,6 +291,40 @@ describe("BackendManager", () => {
     expect(manager.exitCode).toBe(1);
   });
 
+  test("should fail fast when backend exits before becoming ready", async () => {
+    let exitCallback: ((code: number) => void) | undefined;
+    let callCount = 0;
+
+    manager.process = mockProcess;
+    manager.url = "http://localhost:8080";
+    manager.state = "starting";
+    manager.exitCode = null;
+
+    mockProcess.once.mockImplementation((event, cb) => {
+      if (event === "close") exitCallback = cb;
+    });
+
+    mockGet.mockImplementation((url: any, cb?: any) => {
+      callCount++;
+      const mockRes = {
+        statusCode: 500,
+        on: jest.fn((event: string, cb: Function) => {
+          if (event === "end") {
+            setTimeout(() => cb(), 0);
+          }
+        }),
+      };
+      if (typeof cb === "function") cb(mockRes);
+      return { on: jest.fn() } as any;
+    });
+
+    const startPromise = (manager as any)._waitForReady(50, 10);
+    if (exitCallback) exitCallback(1);
+
+    await expect(startPromise).rejects.toThrow("backend exited before becoming ready with code 1");
+    expect(callCount).toBe(1);
+  });
+
   test("should mark backend unavailable after unexpected post-start crash", async () => {
     let exitCallback: ((code: number) => void) | undefined;
     mockProcess.on.mockImplementation((event, cb) => {
@@ -322,6 +358,11 @@ describe("BackendManager", () => {
 
   test("_waitForReady should timeout after max retries", async () => {
     let callCount = 0;
+    manager.process = mockProcess;
+    manager.url = "http://localhost:8080";
+    manager.state = "starting";
+    manager.exitCode = null;
+
     mockGet.mockImplementation((url: any, cb?: any) => {
       callCount++;
       const mockRes = {
@@ -363,6 +404,11 @@ describe("BackendManager", () => {
 
   test("_waitForReady should handle network errors", async () => {
     let callCount = 0;
+    manager.process = mockProcess;
+    manager.url = "http://localhost:8080";
+    manager.state = "starting";
+    manager.exitCode = null;
+
     mockGet.mockImplementation((url: any, cb?: any) => {
       callCount++;
       const mockReq = {

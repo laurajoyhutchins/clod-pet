@@ -309,28 +309,78 @@ class BackendManager {
   _waitForReady(maxRetries = 20, interval = 500) {
     return new Promise((resolve, reject) => {
       let retries = 0;
+      let settled = false;
+      const processRef = this.process;
+
+      const cleanup = () => {
+        if (this.readyTimer) {
+          clearTimeout(this.readyTimer);
+          this.readyTimer = null;
+        }
+        if (processRef) {
+          processRef.removeListener("close", onClose);
+          processRef.removeListener("error", onError);
+        }
+      };
+
+      const finishResolve = (value: any) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
+
+      const finishReject = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      };
+
+      const onClose = (code: number) => {
+        finishReject(new Error(code === null || code === undefined
+          ? "backend exited before becoming ready"
+          : `backend exited before becoming ready with code ${code}`));
+      };
+
+      const onError = (err: Error) => {
+        finishReject(err);
+      };
+
+      if (!processRef) {
+        finishReject(new Error("backend exited before becoming ready"));
+        return;
+      }
+
+      processRef.once("close", onClose);
+      processRef.once("error", onError);
+
       const check = () => {
+        if (settled) return;
         if ((this.state === "starting" || this.state === "restarting") && this.exitCode !== null && this.exitCode !== undefined) {
-          reject(new Error("backend exited before becoming ready"));
+          finishReject(new Error("backend exited before becoming ready"));
           return;
         }
         http.get(`${this.url}/api/health`, (res) => {
           let body = "";
           res.on("data", (d) => (body += d));
           res.on("end", () => {
-            if (res.statusCode === 200) resolve(body);
+            if (settled) return;
+            if (res.statusCode === 200) finishResolve(body);
             else retryOrFail();
           });
         }).on("error", () => {
+          if (settled) return;
           retryOrFail();
         });
       };
       const retryOrFail = () => {
+        if (settled) return;
         retries++;
         if ((this.state === "starting" || this.state === "restarting") && this.exitCode !== null && this.exitCode !== undefined) {
-          reject(new Error("backend exited before becoming ready"));
+          finishReject(new Error("backend exited before becoming ready"));
         }
-        else if (retries >= maxRetries) reject(new Error("backend failed to start"));
+        else if (retries >= maxRetries) finishReject(new Error("backend failed to start"));
         else this.readyTimer = setTimeout(check, interval);
       };
       check();
