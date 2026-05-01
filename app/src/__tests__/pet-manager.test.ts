@@ -366,6 +366,24 @@ describe("PetManager", () => {
     expect(result).toBe(true);
   });
 
+  test("shutdown should stop timers and close pet windows without backend cleanup", () => {
+    const mockWin1 = { isDestroyed: jest.fn(() => false) };
+    const mockWin2 = { isDestroyed: jest.fn(() => false) };
+    const interval1 = setInterval(() => {}, 1000);
+    const interval2 = setInterval(() => {}, 1000);
+
+    manager.pets.set("pet1", { backendPetId: "pet1", win: mockWin1, interval: interval1 });
+    manager.pets.set("pet2", { backendPetId: "pet2", win: mockWin2, interval: interval2 });
+
+    manager.shutdown();
+
+    expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet1");
+    expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet2");
+    expect(mockBackendClient.removePet).not.toHaveBeenCalled();
+    expect(manager.pets.size).toBe(0);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   test("_safeWindowPosition should return window position", () => {
     const mockWin = { getPosition: jest.fn().mockReturnValue([100, 200]) };
     const result = manager["_safeWindowPosition"](mockWin);
