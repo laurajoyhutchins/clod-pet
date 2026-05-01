@@ -294,8 +294,8 @@ func (e *Engine) detectGravity(world WorldContext, width, height float64) bool {
 
 	// If we are above the work area bottom, we fall.
 	if bottom < wa.Y+wa.H-e.tolerance {
-		// But check if we are on the taskbar first
-		if e.onTaskbar(world.Taskbar, e.parentX, e.parentY, width, height) {
+		// A bottom taskbar acts like floor; side/top taskbars are barriers, not support.
+		if e.bottomTaskbarSupportsPet(world) && e.onTaskbar(world.Taskbar, e.parentX, e.parentY, width, height) {
 			return false
 		}
 		return true
@@ -312,18 +312,22 @@ func (e *Engine) onTaskbar(tb Rect, x, y, width, height float64) bool {
 	return !(x+width < tb.X-t || x > tb.X+tb.W+t || y+height < tb.Y-t || y > tb.Y+tb.H+t)
 }
 
+func (e *Engine) bottomTaskbarSupportsPet(world WorldContext) bool {
+	tb := world.Taskbar
+	screen := world.Screen
+	if tb.W == 0 || tb.H == 0 || screen.W == 0 || screen.H == 0 {
+		return false
+	}
+	return tb.Y > screen.Y+e.tolerance && tb.Y+tb.H >= screen.Y+screen.H-e.tolerance
+}
+
 func (e *Engine) applyPhysics(world WorldContext, width, height float64, ctx BorderContext) {
 	if world.Screen.W == 0 {
 		return
 	}
 
-	// Snap to Taskbar top if we are hitting it from above
 	if ctx == ContextTaskbar {
-		tb := world.Taskbar
-		// Only snap if we are roughly at the top of it
-		if e.parentY+height > tb.Y && e.parentY < tb.Y {
-			e.parentY = tb.Y - height
-		}
+		e.snapToTaskbar(world, width, height)
 	} else if ctx == ContextHorizontal {
 		// Snap to Screen Floor
 		if e.parentY+height >= world.Screen.Y+world.Screen.H-e.tolerance {
@@ -331,6 +335,37 @@ func (e *Engine) applyPhysics(world WorldContext, width, height float64, ctx Bor
 		} else if e.parentY <= world.Screen.Y+e.tolerance {
 			e.parentY = world.Screen.Y
 		}
+	}
+}
+
+func (e *Engine) snapToTaskbar(world WorldContext, width, height float64) {
+	tb := world.Taskbar
+	screen := world.Screen
+	t := e.tolerance
+
+	if tb.W == 0 || tb.H == 0 {
+		return
+	}
+
+	taskbarTouchesTop := tb.Y <= screen.Y+t
+	taskbarTouchesBottom := tb.Y+tb.H >= screen.Y+screen.H-t
+	taskbarTouchesLeft := tb.X <= screen.X+t
+	taskbarTouchesRight := tb.X+tb.W >= screen.X+screen.W-t
+
+	if taskbarTouchesLeft && e.parentX < tb.X+tb.W && e.parentX+width > tb.X+tb.W {
+		e.parentX = tb.X + tb.W
+		return
+	}
+	if taskbarTouchesRight && e.parentX+width > tb.X && e.parentX < tb.X {
+		e.parentX = tb.X - width
+		return
+	}
+	if taskbarTouchesTop && e.parentY < tb.Y+tb.H && e.parentY+height > tb.Y+tb.H {
+		e.parentY = tb.Y + tb.H
+		return
+	}
+	if taskbarTouchesBottom && e.parentY+height > tb.Y && e.parentY < tb.Y {
+		e.parentY = tb.Y - height
 	}
 }
 

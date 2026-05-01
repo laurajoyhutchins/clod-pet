@@ -102,6 +102,23 @@ describe("BorderDetector", () => {
     });
   });
 
+  test("should detect bottom taskbar on offset display", async () => {
+    screen.getAllDisplays.mockReturnValue([
+      {
+        workArea: { x: 1920, y: 100, width: 1920, height: 1040 },
+        bounds: { x: 1920, y: 100, width: 1920, height: 1080 },
+      },
+    ]);
+
+    await detector.init();
+    expect(detector.taskbarBoundsByDisplay.get(0)).toEqual({
+      x: 1920,
+      y: 1140,
+      width: 1920,
+      height: 40,
+    });
+  });
+
   test("should handle display with id property", async () => {
     screen.getAllDisplays.mockReturnValue([
       {
@@ -160,6 +177,18 @@ describe("BorderDetector", () => {
     detector.taskbarBoundsByDisplay.set(0, { x: 0, y: 1050, width: 1920, height: 30 });
 
     const result = detector.checkBorder(500, 1050, 64, 64);
+    expect(result).toContain("taskbar");
+  });
+
+  test("checkBorder should detect taskbar when exactly touching its top", () => {
+    screen.getAllDisplays.mockReturnValue([
+      {
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+      },
+    ]);
+    detector.taskbarBoundsByDisplay.set(0, { x: 0, y: 1050, width: 1920, height: 30 });
+
+    const result = detector.checkBorder(500, 986, 64, 64);
     expect(result).toContain("taskbar");
   });
 
@@ -259,6 +288,54 @@ describe("BorderDetector", () => {
     // Current checkGravity would return false because 1080 < 1080 is false.
     // But it SHOULD return true because there is display 1 below it.
     expect(detector.checkGravity(500, 1080 - 64, 64, 64)).toBe(true);
+  });
+
+  test("checkGravity should not fall through taskbar to another display", () => {
+    const displays = [
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+      },
+      {
+        id: 1,
+        bounds: { x: 0, y: 1080, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 1080, width: 1920, height: 1080 },
+      },
+    ];
+    screen.getAllDisplays.mockReturnValue(displays);
+    detector.taskbarBoundsByDisplay.set(0, { x: 0, y: 1040, width: 1920, height: 40 });
+
+    expect(detector.checkGravity(500, 1040 - 64, 64, 64)).toBe(false);
+  });
+
+  test("checkGravity should still fall when touching a side taskbar", () => {
+    const displays = [
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 40, y: 0, width: 1880, height: 1080 },
+      },
+    ];
+    screen.getAllDisplays.mockReturnValue(displays);
+    detector.taskbarBoundsByDisplay.set(0, { x: 0, y: 0, width: 40, height: 1080 });
+
+    expect(detector.checkGravity(30, 500, 64, 64)).toBe(true);
+  });
+
+  test("_displayForRect should use largest overlap instead of only center point", () => {
+    const displays = [
+      {
+        id: 0,
+        bounds: { x: 0, y: 0, width: 100, height: 100 },
+      },
+      {
+        id: 1,
+        bounds: { x: 100, y: 0, width: 100, height: 100 },
+      },
+    ];
+
+    expect(detector._displayForRect(displays, 80, 10, 30, 30)).toBe(displays[0]);
   });
 
   test("_onTaskbar should return false when no taskbar bounds", () => {

@@ -589,6 +589,113 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	}
 }
 
+func TestEngineTaskbarSnap(t *testing.T) {
+	tests := []struct {
+		name  string
+		start Rect
+		tb    Rect
+		wantX float64
+		wantY float64
+	}{
+		{
+			name:  "left taskbar",
+			start: Rect{X: 30, Y: 100},
+			tb:    Rect{X: 0, Y: 0, W: 40, H: 1000},
+			wantX: 40,
+			wantY: 100,
+		},
+		{
+			name:  "right taskbar",
+			start: Rect{X: 930, Y: 100},
+			tb:    Rect{X: 960, Y: 0, W: 40, H: 1000},
+			wantX: 896,
+			wantY: 100,
+		},
+		{
+			name:  "top taskbar",
+			start: Rect{X: 100, Y: 30},
+			tb:    Rect{X: 0, Y: 0, W: 1000, H: 40},
+			wantX: 100,
+			wantY: 40,
+		},
+		{
+			name:  "bottom taskbar",
+			start: Rect{X: 100, Y: 930},
+			tb:    Rect{X: 0, Y: 960, W: 1000, H: 40},
+			wantX: 100,
+			wantY: 896,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := testPet()
+			p.Animations[1] = pet.Animation{
+				ID:         1,
+				Name:       "idle",
+				Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+				End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+				Frames:     []int{0},
+				Repeat:     "1",
+				RepeatFrom: 0,
+			}
+
+			e := NewEngine(p)
+			e.Start(1)
+			e.SetPosition(tt.start.X, tt.start.Y)
+
+			result, err := e.Step(WorldContext{
+				Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
+				Taskbar: tt.tb,
+			})
+			if err != nil {
+				t.Fatalf("Step error: %v", err)
+			}
+			if result.X != tt.wantX {
+				t.Errorf("X = %v, want %v", result.X, tt.wantX)
+			}
+			if result.Y != tt.wantY {
+				t.Errorf("Y = %v, want %v", result.Y, tt.wantY)
+			}
+		})
+	}
+}
+
+func TestEngineSideTaskbarDoesNotSuppressGravity(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+		GravityNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetPosition(30, 100)
+
+	result, err := e.Step(WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 40, Y: 0, W: 960, H: 1000},
+		Taskbar:  Rect{X: 0, Y: 0, W: 40, H: 1000},
+	})
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result.X != 40 {
+		t.Errorf("X = %v, want 40", result.X)
+	}
+	if result.NextAnimID != 2 {
+		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
+	}
+}
+
 func TestEngineInvalidAnimation(t *testing.T) {
 	p := testPet()
 	e := NewEngine(p)

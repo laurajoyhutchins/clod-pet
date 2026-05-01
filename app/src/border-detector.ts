@@ -18,19 +18,7 @@ class BorderDetector {
     this.taskbarBoundsByDisplay.clear();
 
     displays.forEach((display, index) => {
-      const workArea = display.workArea;
-      const bounds = display.bounds;
-      let taskbarBounds = null;
-
-      if (workArea.y > bounds.y) {
-        taskbarBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: workArea.y - bounds.y };
-      } else if (workArea.x > bounds.x) {
-        taskbarBounds = { x: bounds.x, y: workArea.y, width: workArea.x - bounds.x, height: workArea.height };
-      } else if (workArea.width < bounds.width) {
-        taskbarBounds = { x: workArea.x + workArea.width, y: workArea.y, width: bounds.width - workArea.width, height: workArea.height };
-      } else {
-        taskbarBounds = { x: bounds.x, y: bounds.y + workArea.height, width: bounds.width, height: bounds.height - workArea.height };
-      }
+      const taskbarBounds = this._taskbarBoundsForDisplay(display);
 
       if (taskbarBounds && taskbarBounds.width > 0 && taskbarBounds.height > 0) {
         const displayId = display.id ?? index;
@@ -39,7 +27,54 @@ class BorderDetector {
     });
   }
 
+  _taskbarBoundsForDisplay(display: any) {
+    if (!display || !display.bounds || !display.workArea) return null;
+
+    const workArea = display.workArea;
+    const bounds = display.bounds;
+    const rightInset = (bounds.x + bounds.width) - (workArea.x + workArea.width);
+    const bottomInset = (bounds.y + bounds.height) - (workArea.y + workArea.height);
+    const edgeInsets = [
+      { edge: "top", size: workArea.y - bounds.y },
+      { edge: "left", size: workArea.x - bounds.x },
+      { edge: "right", size: rightInset },
+      { edge: "bottom", size: bottomInset },
+    ];
+    const inset = edgeInsets.reduce((largest, current) => (
+      current.size > largest.size ? current : largest
+    ), { edge: "", size: 0 });
+
+    if (inset.size <= 0) return null;
+
+    switch (inset.edge) {
+      case "top":
+        return { x: bounds.x, y: bounds.y, width: bounds.width, height: inset.size };
+      case "left":
+        return { x: bounds.x, y: bounds.y, width: inset.size, height: bounds.height };
+      case "right":
+        return { x: workArea.x + workArea.width, y: bounds.y, width: inset.size, height: bounds.height };
+      case "bottom":
+        return { x: bounds.x, y: workArea.y + workArea.height, width: bounds.width, height: inset.size };
+      default:
+        return null;
+    }
+  }
+
   _displayForRect(displays: any[], x: number, y: number, width: number, height: number) {
+    let bestDisplay = null;
+    let bestArea = 0;
+
+    displays.forEach((display) => {
+      if (!display.bounds) return;
+      const area = this._intersectionArea(display.bounds, x, y, width, height);
+      if (area > bestArea) {
+        bestDisplay = display;
+        bestArea = area;
+      }
+    });
+
+    if (bestDisplay) return bestDisplay;
+
     const centerX = x + width / 2;
     const centerY = y + height / 2;
     return displays.find((display) => (
@@ -49,6 +84,12 @@ class BorderDetector {
       && centerY >= display.bounds.y
       && centerY <= display.bounds.y + display.bounds.height
     )) || displays[0] || null;
+  }
+
+  _intersectionArea(bounds: any, x: number, y: number, width: number, height: number) {
+    const overlapW = Math.min(x + width, bounds.x + bounds.width) - Math.max(x, bounds.x);
+    const overlapH = Math.min(y + height, bounds.y + bounds.height) - Math.max(y, bounds.y);
+    return Math.max(0, overlapW) * Math.max(0, overlapH);
   }
 
   _displayIndex(display: any) {
@@ -65,6 +106,7 @@ class BorderDetector {
 
     const bounds = display.bounds;
     const borders: string[] = [];
+    const displayIndex = displays.indexOf(display);
 
     if (Math.abs(y - bounds.y) <= this.tolerance || Math.abs((y + height) - (bounds.y + bounds.height)) <= this.tolerance) {
       borders.push("horizontal");
@@ -72,7 +114,7 @@ class BorderDetector {
     if (Math.abs(x - bounds.x) <= this.tolerance || Math.abs((x + width) - (bounds.x + bounds.width)) <= this.tolerance) {
       borders.push("vertical");
     }
-    if (this._onTaskbar(x, y, width, height, display)) {
+    if (this._onTaskbar(x, y, width, height, display, displayIndex)) {
       borders.push("taskbar");
     }
 
@@ -86,6 +128,9 @@ class BorderDetector {
 
     const bottom = y + height;
     const workBottom = display.workArea.y + display.workArea.height;
+    const displayIndex = displays.indexOf(display);
+    if (this._onBottomTaskbar(x, y, width, height, display, displayIndex)) return false;
+
     if (bottom < workBottom - this.tolerance) return true;
 
     return displays.some((candidate) => {
@@ -95,17 +140,32 @@ class BorderDetector {
     });
   }
 
-  _onTaskbar(x: number, y: number, width: number, height: number, display: any) {
-    const displayId = display?.id ?? this._displayIndex(display);
-    if (displayId === null || displayId === undefined) return false;
-
-    const taskbar = this.taskbarBoundsByDisplay.get(displayId);
+  _onTaskbar(x: number, y: number, width: number, height: number, display: any, displayIndex: number | null = null) {
+    const taskbar = this._taskbarForDisplay(display, displayIndex);
     if (!taskbar) return false;
+    const t = this.tolerance;
 
-    return x < taskbar.x + taskbar.width
-      && x + width > taskbar.x
-      && y < taskbar.y + taskbar.height
-      && y + height > taskbar.y;
+    return !(x + width < taskbar.x - t
+      || x > taskbar.x + taskbar.width + t
+      || y + height < taskbar.y - t
+      || y > taskbar.y + taskbar.height + t);
+  }
+
+  _onBottomTaskbar(x: number, y: number, width: number, height: number, display: any, displayIndex: number | null = null) {
+    const taskbar = this._taskbarForDisplay(display, displayIndex);
+    if (!taskbar || !display?.bounds) return false;
+    const screenTop = display.bounds.y;
+    const taskbarBottom = taskbar.y + taskbar.height;
+    const screenBottom = display.bounds.y + display.bounds.height;
+    return taskbar.y > screenTop + this.tolerance
+      && taskbarBottom >= screenBottom - this.tolerance
+      && this._onTaskbar(x, y, width, height, display, displayIndex);
+  }
+
+  _taskbarForDisplay(display: any, displayIndex: number | null = null) {
+    const displayId = display?.id ?? displayIndex ?? this._displayIndex(display);
+    if (displayId === null || displayId === undefined) return null;
+    return this.taskbarBoundsByDisplay.get(displayId) || null;
   }
 
   getRawWorldContext(x: number, y: number, width: number, height: number) {
@@ -113,7 +173,7 @@ class BorderDetector {
     const display = this._displayForRect(displays, x, y, width, height);
     if (!display) return null;
 
-    const displayId = display.id ?? this._displayIndex(display);
+    const displayId = display.id ?? displays.indexOf(display);
     const taskbar = this.taskbarBoundsByDisplay.get(displayId) || { x: 0, y: 0, width: 0, height: 0 };
 
     return {
