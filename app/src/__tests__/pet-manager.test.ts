@@ -336,7 +336,7 @@ describe("PetManager", () => {
     expect(mockBackendClient.dropPet).toHaveBeenCalledWith("pet_1");
   });
 
-  test("pet loop should pause while dragging", async () => {
+  test("pet loop should advance frames while dragging without moving the window", async () => {
     const mockWin = {
       getPosition: jest.fn().mockReturnValue([100, 200]),
       getSize: jest.fn().mockReturnValue([64, 64]),
@@ -353,13 +353,28 @@ describe("PetManager", () => {
     manager.pets.set("pet_1", petEntry);
     manager.draggingPets.add("pet_1");
 
-    mockBackendClient.stepPet = jest.fn();
+    mockBackendClient.stepPet = jest.fn().mockResolvedValue({
+      frame_index: 42,
+      x: 110,
+      y: 210,
+      opacity: 1,
+      interval_ms: 100
+    });
 
     manager["_startPetLoop"]("pet_1");
     jest.advanceTimersByTime(200);
     await Promise.resolve();
 
-    expect(mockBackendClient.stepPet).not.toHaveBeenCalled();
+    expect(mockBackendClient.stepPet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      screen: expect.any(Object),
+      work_area: expect.any(Object),
+      taskbar: expect.any(Object),
+    }));
+    expect(mockWin.setPosition).not.toHaveBeenCalled();
+    expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({
+      frameIndex: 42,
+      opacity: 1,
+    }));
 
     manager.draggingPets.delete("pet_1");
   });

@@ -210,6 +210,20 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	}
 	e.parentY += curY
 
+	if e.state == StateDragging {
+		e.frameIdx++
+		e.totalStepsDone++
+
+		if e.frameIdx >= frameLen {
+			e.frameIdx = e.animRepeatFrom
+			if e.totalStepsDone >= e.animTotalSteps {
+				e.totalStepsDone = 0
+			}
+		}
+
+		return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0), nil
+	}
+
 	// Internal Border & Gravity Detection
 	borderCtx := e.detectBorder(world, petW, petH)
 	gravity := e.detectGravity(world, petW, petH)
@@ -377,12 +391,17 @@ func (e *Engine) applyAction(action string) {
 
 func (e *Engine) SetDrag() {
 	e.state = StateDragging
-	e.currentAnim = e.findAnimationByName("drag")
-	if e.currentAnim > 0 {
-		e.frameIdx = 0
-		e.totalStepsDone = 0
-		e.loadAnimation()
+	dragAnim := e.findAnimationByName("drag")
+	if dragAnim <= 0 {
+		return
 	}
+	if e.currentAnim == dragAnim {
+		return
+	}
+	e.currentAnim = dragAnim
+	e.frameIdx = 0
+	e.totalStepsDone = 0
+	e.loadAnimation()
 }
 
 func (e *Engine) SetFall() {

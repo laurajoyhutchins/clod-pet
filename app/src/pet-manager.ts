@@ -264,12 +264,8 @@ class PetManager {
 
       petEntry.interval = null;
 
-      if (this.draggingPets.has(petId)) {
-        schedule(100);
-        return;
-      }
-
       try {
+        const isDragging = this.draggingPets.has(petId);
         const [winX, winY] = petEntry.win.getPosition();
         const [winW, winH] = petEntry.win.getSize();
 
@@ -291,7 +287,9 @@ class PetManager {
         };
 
         if (!petEntry.win.isDestroyed()) {
-          petEntry.win.setPosition(Math.round(finalX), Math.round(finalY));
+          if (!isDragging) {
+            petEntry.win.setPosition(Math.round(finalX), Math.round(finalY));
+          }
           petEntry.win.webContents.send("pet:frame", {
             frameIndex: result.frame_index,
             flipH: result.flip_h,
