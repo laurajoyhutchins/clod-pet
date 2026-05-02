@@ -57,17 +57,17 @@
 <sequence repeat="20" repeatfrom="0">
 <frame>2</frame>
 <frame>3</frame>
-<next probability="2" only="window">11</next>
-<next probability="10" only="taskbar">35</next>
+<next probability="2" only="obstacle">11</next>
+<next probability="10" only="floor">35</next>
 <next probability="90" only="none">1</next>
 <next probability="6" only="none">15</next>
-<next probability="50" only="taskbar">50</next>
-<next probability="50" only="window">49</next>
+<next probability="50" only="floor">50</next>
+<next probability="50" only="obstacle">49</next>
 </sequence>
 <border>
 <next probability="100" only="none">2</next>
-<next probability="2" only="vertical">37</next>
-<next probability="20" only="window">43</next>
+<next probability="2" only="walls">37</next>
+<next probability="20" only="obstacle">43</next>
 </border>
 <gravity>
 <next probability="100" only="none">5</next>
@@ -114,7 +114,7 @@
 <frame>9</frame>
 <frame>3</frame>
 <next probability="100" only="none">1</next>
-<next probability="5" only="taskbar">26</next>
+<next probability="5" only="floor">26</next>
 </sequence>
 </animation>
 <animation id="4">
@@ -215,10 +215,10 @@
 <frame>4</frame>
 <next probability="40" only="none">7</next>
 <next probability="80" only="none">36</next>
-<next probability="20" only="taskbar">25</next>
+<next probability="20" only="floor">25</next>
 </sequence>
 <border>
-<next probability="100" only="vertical">8</next>
+<next probability="100" only="walls">8</next>
 </border>
 <gravity>
 <next probability="100" only="none">5</next>
@@ -754,7 +754,7 @@
 <next probability="100" only="none">7</next>
 </sequence>
 <border>
-<next probability="80" only="taskbar">7</next>
+<next probability="80" only="floor">7</next>
 <next probability="20" only="horizontal+">36</next>
 </border>
 </animation>
@@ -1044,7 +1044,7 @@
 <next probability="100" only="none">7</next>
 </sequence>
 <border>
-<next probability="100" only="vertical">8</next>
+<next probability="100" only="walls">8</next>
 </border>
 </animation>
 <animation id="36">
@@ -1077,11 +1077,11 @@
 <next probability="100" only="none">1</next>
 </sequence>
 <border>
-<next probability="100" only="vertical">8</next>
+<next probability="100" only="walls">8</next>
 </border>
 </animation>
 <animation id="37">
-<name>vertical_walk_up</name>
+<name>walls_walk_up</name>
 <start>
 <x>0</x>
 <y>-2</y>
@@ -1180,7 +1180,7 @@
 </sequence>
 </animation>
 <animation id="41">
-<name>vertical_walk_down</name>
+<name>walls_walk_down</name>
 <start>
 <x>0</x>
 <y>2</y>
@@ -1205,7 +1205,7 @@
 </border>
 </animation>
 <animation id="42">
-<name>vertical_walk_over</name>
+<name>walls_walk_over</name>
 <start>
 <x>0</x>
 <y>0</y>
@@ -1427,8 +1427,8 @@
 </sequence>
 <border>
 <next probability="100" only="none">2</next>
-<next probability="2" only="vertical">37</next>
-<next probability="20" only="window">43</next>
+<next probability="2" only="walls">37</next>
+<next probability="20" only="obstacle">43</next>
 </border>
 <gravity>
 <next probability="100" only="none">5</next>
@@ -1459,8 +1459,8 @@
 </sequence>
 <border>
 <next probability="100" only="none">2</next>
-<next probability="2" only="vertical">37</next>
-<next probability="20" only="window">43</next>
+<next probability="2" only="walls">37</next>
+<next probability="20" only="obstacle">43</next>
 </border>
 <gravity>
 <next probability="100" only="none">1</next>
