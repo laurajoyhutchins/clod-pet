@@ -100,14 +100,18 @@ class BorderDetector {
     if (!display?.bounds) return [];
 
     const bounds = display.bounds;
+    const workArea = display.workArea;
     const borders: string[] = [];
 
-    if (Math.abs(y - bounds.y) <= this.tolerance) borders.push("top");
-    if (Math.abs((y + height) - (bounds.y + bounds.height)) <= this.tolerance) borders.push("bottom");
-    if (Math.abs(x - bounds.x) <= this.tolerance) borders.push("left");
-    if (Math.abs((x + width) - (bounds.x + bounds.width)) <= this.tolerance) borders.push("right");
+    // Top of screen
+    if (Math.abs(y - bounds.y) <= this.tolerance) borders.push("ceiling");
+    // Bottom of work area (floor)
+    if (Math.abs((y + height) - (workArea.y + workArea.height)) <= this.tolerance) borders.push("floor");
+    // Left/Right of screen
+    if (Math.abs(x - bounds.x) <= this.tolerance) borders.push("walls");
+    if (Math.abs((x + width) - (bounds.x + bounds.width)) <= this.tolerance) borders.push("walls");
 
-    return borders;
+    return [...new Set(borders)];
   }
 
   checkGravity(x: number, y: number, width: number, height: number) {
@@ -116,8 +120,8 @@ class BorderDetector {
     if (!display?.workArea) return false;
 
     const bottom = y + height;
-    const workBottom = display.workArea.y + display.workArea.height;
-    return bottom < workBottom - this.tolerance;
+    const floorY = display.workArea.y + display.workArea.height;
+    return bottom < floorY - this.tolerance;
   }
 
   getRawWorldContext(x: number, y: number, width: number, height: number) {

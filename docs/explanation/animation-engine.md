@@ -59,11 +59,19 @@ The `only` field filters transitions by border context. `none` means "always eli
 
 ### Border transitions (`border[]`)
 
-Triggered when the pet hits a screen edge and `border_ctx` is non-zero. The TypeScript app detects screen boundaries per display and passes the context to each step.
+Triggered when the pet hits a screen edge or floor contact and `border_ctx` is non-zero. The TypeScript app detects boundaries per display and passes the context to each step. 
+
+Standard Nomenclature:
+- `floor`: Bottom of the work area (top of taskbar/dock).
+- `ceiling`: Top edge of the display bounds.
+- `walls`: Left or right edges of the display bounds.
+- `obstacle`: Edge of another window or custom boundary.
+
+Legacy aliases like `taskbar`, `horizontal`, and `vertical` are supported for backward compatibility with older pet definitions.
 
 ### Gravity transitions (`gravity[]`)
 
-Triggered when the pet is above the work area and gravity is detected (`gravity: true` in step_pet payload). The app's `BorderDetector.checkGravity()` returns true when the pet's Y position is above the work area bottom for the display containing the pet.
+Triggered when the pet is above the `floor` and gravity is detected (`gravity: true` in step_pet payload). The app's `BorderDetector.checkGravity()` returns true when the pet's Y position is above the floor for the display containing the pet.
 
 Example JSON:
 ```json

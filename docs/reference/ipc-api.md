@@ -67,7 +67,10 @@ Advance the pet's animation by one frame and process physics.
 }
 ```
 
-`world`: Raw display geometry used by the backend engine for collision detection and snapping. The backend currently reads only `screen`, `work_area`, and `desktop`.
+`world`: Raw display geometry used by the backend engine for collision detection and snapping. 
+- `screen`: (**DisplayBounds**) Physical monitor dimensions, used for `ceiling` and `walls`.
+- `work_area`: (**WorkArea**) Screen area excluding taskbar, used for `floor` contact.
+- `desktop`: (**Desktop**) Aggregate geometry of all displays.
 
 **Response:**
 ```json

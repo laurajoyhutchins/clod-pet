@@ -442,18 +442,20 @@ func TestBorderMatches(t *testing.T) {
 		want bool
 	}{
 		{"none", ContextNone, true},
-		{"none", ContextTaskbar, true},
-		{"taskbar", ContextTaskbar, true},
+		{"none", ContextFloor, true},
+		{"floor", ContextFloor, true},
+		{"floor", ContextCeiling, false},
+		{"taskbar", ContextFloor, true},
 		{"taskbar", ContextNone, false},
-		{"window", ContextWindow, true},
-		{"window", ContextTaskbar, false},
-		{"vertical", ContextVertical, true},
-		{"vertical", ContextHorizontal, false},
-		{"horizontal", ContextHorizontal, true},
-		{"horizontal", ContextVertical, false},
-		{"horizontal+", ContextHorizontal, true},
-		{"horizontal+", ContextTaskbar, true},
-		{"horizontal+", ContextVertical, false},
+		{"window", ContextObstacle, true},
+		{"window", ContextFloor, false},
+		{"vertical", ContextWalls, true},
+		{"vertical", ContextCeiling, false},
+		{"horizontal", ContextCeiling, true},
+		{"horizontal", ContextWalls, false},
+		{"horizontal+", ContextCeiling, true},
+		{"horizontal+", ContextFloor, true},
+		{"horizontal+", ContextWalls, false},
 	}
 
 	for _, tc := range tests {
@@ -622,7 +624,7 @@ func TestEngineBorderTransition(t *testing.T) {
 		Repeat:     "1",
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "horizontal"},
+			{ID: 2, Probability: 100, Only: "taskbar"},
 		},
 	}
 
@@ -679,7 +681,7 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	}
 }
 
-func TestEngineDesktopSnap(t *testing.T) {
+func TestEngineScreenSnapDoesNotUseDesktopUnion(t *testing.T) {
 	tests := []struct {
 		name  string
 		start Rect
@@ -731,7 +733,7 @@ func TestEngineDesktopSnap(t *testing.T) {
 
 			result, err := e.Step(WorldContext{
 				Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-				Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+				Desktop: Rect{X: 0, Y: 0, W: 2000, H: 1000},
 			})
 			if err != nil {
 				t.Fatalf("Step error: %v", err)
@@ -996,7 +998,7 @@ func TestEngineBorderTriggeredOnce(t *testing.T) {
 		Repeat:     "10",
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "horizontal"},
+			{ID: 2, Probability: 100, Only: "taskbar"},
 		},
 	}
 
