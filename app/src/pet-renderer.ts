@@ -125,6 +125,13 @@ const backendStatus = backendStatusEl;
 const debugBorders = debugBordersEl;
 const renderer = new SpriteRenderer(canvas);
 const soundPlayer = new SoundPlayer();
+const BORDER_CTX_LABELS: Record<number, string> = {
+  0: "",
+  1: "floor",
+  2: "ceiling",
+  3: "walls",
+  4: "obstacle",
+};
 
 let isDragging = false;
 let isDebug = false;
@@ -198,8 +205,7 @@ function subscribeToStore(petId: string | null) {
     if (isDebug && debugBorders) {
       const pet = state.pets[petId];
       if (pet) {
-        // We still need the 'borders' from the frame event for now as they are transient
-        // but we can draw the world context from the store.
+        updateDebugBorders(typeof pet.state.borderCtx === "number" ? pet.state.borderCtx : 0);
       }
     }
   });
@@ -211,13 +217,15 @@ const removeFrameListener = window.clodPet.on("pet:frame", (data) => {
   soundPlayer.play(data.sound);
 
   if (isDebug && debugBorders) {
-    // Keep transient debug info (borders) tied to frame event for now
-    updateDebugBorders(data.borders);
+    updateDebugBorders(typeof data.borderCtx === "number" ? data.borderCtx : 0);
   }
 });
 
-function updateDebugBorders(collisionBorders: string[]) {
-   // ... existing debug logic moved here if needed
+function updateDebugBorders(borderCtx: number) {
+  if (!debugBorders) return;
+
+  const label = BORDER_CTX_LABELS[borderCtx] || "";
+  debugBorders.textContent = label ? `Border: ${label}` : "";
 }
 
 // Remove old listeners

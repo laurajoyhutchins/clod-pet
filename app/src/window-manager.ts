@@ -43,7 +43,7 @@ class WindowManager {
     });
   }
 
-  createPetWindow(petId: string, opts: { x?: number; y?: number; width?: number; height?: number; preload?: string } = {}) {
+  createPetWindow(petId: string, opts: { x?: number; y?: number; width?: number; height?: number; preload?: string; petData?: any } = {}) {
     const existing = this.windows.get(petId);
     if (existing && !existing.win.isDestroyed()) {
       existing.win.destroy();

@@ -73,6 +73,7 @@ func (m *commonMockService) AddPet(petPath string, spawnID int, world ...engine.
 		Y:               y,
 		CurrentAnimID:   animID,
 		CurrentAnimName: animName,
+		BorderCtx:       engine.ContextNone,
 	}, nil
 }
 
@@ -123,6 +124,7 @@ func (m *commonMockService) StepPet(petID string, world engine.WorldContext) (*P
 		CurrentAnimID:   animID,
 		CurrentAnimName: animName,
 		NextAnimID:      step.NextAnimID,
+		BorderCtx:       step.BorderCtx,
 	}, nil
 }
 
