@@ -15,7 +15,6 @@ import (
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
 	"clod-pet/backend/internal/llm"
-	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/pet"
 	"clod-pet/backend/internal/settings"
 	"clod-pet/backend/internal/sound"
@@ -418,7 +417,7 @@ func (s *Service) lockPet(petID string) (*engine.Engine, *sync.Mutex, error) {
 func (s *Service) UpdateVolume(volume float64) error {
 	s.settings.Volume = volume
 	if err := s.settings.Save(s.settingsPath); err != nil {
-		log.Warn("could not save settings", "path", s.settingsPath, "error", err)
+		return fmt.Errorf("save settings: %w", err)
 	}
 	return nil
 }
@@ -426,7 +425,7 @@ func (s *Service) UpdateVolume(volume float64) error {
 func (s *Service) UpdateScale(scale float64) error {
 	s.settings.Scale = scale
 	if err := s.settings.Save(s.settingsPath); err != nil {
-		log.Warn("could not save settings", "path", s.settingsPath, "error", err)
+		return fmt.Errorf("save settings: %w", err)
 	}
 	return nil
 }

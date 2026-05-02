@@ -133,6 +133,7 @@ func (c *openaiClient) StreamChat(ctx context.Context, req *ChatRequest) (<-chan
 		}
 
 		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 1<<20), 1<<20)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if line == "" || strings.HasPrefix(line, ":") || !strings.HasPrefix(line, "data:") {

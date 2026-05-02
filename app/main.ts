@@ -145,7 +145,7 @@ function setupControlPanelHandlers() {
 
   ipcMain.on("llm-stream-start", async (event, { messages, channel }) => {
     try {
-      await petManager.apiAdapter.streamChat(messages, (streamEvent: any) => {
+      await petManager.backendClient.streamChat(messages, (streamEvent: any) => {
         if (!event.sender.isDestroyed()) {
           event.sender.send(channel, streamEvent);
         }

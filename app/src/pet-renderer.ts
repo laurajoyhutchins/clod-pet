@@ -135,7 +135,6 @@ const BORDER_CTX_LABELS: Record<number, string> = {
 
 let isDragging = false;
 let isDebug = false;
-let backendStatusTimer: any = null;
 
 function setBackendStatus(message: string | null) {
   if (!backendStatus) return;
@@ -148,10 +147,6 @@ function setBackendStatus(message: string | null) {
 
   backendStatus.textContent = message;
   backendStatus.style.display = "block";
-}
-
-async function refreshBackendStatus() {
-  // Now handled reactively by subscribeToStore
 }
 
 async function initPetRenderer() {
@@ -259,12 +254,9 @@ window.addEventListener("beforeunload", () => {
   removeFrameListener();
   removeScaleListener();
   removeVolumeListener();
-  if (backendStatusTimer) clearInterval(backendStatusTimer);
 });
 
 initPetRenderer();
-refreshBackendStatus();
-backendStatusTimer = setInterval(refreshBackendStatus, 2000);
 
 window.addEventListener("error", (event) => {
   window.clodPet.control.reportError("pet-renderer", event.message, event.error?.stack);

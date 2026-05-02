@@ -125,9 +125,16 @@ func loadXMLPet(dir string) (*Pet, error) {
 		return nil, fmt.Errorf("parse xml: %w", err)
 	}
 
-	iconData, err := base64.StdEncoding.DecodeString(root.Header.Icon)
-	if err != nil {
-		return nil, fmt.Errorf("decode icon: %w", err)
+	var iconData []byte
+	if root.Header.Icon != "" {
+		var err error
+		iconData, err = base64.StdEncoding.DecodeString(root.Header.Icon)
+		if err != nil {
+			return nil, fmt.Errorf("decode icon: %w", err)
+		}
+	}
+	if root.Image.PngBase64 == "" {
+		return nil, fmt.Errorf("missing sprite PNG data")
 	}
 	pngData, err := base64.StdEncoding.DecodeString(root.Image.PngBase64)
 	if err != nil {
