@@ -170,6 +170,9 @@ func TestEngineStepProducesFrames(t *testing.T) {
 	if result.Opacity != 1.0 {
 		t.Errorf("Opacity = %v, want 1.0", result.Opacity)
 	}
+	if result.BorderCtx != ContextNone {
+		t.Errorf("BorderCtx = %v, want %v", result.BorderCtx, ContextNone)
+	}
 }
 
 func TestEngineStepWithEmptyAnimationFrames(t *testing.T) {
@@ -392,6 +395,9 @@ func TestEngineDragStepDoesNotSnapPosition(t *testing.T) {
 	}
 	if result.X != -10 || result.Y != -20 {
 		t.Errorf("position = (%v, %v), want (-10, -20)", result.X, result.Y)
+	}
+	if result.BorderCtx != ContextCeiling {
+		t.Errorf("BorderCtx = %v, want %v", result.BorderCtx, ContextCeiling)
 	}
 }
 
@@ -678,6 +684,9 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	}
 	if result.NextAnimID != 0 {
 		t.Errorf("NextAnimID = %d, want 0 (no matching window border)", result.NextAnimID)
+	}
+	if result.BorderCtx != ContextFloor {
+		t.Errorf("BorderCtx = %v, want %v", result.BorderCtx, ContextFloor)
 	}
 }
 

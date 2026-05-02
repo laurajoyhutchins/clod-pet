@@ -173,7 +173,7 @@ func TestHandleBorderPet(t *testing.T) {
 	svc.addEngine("border-test")
 	h := NewHandler(svc)
 
-	borderPayload, _ := json.Marshal(BorderPetPayload{PetID: "border-test", Direction: engine.ContextTaskbar})
+	borderPayload, _ := json.Marshal(BorderPetPayload{PetID: "border-test", Direction: engine.ContextFloor})
 	resp := h.Handle(&Request{
 		Command: CmdBorderPet,
 		Payload: borderPayload,
@@ -389,6 +389,7 @@ func TestPetStateJSON(t *testing.T) {
 		CurrentAnimID:   7,
 		CurrentAnimName: "walk",
 		NextAnimID:      2,
+		BorderCtx:       engine.ContextFloor,
 		Sound:           &SoundPayload{MIMEType: "audio/wav", DataBase64: "abc"},
 	}
 
@@ -416,6 +417,9 @@ func TestPetStateJSON(t *testing.T) {
 	}
 	if int(decoded["next_anim_id"].(float64)) != 2 {
 		t.Errorf("next_anim_id = %v, want 2", decoded["next_anim_id"])
+	}
+	if int(decoded["border_ctx"].(float64)) != int(engine.ContextFloor) {
+		t.Errorf("border_ctx = %v, want %d", decoded["border_ctx"], engine.ContextFloor)
 	}
 	soundPayload := decoded["sound"].(map[string]interface{})
 	if soundPayload["mime_type"] != "audio/wav" {

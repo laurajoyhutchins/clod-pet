@@ -60,6 +60,33 @@ describe("WorldStore", () => {
     expect(store.getState().pets[petId].state.y).toBe(100);
   });
 
+  test("should insert and remove pets", () => {
+    const petId = "pet-2";
+    const petData = {
+      id: petId,
+      path: "/path/to/pet",
+      backendPetId: "backend-2",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 1,
+      currentAnimName: "walk",
+      state: {
+        frameIndex: 3,
+        x: 12,
+        y: 34,
+        flipH: true,
+      },
+      loaded: true,
+      stopped: false,
+    };
+
+    store.setPet(petId, petData);
+    expect(store.getState().pets[petId]).toEqual(petData);
+
+    store.removePet(petId);
+    expect(store.getState().pets[petId]).toBeUndefined();
+  });
+
   test("should notify listeners on change", () => {
     const listener = jest.fn();
     store.subscribe(listener);

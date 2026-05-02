@@ -56,6 +56,7 @@ type StepResult struct {
 	ShouldFlip  bool
 	ShouldSpawn bool
 	SoundID     int
+	BorderCtx   BorderContext
 }
 
 type Engine struct {
@@ -215,6 +216,8 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	}
 	e.parentY += curY
 
+	borderCtx := e.detectBorder(world, petW, petH)
+
 	if e.state == StateDragging {
 		e.frameIdx++
 		e.totalStepsDone++
@@ -226,11 +229,9 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 			}
 		}
 
-		return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0), nil
+		return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0, borderCtx), nil
 	}
 
-	// Internal Border & Gravity Detection
-	borderCtx := e.detectBorder(world, petW, petH)
 	gravity := e.detectGravity(world, petW, petH)
 
 	// Physics Snapping
@@ -239,14 +240,14 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 	if gravity && !e.gravityTriggered {
 		if nextID := e.pickGravityTransition(); nextID > 0 {
 			e.gravityTriggered = true
-			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
+			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID, borderCtx), nil
 		}
 	}
 
 	if borderCtx != ContextNone && !e.borderTriggered {
 		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
 			e.borderTriggered = true
-			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
+			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID, borderCtx), nil
 		}
 	}
 
@@ -264,7 +265,7 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 
 			if nextID > 0 {
 				e.applyAction(anim.Action)
-				return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID), nil
+				return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID, borderCtx), nil
 			}
 
 			e.totalStepsDone = 0
@@ -272,7 +273,7 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 		}
 	}
 
-	return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0), nil
+	return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0, borderCtx), nil
 }
 
 func (e *Engine) detectBorder(world WorldContext, width, height float64) BorderContext {
@@ -486,7 +487,7 @@ func (e *Engine) findAnimationByName(name string) int {
 	return e.animationIDs[name]
 }
 
-func (e *Engine) stepResult(frame int, offsetY, opacity float64, intervalMs, nextAnimID int) *StepResult {
+func (e *Engine) stepResult(frame int, offsetY, opacity float64, intervalMs, nextAnimID int, borderCtx BorderContext) *StepResult {
 	return &StepResult{
 		FrameIndex: frame,
 		X:          e.parentX,
@@ -496,6 +497,7 @@ func (e *Engine) stepResult(frame int, offsetY, opacity float64, intervalMs, nex
 		IntervalMs: intervalMs,
 		NextAnimID: nextAnimID,
 		ShouldFlip: e.flipH,
+		BorderCtx:  borderCtx,
 	}
 }
 

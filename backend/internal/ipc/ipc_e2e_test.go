@@ -167,6 +167,9 @@ func TestServerStepPet(t *testing.T) {
 	if state.FrameIndex != 0 {
 		t.Errorf("FrameIndex = %d, want 0", state.FrameIndex)
 	}
+	if state.BorderCtx != engine.ContextNone {
+		t.Errorf("BorderCtx = %v, want %v", state.BorderCtx, engine.ContextNone)
+	}
 }
 
 func TestServerDragAndDropPet(t *testing.T) {
@@ -239,7 +242,7 @@ func TestServerBorderDetection(t *testing.T) {
 		t.Fatalf("decode add response: %v", err)
 	}
 
-	borderReq := Request{Command: CmdBorderPet, Payload: mustMarshal(BorderPetPayload{PetID: "border-pet", Direction: engine.ContextTaskbar})}
+	borderReq := Request{Command: CmdBorderPet, Payload: mustMarshal(BorderPetPayload{PetID: "border-pet", Direction: engine.ContextFloor})}
 	borderResp, err := http.Post(ts.URL+"/api", "application/json", jsonReader(borderReq))
 	if err != nil {
 		t.Fatalf("border pet request failed: %v", err)

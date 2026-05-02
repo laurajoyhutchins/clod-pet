@@ -84,18 +84,19 @@ type SetScalePayload struct {
 }
 
 type PetState struct {
-	PetID            string        `json:"pet_id"`
-	FrameIndex       int           `json:"frame_index"`
-	X                float64       `json:"x"`
-	Y                float64       `json:"y"`
-	OffsetY          float64       `json:"offset_y"`
-	Opacity          float64       `json:"opacity"`
-	IntervalMs       int           `json:"interval_ms"`
-	FlipH            bool          `json:"flip_h"`
-	CurrentAnimID    int           `json:"current_anim_id,omitempty"`
-	CurrentAnimName  string        `json:"current_anim_name,omitempty"`
-	NextAnimID       int           `json:"next_anim_id,omitempty"`
-	Sound            *SoundPayload `json:"sound,omitempty"`
+	PetID           string               `json:"pet_id"`
+	FrameIndex      int                  `json:"frame_index"`
+	X               float64              `json:"x"`
+	Y               float64              `json:"y"`
+	OffsetY         float64              `json:"offset_y"`
+	Opacity         float64              `json:"opacity"`
+	IntervalMs      int                  `json:"interval_ms"`
+	FlipH           bool                 `json:"flip_h"`
+	CurrentAnimID   int                  `json:"current_anim_id,omitempty"`
+	CurrentAnimName string               `json:"current_anim_name,omitempty"`
+	NextAnimID      int                  `json:"next_anim_id,omitempty"`
+	BorderCtx       engine.BorderContext `json:"border_ctx"`
+	Sound           *SoundPayload        `json:"sound,omitempty"`
 }
 
 type SoundPayload struct {

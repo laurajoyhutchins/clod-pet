@@ -218,6 +218,7 @@ func (s *Service) AddPet(petPath string, spawnID int, world ...engine.WorldConte
 		CurrentAnimID:   animID,
 		CurrentAnimName: animName,
 		NextAnimID:      0,
+		BorderCtx:       engine.ContextNone,
 	}, nil
 }
 
@@ -336,6 +337,7 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 		CurrentAnimID:   currentAnimID,
 		CurrentAnimName: currentAnimName,
 		NextAnimID:      step.NextAnimID,
+		BorderCtx:       step.BorderCtx,
 		Sound:           soundPayload,
 	}, nil
 }

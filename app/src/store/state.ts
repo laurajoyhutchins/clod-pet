@@ -13,12 +13,17 @@ export interface PetInstance {
   frameH: number;
   currentAnimId: number;
   currentAnimName: string;
+  stepFailures?: number;
+  lastStepError?: string | null;
+  dragOffsetX?: number;
+  dragOffsetY?: number;
   state: {
     frameIndex: number;
     x: number;
     y: number;
     offsetY?: number;
     flipH: boolean;
+    borderCtx?: number;
   };
   loaded: boolean;
   stopped: boolean;

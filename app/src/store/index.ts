@@ -29,6 +29,21 @@ export class WorldStore {
   }
 
   /**
+   * Inserts or replaces a pet record.
+   */
+  setPet(petId: string, pet: WorldState['pets'][string]) {
+    const prevState = this.state;
+    this.state = {
+      ...this.state,
+      pets: {
+        ...this.state.pets,
+        [petId]: pet,
+      },
+    };
+    this.notify(this.state, prevState);
+  }
+
+  /**
    * Targeted update for a specific pet.
    */
   updatePet(petId: string, updates: Partial<WorldState['pets'][string]>) {
@@ -42,6 +57,23 @@ export class WorldStore {
         ...this.state.pets,
         [petId]: { ...pet, ...updates },
       },
+    };
+    this.notify(this.state, prevState);
+  }
+
+  /**
+   * Removes a pet record if it exists.
+   */
+  removePet(petId: string) {
+    if (!this.state.pets[petId]) return;
+
+    const prevState = this.state;
+    const pets = { ...this.state.pets };
+    delete pets[petId];
+
+    this.state = {
+      ...this.state,
+      pets,
     };
     this.notify(this.state, prevState);
   }

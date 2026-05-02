@@ -62,55 +62,106 @@ jest.mock("../api-adapter", () => {
 
 jest.mock("../window-manager", () => {
   return jest.fn().mockImplementation(() => ({
+    windows: new Map(),
     createPetWindow: jest.fn(),
-    getPetWindow: jest.fn(),
-    removePetWindow: jest.fn(),
+    getPetWindow: jest.fn(function (petId) {
+      return this.windows.get(petId)?.win || null;
+    }),
+    removePetWindow: jest.fn(function (petId) {
+      this.windows.delete(petId);
+    }),
     updatePosition: jest.fn(),
     updateSize: jest.fn(),
-    getAllWindows: jest.fn(() => []),
-    windows: new Map(),
-  }));
-});
-
-jest.mock("../border-detector", () => {
-  return jest.fn().mockImplementation(() => ({
-    init: jest.fn(),
-    checkBorder: jest.fn(() => []),
-    checkGravity: jest.fn(() => false),
-    getRawWorldContext: jest.fn(() => ({
-      screen: { x: 0, y: 0, w: 1920, h: 1080 },
-      work_area: { x: 0, y: 0, w: 1920, h: 1080 },
-      desktop: { x: 0, y: 0, w: 1920, h: 1080 },
-    })),
-    _displayForRect: jest.fn((displays, x, y) => displays[0]),
-    taskbarBoundsByDisplay: new Map(),
-    tolerance: 2,
+    getAllWindows: jest.fn(function () {
+      return Array.from(this.windows.entries()).map(([id, { win }]) => ({ id, win }));
+    }),
   }));
 });
 
 jest.mock("../store", () => {
+  const createState = () => ({
+    pets: {},
+    backend: {
+      status: "idle",
+      url: null,
+      port: null,
+      version: null,
+      lastError: null,
+      pid: null,
+      exitCode: null,
+      available: false,
+      ready: false,
+      restartAttempt: 0,
+      nextRestartAt: null,
+    },
+    environment: {
+      DisplayBounds: { x: 0, y: 0, w: 0, h: 0 },
+      WorkArea: { x: 0, y: 0, w: 0, h: 0 },
+      Desktop: { x: 0, y: 0, w: 0, h: 0 },
+      scale: 1.0,
+      volume: 0.3,
+    },
+    ui: {
+      isChatOpen: false,
+      isControlPanelOpen: false,
+      lastError: null,
+    },
+  });
+
+  const createStore = () => {
+    let state = createState();
+    return {
+      getState: jest.fn(() => state),
+      setState: jest.fn((newState) => {
+        state = {
+          ...state,
+          ...newState,
+        };
+      }),
+      setPet: jest.fn((petId, pet) => {
+        state = {
+          ...state,
+          pets: {
+            ...state.pets,
+            [petId]: pet,
+          },
+        };
+      }),
+      updatePet: jest.fn((petId, updates) => {
+        if (!state.pets[petId]) return;
+        state = {
+          ...state,
+          pets: {
+            ...state.pets,
+            [petId]: {
+              ...state.pets[petId],
+              ...updates,
+            },
+          },
+        };
+      }),
+      removePet: jest.fn((petId) => {
+        if (!state.pets[petId]) return;
+        const pets = { ...state.pets };
+        delete pets[petId];
+        state = {
+          ...state,
+          pets,
+        };
+      }),
+      subscribe: jest.fn(() => () => {}),
+      __reset: jest.fn(() => {
+        state = createState();
+      }),
+    };
+  };
+
+  const globalStore = createStore();
+
   return {
     __esModule: true,
-    default: {
-      getState: jest.fn(() => ({
-        pets: {},
-        backend: { status: 'idle' },
-        environment: { scale: 1.0, volume: 0.3 }
-      })),
-      setState: jest.fn(),
-      updatePet: jest.fn(),
-      subscribe: jest.fn(() => () => {}),
-    },
-    WorldStore: jest.fn().mockImplementation(() => ({
-      getState: jest.fn(() => ({
-        pets: {},
-        backend: { status: 'idle' },
-        environment: { scale: 1.0, volume: 0.3 }
-      })),
-      setState: jest.fn(),
-      updatePet: jest.fn(),
-      subscribe: jest.fn(() => () => {}),
-    })),
+    default: globalStore,
+    WorldStore: jest.fn().mockImplementation(() => createStore()),
   };
 });
 
@@ -122,16 +173,16 @@ describe("PetManager", () => {
   let manager: InstanceType<typeof PetManager>;
   let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock; getSettings: jest.Mock };
   let mockWindowManager: { createPetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
-  let mockBorderDetector: { init: jest.Mock; checkBorder: jest.Mock; checkGravity: jest.Mock; _displayForRect: jest.Mock; taskbarBoundsByDisplay: Map<number, any>; tolerance: number };
   let mockStore: any;
 
   beforeEach(() => {
     jest.useFakeTimers();
     mockStore = globalStore;
+    mockStore.__reset();
     manager = new PetManager("http://localhost:8080", mockStore);
     mockBackendClient = manager.backendClient as any;
     mockWindowManager = manager.windowManager as any;
-    mockBorderDetector = manager.borderDetector as any;
+    mockWindowManager.windows.clear();
     jest.clearAllMocks();
   });
 
@@ -145,7 +196,6 @@ describe("PetManager", () => {
 
   test("should initialize modules on init", async () => {
     await manager.init();
-    expect(mockBorderDetector.init).toHaveBeenCalled();
     expect(ipcMain.handle).toHaveBeenCalledWith("get-pet-init", expect.any(Function));
   });
 
@@ -159,10 +209,12 @@ describe("PetManager", () => {
   test("get-pet-init handler should return pet data", async () => {
     await manager.init();
     const handler = (ipcMain.handle as jest.Mock).mock.calls.find(call => call[0] === "get-pet-init")[1];
-    
-    manager.pets.set("pet_1", {
-      backendPetId: "pet_1",
-      petData: { png_base64: "abc", tiles_x: 1, tiles_y: 1 }
+
+    mockWindowManager.windows.set("pet_1", {
+      win: {},
+      opts: {
+        petData: { png_base64: "abc", tiles_x: 1, tiles_y: 1 }
+      }
     });
     
     const result = await handler(null, "pet_1");
@@ -228,11 +280,11 @@ describe("PetManager", () => {
 
     const loadCb = mockWin.webContents.on.mock.calls.find(c => c[0] === "did-finish-load")[1];
     loadCb();
-    expect(manager.pets.get("pet_1").loaded).toBe(true);
+    expect(mockStore.getState().pets.pet_1.loaded).toBe(true);
 
     const closedCb = mockWin.on.mock.calls.find(c => c[0] === "closed")[1];
     closedCb();
-    expect(manager.pets.has("pet_1")).toBe(false);
+    expect(mockStore.getState().pets.pet_1).toBeUndefined();
 
     // Test crash event
     const crashCb = mockWin.webContents.on.mock.calls.find(c => c[0] === "crashed")[1];
@@ -258,13 +310,23 @@ describe("PetManager", () => {
       isDestroyed: jest.fn().mockReturnValue(false),
       webContents: { send: jest.fn() }
     };
-    const petEntry = {
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
       backendPetId: "pet_1",
-      win: mockWin,
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 100, y: 200, flipH: false },
       loaded: true,
-      interval: null
-    };
-    manager.pets.set("pet_1", petEntry);
+      stopped: false,
+      stepFailures: 0,
+      lastStepError: null,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+    });
 
     mockBackendClient.stepPet = jest.fn().mockResolvedValue({
       frame_index: 5,
@@ -306,18 +368,30 @@ describe("PetManager", () => {
     // Test loop error handling
     mockBackendClient.stepPet.mockRejectedValue(new Error("fail"));
     await jest.advanceTimersByTimeAsync(200);
-    expect(manager.pets.get("pet_1").stepFailures).toBe(1);
+    expect(mockStore.getState().pets.pet_1.stepFailures).toBe(1);
     
     // Test loop termination after failures
     for (let i = 0; i < 5; i++) {
         await jest.advanceTimersByTimeAsync(200);
     }
-    expect(manager.pets.get("pet_1").interval).toBeNull();
+    expect(mockStore.getState().pets.pet_1.stopped).toBe(true);
   });
 
   test("loop should terminate if pet is unloaded or window destroyed", async () => {
     const mockWin = { isDestroyed: jest.fn().mockReturnValue(true) };
-    manager.pets.set("pet_1", { backendPetId: "pet_1", win: mockWin, loaded: true });
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
+      backendPetId: "pet_1",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
     
     manager["_startPetLoop"]("pet_1");
     jest.advanceTimersByTime(200);
@@ -354,8 +428,20 @@ describe("PetManager", () => {
     };
     (BrowserWindow.fromWebContents as unknown as jest.Mock).mockReturnValue(mockWin);
     manager["windowToPetId"].set(mockWin, "pet_1");
-    // pet entry required by drag:move handler for offset lookup
-    manager["pets"].set("pet_1", { dragOffsetX: 0, dragOffsetY: 0 });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
+      backendPetId: "pet_1",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+    });
 
     // Cursor is at (40, 60) when the user presses down inside a window at (10, 20)
     // → offset = (30, 40). Then cursor moves to (130, 160) → new window pos = (100, 120).
@@ -382,13 +468,19 @@ describe("PetManager", () => {
       isDestroyed: jest.fn().mockReturnValue(false),
       webContents: { send: jest.fn() }
     };
-    const petEntry = {
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
       backendPetId: "pet_1",
-      win: mockWin,
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 100, y: 200, flipH: false },
       loaded: true,
-      interval: null
-    };
-    manager.pets.set("pet_1", petEntry);
+      stopped: false,
+    });
     manager.draggingPets.add("pet_1");
 
     mockBackendClient.stepPet = jest.fn().mockResolvedValue({
@@ -424,14 +516,19 @@ describe("PetManager", () => {
       isDestroyed: jest.fn().mockReturnValue(false),
       webContents: { send: jest.fn() }
     };
-    const petEntry = {
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
       backendPetId: "pet_1",
-      win: mockWin,
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 1930, y: 976, offsetY: 0, flipH: false },
       loaded: true,
-      interval: null,
-      state: { frameIndex: 0, x: 1930, y: 976, offsetY: 0, flipH: false }
-    };
-    manager.pets.set("pet_1", petEntry);
+      stopped: false,
+    });
 
     mockBackendClient.setPosition.mockResolvedValue({ ok: true });
     mockBackendClient.stepPet.mockResolvedValue({
@@ -452,7 +549,7 @@ describe("PetManager", () => {
     expect(mockBackendClient.setPosition).not.toHaveBeenCalled();
   });
 
-  test("pet loop should log border collision events once per collision type", async () => {
+  test("pet loop should forward backend border context to store and renderer", async () => {
     const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
     const mockWin = {
       getPosition: jest.fn().mockReturnValue([100, 200]),
@@ -461,18 +558,20 @@ describe("PetManager", () => {
       isDestroyed: jest.fn().mockReturnValue(false),
       webContents: { send: jest.fn() }
     };
-    const petEntry = {
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
       backendPetId: "pet_1",
-      win: mockWin,
-      loaded: true,
-      interval: null,
-      _debugCount: 0,
+      frameW: 64,
+      frameH: 64,
       currentAnimId: 1,
       currentAnimName: "walk",
-    };
-    manager.pets.set("pet_1", petEntry);
+      state: { frameIndex: 0, x: 100, y: 200, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
 
-    mockBorderDetector.checkBorder.mockReturnValue(["taskbar"]);
     mockBackendClient.stepPet.mockResolvedValue({
       frame_index: 5,
       x: 100,
@@ -481,15 +580,22 @@ describe("PetManager", () => {
       interval_ms: 100,
       current_anim_id: 1,
       current_anim_name: "walk",
+      border_ctx: 1,
     });
 
     manager["_startPetLoop"]("pet_1");
     await jest.advanceTimersByTimeAsync(200);
 
+    expect(mockStore.updatePet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
+      state: expect.objectContaining({ borderCtx: 1 }),
+    }));
+    expect(mockWin.webContents.send).toHaveBeenCalledWith("pet:frame", expect.objectContaining({
+      borderCtx: 1,
+    }));
     expect(infoSpy.mock.calls.some((call) => (
       call[0] === "[pet-manager]"
       && typeof call[1] === "string"
-      && call[1].includes("[DEBUG] collision animName=walk animId=1 borders=taskbar")
+      && call[1].includes("[DEBUG] collision animName=walk animId=1 borders=floor")
     ))).toBe(true);
 
     infoSpy.mockRestore();
@@ -497,12 +603,20 @@ describe("PetManager", () => {
 
   test("removePet should call backend removePet and cleanup when entry exists", async () => {
     const mockWin = { id: 1 };
-    const entry = {
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
       backendPetId: "pet_1",
-      interval: setInterval(() => {}, 1000),
-      win: mockWin
-    };
-    manager.pets.set("pet_1", entry);
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    manager.petTimers.set("pet_1", setInterval(() => {}, 1000));
     
     const mockBackendRemove = jest.fn().mockResolvedValue(true);
     mockBackendClient.removePet = mockBackendRemove;
@@ -511,7 +625,7 @@ describe("PetManager", () => {
     
     expect(mockBackendRemove).toHaveBeenCalledWith("pet_1");
     expect(result).toBe(true);
-    expect(manager.pets.has("pet_1")).toBe(false);
+    expect(mockStore.getState().pets.pet_1).toBeUndefined();
     expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet_1");
   });
 
@@ -558,7 +672,7 @@ describe("PetManager", () => {
     closedCb();
 
     expect(mockBackendClient.removePet).not.toHaveBeenCalled();
-    expect(manager.pets.has("pet_1")).toBe(false);
+    expect(mockStore.getState().pets.pet_1).toBeUndefined();
   });
 
   test("shutdown should stop timers and close pet windows without backend cleanup", () => {
@@ -567,15 +681,41 @@ describe("PetManager", () => {
     const interval1 = setInterval(() => {}, 1000);
     const interval2 = setInterval(() => {}, 1000);
 
-    manager.pets.set("pet1", { backendPetId: "pet1", win: mockWin1, interval: interval1 });
-    manager.pets.set("pet2", { backendPetId: "pet2", win: mockWin2, interval: interval2 });
+    mockStore.setPet("pet1", {
+      id: "pet1",
+      path: "../pets/one",
+      backendPetId: "pet1",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
+    mockStore.setPet("pet2", {
+      id: "pet2",
+      path: "../pets/two",
+      backendPetId: "pet2",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
+    mockWindowManager.windows.set("pet1", { win: mockWin1, opts: {} });
+    mockWindowManager.windows.set("pet2", { win: mockWin2, opts: {} });
+    manager.petTimers.set("pet1", interval1);
+    manager.petTimers.set("pet2", interval2);
 
     manager.shutdown();
 
     expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet1");
     expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet2");
     expect(mockBackendClient.removePet).not.toHaveBeenCalled();
-    expect(manager.pets.size).toBe(0);
+    expect(Object.keys(mockStore.getState().pets)).toHaveLength(0);
     expect(jest.getTimerCount()).toBe(0);
   });
 
@@ -616,10 +756,30 @@ describe("PetManager", () => {
         isVisible: jest.fn().mockReturnValue(false),
         isDestroyed: jest.fn().mockReturnValue(true),
     };
-    manager["windows"] = new Map([["pet1", mockWin1], ["pet2", mockWin2]]);
-    
-    manager.pets.set("pet1", {});
-    manager.pets.set("pet2", {});
+    mockStore.setPet("pet1", {
+      id: "pet1",
+      path: "../pets/one",
+      backendPetId: "pet1",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
+    mockStore.setPet("pet2", {
+      id: "pet2",
+      path: "../pets/two",
+      backendPetId: "pet2",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 0, y: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
     manager.lastError = "test error";
     manager.lastPetLoad = { test: "data" };
     
