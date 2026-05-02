@@ -63,9 +63,9 @@ class PetManager {
     this.store.setState({
       pets,
       environment: {
-        displayBounds: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },
-        workArea: { x: display.workArea.x, y: display.workArea.y, w: display.workArea.width, h: display.workArea.height },
-        desktopBounds: { x: desktop.x, y: desktop.y, w: desktop.w, h: desktop.h },
+        DisplayBounds: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },
+        WorkArea: { x: display.workArea.x, y: display.workArea.y, w: display.workArea.width, h: display.workArea.height },
+        Desktop: { x: desktop.x, y: desktop.y, w: desktop.w, h: desktop.h },
         scale: this.scale,
         volume: this.volume,
       }

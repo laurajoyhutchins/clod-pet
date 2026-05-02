@@ -39,9 +39,9 @@ export interface BackendStatus {
 }
 
 export interface Environment {
-  displayBounds: Rect;
-  workArea: Rect;
-  desktopBounds: Rect;
+  DisplayBounds: Rect;
+  WorkArea: Rect;
+  Desktop: Rect;
   scale: number;
   volume: number;
 }
@@ -75,9 +75,9 @@ export const initialState: WorldState = {
     nextRestartAt: null,
   },
   environment: {
-    displayBounds: { x: 0, y: 0, w: 0, h: 0 },
-    workArea: { x: 0, y: 0, w: 0, h: 0 },
-    desktopBounds: { x: 0, y: 0, w: 0, h: 0 },
+    DisplayBounds: { x: 0, y: 0, w: 0, h: 0 },
+    WorkArea: { x: 0, y: 0, w: 0, h: 0 },
+    Desktop: { x: 0, y: 0, w: 0, h: 0 },
     scale: 1.0,
     volume: 0.3,
   },

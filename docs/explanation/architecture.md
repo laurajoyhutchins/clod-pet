@@ -40,7 +40,7 @@ Electron still loads generated JavaScript (`main.js`, `preload.js`, and browser 
 
 1. **Load** - `POST /api/pet/load` reads `animations.json` when available, falls back to legacy `animations.xml`, parses the sprite sheet, and returns base64 PNG plus metadata.
 2. **Add** - `POST /api` with `add_pet` creates an `Engine` instance for the pet and starts at a spawn point.
-3. **Step** - `POST /api` with `step_pet` passes raw world geometry (screen, work area, and desktop bounds). The engine performs physics calculations and returns `{frame_index, x, y, flip_h, opacity}`.
+3. **Step** - `POST /api` with `step_pet` passes raw world geometry (screen, work area, and desktop bounds). The engine uses screen bounds for walls and work-area bounds for floor contact, then returns `{frame_index, x, y, flip_h, opacity}`.
 4. **Render** - the Electron renderer, compiled from TypeScript, draws the frame tile from the sprite sheet onto a transparent canvas at the coordinates provided by the backend.
 5. **Transition** - when an animation sequence completes, the engine picks the next animation via weighted probability.
 
@@ -58,7 +58,7 @@ The state determines which animation plays:
 Transitions between animations are triggered by:
 
 - **Sequence completion** - the animation sequence finishes its repeats
-- **Internal Physics** - the engine detects the pet hit a screen edge or fell off a ledge using raw monitor geometry provided by the app.
+- **Internal Physics** - the engine detects the pet hit a screen edge or floor contact using raw monitor geometry provided by the app.
 - **User interaction** - click-and-drag (the app notifies the backend of state changes)
 
 ## Sound playback

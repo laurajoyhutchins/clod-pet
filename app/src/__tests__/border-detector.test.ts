@@ -67,17 +67,17 @@ describe("BorderDetector", () => {
     expect(detector._displayForRect(displays, 120, 10, 20, 20)).toBe(displays[0]);
   });
 
-  test("checkBorder should report top, bottom, left, and right edges independently", () => {
+  test("checkBorder should report ceiling, floor, and walls edges independently", () => {
     screen.getAllDisplays.mockReturnValue([
       {
         bounds: { x: 0, y: 0, width: 1920, height: 1080 },
-        workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1000 },
       },
     ]);
 
-    expect(detector.checkBorder(0, 0, 64, 64)).toEqual(expect.arrayContaining(["top", "left"]));
-    expect(detector.checkBorder(0, 1016, 64, 64)).toEqual(expect.arrayContaining(["bottom", "left"]));
-    expect(detector.checkBorder(1856, 0, 64, 64)).toEqual(expect.arrayContaining(["top", "right"]));
+    expect(detector.checkBorder(0, 0, 64, 64)).toEqual(expect.arrayContaining(["ceiling", "walls"]));
+    expect(detector.checkBorder(0, 936, 64, 64)).toEqual(expect.arrayContaining(["floor", "walls"]));
+    expect(detector.checkBorder(1856, 0, 64, 64)).toEqual(expect.arrayContaining(["ceiling", "walls"]));
   });
 
   test("checkBorder should return an empty array away from edges", () => {

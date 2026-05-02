@@ -17,10 +17,10 @@ type BorderContext int
 
 const (
 	ContextNone BorderContext = iota
-	ContextTaskbar
-	ContextWindow
-	ContextHorizontal
-	ContextVertical
+	ContextFloor
+	ContextCeiling
+	ContextWalls
+	ContextObstacle
 )
 
 type PetState int
@@ -276,27 +276,35 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 }
 
 func (e *Engine) detectBorder(world WorldContext, width, height float64) BorderContext {
-	b := world.Desktop
-	if b.W == 0 {
-		b = world.Screen
+	screen := world.Screen
+	if screen.W == 0 {
+		screen = world.Desktop
 	}
-	if b.W == 0 {
+	if screen.W == 0 {
 		return ContextNone
+	}
+
+	floor := world.WorkArea
+	if floor.W == 0 {
+		floor = screen
 	}
 
 	x, y := e.parentX, e.parentY
 	t := e.tolerance
 
-	onTop := y <= b.Y+t
-	onBottom := y+height >= b.Y+b.H-t
-	onLeft := x <= b.X+t
-	onRight := x+width >= b.X+b.W-t
+	onFloor := y+height >= floor.Y+floor.H-t
+	onCeiling := y <= screen.Y+t
+	onLeft := x <= screen.X+t
+	onRight := x+width >= screen.X+screen.W-t
 
-	if onTop || onBottom {
-		return ContextHorizontal
+	if onFloor {
+		return ContextFloor
+	}
+	if onCeiling {
+		return ContextCeiling
 	}
 	if onLeft || onRight {
-		return ContextVertical
+		return ContextWalls
 	}
 
 	return ContextNone
@@ -314,26 +322,33 @@ func (e *Engine) detectGravity(world WorldContext, width, height float64) bool {
 }
 
 func (e *Engine) applyPhysics(world WorldContext, width, height float64, ctx BorderContext) {
-	b := world.Desktop
-	if b.W == 0 {
-		b = world.Screen
+	screen := world.Screen
+	if screen.W == 0 {
+		screen = world.Desktop
 	}
-	if b.W == 0 {
+	if screen.W == 0 {
 		return
 	}
 
+	floor := world.WorkArea
+	if floor.W == 0 {
+		floor = screen
+	}
+
 	switch ctx {
-	case ContextHorizontal:
-		if e.parentY+height >= b.Y+b.H-e.tolerance {
-			e.parentY = b.Y + b.H - height
-		} else if e.parentY <= b.Y+e.tolerance {
-			e.parentY = b.Y
+	case ContextFloor:
+		if e.parentY+height >= floor.Y+floor.H-e.tolerance {
+			e.parentY = floor.Y + floor.H - height
 		}
-	case ContextVertical:
-		if e.parentX+width >= b.X+b.W-e.tolerance {
-			e.parentX = b.X + b.W - width
-		} else if e.parentX <= b.X+e.tolerance {
-			e.parentX = b.X
+	case ContextCeiling:
+		if e.parentY <= screen.Y+e.tolerance {
+			e.parentY = screen.Y
+		}
+	case ContextWalls:
+		if e.parentX+width >= screen.X+screen.W-e.tolerance {
+			e.parentX = screen.X + screen.W - width
+		} else if e.parentX <= screen.X+e.tolerance {
+			e.parentX = screen.X
 		}
 	}
 }
@@ -488,16 +503,16 @@ func borderMatches(only string, ctx BorderContext) bool {
 	switch only {
 	case "none":
 		return true
-	case "taskbar":
-		return ctx == ContextTaskbar
-	case "window":
-		return ctx == ContextWindow
-	case "vertical":
-		return ctx == ContextVertical
-	case "horizontal":
-		return ctx == ContextHorizontal
+	case "floor", "taskbar":
+		return ctx == ContextFloor
+	case "ceiling", "horizontal":
+		return ctx == ContextCeiling
+	case "walls", "vertical":
+		return ctx == ContextWalls
+	case "obstacle", "window":
+		return ctx == ContextObstacle
 	case "horizontal+":
-		return ctx == ContextHorizontal || ctx == ContextTaskbar
+		return ctx == ContextCeiling || ctx == ContextFloor
 	}
 	return false
 }
