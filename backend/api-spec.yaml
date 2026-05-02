@@ -40,7 +40,7 @@ paths:
               properties:
                 command:
                   type: string
-                  enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active]
+                  enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active, llm_chat]
                 payload:
                   type: object
                   properties:
@@ -128,3 +128,40 @@ paths:
                           type: string
                         description:
                           type: string
+
+  /api/llm/stream:
+    post:
+      summary: Stream AI response tokens
+      description: Server-Sent Events (SSE) endpoint for LLM chat streaming
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      content:
+                        type: string
+                stream:
+                  type: boolean
+      responses:
+        '200':
+          description: SSE token stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /api/llm/health:
+    get:
+      summary: LLM provider health check
+      responses:
+        '200':
+          description: LLM status

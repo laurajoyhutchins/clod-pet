@@ -128,18 +128,102 @@ Notify the pet that it hit a screen border.
 { "pet_id": "../pets/eSheep-modern", "border_ctx": 1 }
 ```
 
-### `set_volume`
+### `llm_chat`
 
-Set the audio volume for sound playback.
+Send a message to the AI pet.
 
 **Payload:**
 ```json
-{ "volume": 0.5 }
+{
+  "messages": [
+    { "role": "user", "content": "Hello!" }
+  ],
+  "stream": false
+}
 ```
 
-`volume`: Float between 0.0 (mute) and 1.0 (full volume). Persisted to settings.
+**Response:**
+```json
+{
+  "ok": true,
+  "payload": {
+    "role": "assistant",
+    "content": "Hi there! I'm your desktop pet."
+  }
+}
+```
 
-## Endpoints outside `/api`
+### `get_status`
+
+Get the current engine status (e.g., active pet count).
+
+**Response:**
+```json
+{
+  "ok": true,
+  "payload": {
+    "pet_count": 1,
+    "uptime_seconds": 3600
+  }
+}
+```
+
+### `list_pets`
+
+List available pet directories in the `PETS_DIR`.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "payload": ["eSheep-modern", "esheep64"]
+}
+```
+
+### `list_active`
+
+List currently running pet instances and their IDs.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "payload": [
+    { "id": "pet_1", "path": "eSheep-modern" }
+  ]
+}
+```
+
+### `get_settings` / `set_settings`
+
+Read or update global settings (volume, scale, AI provider).
+
+**`get_settings` Response:**
+```json
+{
+  "ok": true,
+  "payload": {
+    "volume": 0.5,
+    "scale": 1.0,
+    "llm_provider": "gemini"
+  }
+}
+```
+
+---
+
+## Streaming and Specialized Endpoints
+
+### `POST /api/llm/stream`
+
+Stream AI response tokens using Server-Sent Events (SSE).
+
+**Payload:** Same as `llm_chat` but `stream` must be `true`.
+
+**Events:**
+- `data: <token>`: Partial message content.
+- `event: error\ndata: <message>`: Error occurred during streaming.
+- `event: done\ndata: {}`: Stream completed successfully.
 
 ### `POST /api/pet/load`
 
@@ -154,7 +238,7 @@ Load pet data from an `animations.json` file, or fall back to a legacy `animatio
 ```json
 {
   "ok": true,
-  "pet": {
+  "payload": {
     "title": "eSheep 64bit",
     "pet_name": "eSheep",
     "tiles_x": 16,
