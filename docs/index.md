@@ -1,6 +1,6 @@
 # Clod Pet
 
-A desktop pet application. Go backend handles animation logic; the TypeScript/Electron app renders transparent sprite windows.
+A desktop pet application with AI chat capabilities. A Go backend handles animation logic and AI provider integration; a TypeScript/Electron app renders transparent sprite windows and a chat interface.
 
 ## Documentation (Diataxis)
 
@@ -26,13 +26,13 @@ clod-pet/
 |   `-- internal/             # Pet parser, engine, IPC, settings, sound
 |-- app/                      # TypeScript + Electron desktop shell
 |   |-- main.ts               # Source entry point
-|   |-- main.js               # Generated Electron entry point
-|   |-- control-panel.ts      # Source for the options UI renderer
-|   |-- control-panel.html    # Options UI
+|   |-- control-panel.ts      # Source for the options UI
+|   |-- chat.ts               # Source for the AI chat UI
 |   |-- tsconfig.json         # Main/preload TypeScript build
 |   |-- tsconfig.browser.json # Browser-script TypeScript build
 |   `-- src/
 |       |-- backend-manager.ts   # Backend process lifecycle
+|       |-- chat-manager.ts      # AI chat window management
 |       |-- pet-manager.ts       # Pet creation, loop, IPC handlers
 |       |-- backend-client.ts    # HTTP client for backend API
 |       |-- api-adapter.ts       # Backend API payload adapter

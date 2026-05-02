@@ -10,11 +10,12 @@ Clod Pet follows a client-server architecture split across two processes.
 | app                | <-------------------------- | backend            |
 |                    |        JSON response        |                    |
 | - Tray menu        |                             | - Animation state  |
-| - Pet windows      |                             |   machine          |
-| - Sprite rendering |                             | - Physics & Collision|
-| - Drag/drop        |                             | - JSON pet parsing |
-| - Sensory Providing |                             | - Expression eval  |
+| - Pet windows      | <~~~~~~~~~~~~~~~~~~~~~~~~~~ |   machine          |
+| - Sprite rendering |          SSE Stream         | - Physics & Collision|
+| - Drag/drop        |         (LLM Chat)          | - JSON pet parsing |
+| - Sensory Providing|                             | - Expression eval  |
 |   (Screen Rects)   |                             | - Sound playback   |
+| - LLM Chat UI      |                             | - AI Providers     |
 +-------------------+                             +--------------------+
 ```
 
@@ -22,10 +23,15 @@ Clod Pet follows a client-server architecture split across two processes.
 
 The original desktop pet (eSheep) was a single Windows application. This project separates concerns:
 
-- **Go** owns the animation logic and physics (gravity, collision, snapping) because it is computationally simple, testable in isolation, and allows for a language-agnostic "headless" engine.
+- **Go** owns the animation logic and physics (gravity, collision, snapping) because it is computationally simple, testable in isolation, and allows for a language-agnostic "headless" engine. It also manages AI provider integrations (OpenAI, Gemini, etc.) to keep secrets and complex networking out of the frontend.
 - **TypeScript/Electron** owns window management and sensory input (monitor bounds and work-area geometry) because transparent frameless windows and native display APIs are well-supported.
 
-The communication layer is HTTP JSON: simple to debug, language-agnostic, and sufficient for 200ms polling intervals.
+## Communication models
+
+Clod Pet uses two different communication patterns depending on the task:
+
+1.  **Request-Response (Polling):** The animation loop uses standard HTTP POST requests. The client drives the loop by sending world geometry and receiving the next frame state. This is simple, easy to debug, and sufficient for 200ms intervals.
+2.  **Server-Sent Events (Streaming):** AI chat responses use SSE via the `/api/llm/stream` endpoint. This allows the backend to stream tokens from LLM providers directly to the Chat UI for a responsive "typing" effect.
 
 ## App build model
 
@@ -67,11 +73,13 @@ When an animation transition occurs, the engine checks `pet.Sounds[animationID]`
 
 Volume is controlled via the `set_volume` command and persisted to `clod-pet-settings.json`.
 
-## Why HTTP polling instead of WebSockets?
+## Why HTTP instead of WebSockets?
 
-The animation step interval is about 200ms. WebSocket adds complexity for a use case where:
+For the animation loop, HTTP polling at ~200ms intervals is preferred because:
 
-- The client always drives the loop (request, then response)
-- There is no server-initiated push
-- Debugging is easier with curl/Postman
-- The Go stdlib `net/http` handles concurrent requests well
+- The client always drives the loop (request world context, then receive frame response).
+- There is no server-initiated push for pet animations.
+- Debugging is easier with standard tools (curl, Postman).
+- The Go `net/http` package handles concurrent requests efficiently.
+
+For AI chat where server-initiated push is required (streaming tokens), Clod Pet uses **Server-Sent Events (SSE)**. SSE provides a unidirectional stream over standard HTTP, avoiding the full duplex complexity of WebSockets while still enabling real-time UI updates.

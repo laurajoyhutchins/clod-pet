@@ -7,18 +7,18 @@ cd app && npm install && npm start
 Compiles the TypeScript app, starts Electron, and spawns the Go backend automatically.
 
 ## Project structure
-- `backend/` — Go animation engine & LLM provider (HTTP API on `:8080`)
+- `backend/` — Go animation engine, IPC handlers, & LLM providers (HTTP API on `:8080`)
 - `app/` — TypeScript + Electron desktop shell & Chat UI
-- `pets/` — Pet definitions (XML sprite sheets)
+- `pets/` — Pet definitions (Modern `animations.json` or legacy `animations.xml` sprite sheets)
 - `docs/` — MkDocs documentation (Diataxis)
-- `scripts/` — Lifecycle & build scripts (PowerShell)
+- `scripts/` — Lifecycle & build scripts (PowerShell for Windows, Shell for Linux/macOS)
 
 ## Commands
 | Action | Command |
 |--------|---------|
 | Install (full) | `powershell -ExecutionPolicy Bypass -File scripts/install.ps1` |
-| Quick build | `powershell -ExecutionPolicy Bypass -File scripts/build.ps1` |
-| Run tests | `powershell -ExecutionPolicy Bypass -File scripts/test.ps1` |
+| Quick build | `powershell -ExecutionPolicy Bypass -File scripts/build.ps1` or `./scripts/build.sh` |
+| Run tests | `powershell -ExecutionPolicy Bypass -File scripts/test.ps1` or `./scripts/test.sh` |
 | Uninstall | `powershell -ExecutionPolicy Bypass -File scripts/uninstall.ps1` |
 | Frontend dev | `cd app && npm run dev` |
 | Frontend test | `cd app && npm test` |
@@ -58,7 +58,7 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
   - `pet`: XML parser for animation definitions
   - `engine`: Animation state machine and world context
   - `expression`: Mathematical expression evaluator for XML
-  - `ipc`: HTTP/JSON command handlers and streaming SSE
+  - `ipc`: HTTP/JSON command handlers (add_pet, step_pet, llm_chat, etc.) and streaming SSE
   - `llm`: AI provider integration (OpenAI, Anthropic, Gemini, Ollama)
   - `service`: Orchestration of pets, settings, and AI
   - `settings`: Configuration persistence
