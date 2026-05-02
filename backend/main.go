@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
 	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/service"
@@ -100,6 +101,7 @@ func apiHandler(h *ipc.Handler) http.HandlerFunc {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req ipc.Request
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, "invalid request: "+err.Error(), http.StatusBadRequest)
@@ -119,6 +121,7 @@ func loadPetHandler(h *ipc.Handler) http.HandlerFunc {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var payload struct {
 			PetPath string `json:"pet_path"`
 		}
@@ -153,6 +156,7 @@ func llmStreamHandler(svc *service.Service) http.HandlerFunc {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var payload json.RawMessage
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			writeError(w, "invalid request: "+err.Error(), http.StatusBadRequest)
@@ -184,7 +188,7 @@ func llmStreamHandler(svc *service.Service) http.HandlerFunc {
 					return
 				}
 				if event.Error != nil {
-					fmt.Fprintf(w, "event: error\ndata: %s\n\n", event.Error.Error())
+					fmt.Fprintf(w, "event: error\ndata: stream error\n\n")
 					flusher.Flush()
 					return
 				}
@@ -285,7 +289,7 @@ func writeError(w http.ResponseWriter, msg string, code int) {
 func writeResponse(w http.ResponseWriter, resp *ipc.Response) {
 	if !resp.OK {
 		code := http.StatusBadRequest
-		if resp.Error != "" && strings.Contains(resp.Error, "not found") {
+		if resp.Error == engine.ErrPetNotFound.Error() {
 			code = http.StatusNotFound
 		}
 		writeError(w, resp.Error, code)

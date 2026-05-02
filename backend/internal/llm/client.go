@@ -49,7 +49,10 @@ func WithRetry(ctx context.Context, attempts int, delay time.Duration, fn func()
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(delay):
-			delay *= 2 // Exponential backoff
+			delay *= 2
+			if delay > 30*time.Second {
+				delay = 30 * time.Second
+			}
 		}
 	}
 	return nil, fmt.Errorf("after %d attempts, last error: %w", attempts, lastErr)

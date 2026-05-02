@@ -2,9 +2,11 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 
 	"clod-pet/backend/internal/expression"
+	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/pet"
 )
 
@@ -128,8 +130,14 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	e.setWorldContext(world)
 	e.env.RegenerateRandom()
 
-	x, _ := expression.Eval(spawn.X, e.env)
-	y, _ := expression.Eval(spawn.Y, e.env)
+	x, err := expression.Eval(spawn.X, e.env)
+	if err != nil {
+		return fmt.Errorf("spawn X expression: %w", err)
+	}
+	y, err := expression.Eval(spawn.Y, e.env)
+	if err != nil {
+		return fmt.Errorf("spawn Y expression: %w", err)
+	}
 
 	e.parentX = x
 	e.parentY = y
@@ -190,12 +198,30 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 		progress = expression.Clamp(float64(e.totalStepsDone)/float64(e.animTotalSteps), 0, 1)
 	}
 
-	startX, _ := expression.Eval(anim.Start.X, e.env)
-	startY, _ := expression.Eval(anim.Start.Y, e.env)
-	startInterval, _ := expression.EvalInt(anim.Start.Interval, e.env)
-	endX, _ := expression.Eval(anim.End.X, e.env)
-	endY, _ := expression.Eval(anim.End.Y, e.env)
-	endInterval, _ := expression.EvalInt(anim.End.Interval, e.env)
+	startX, err := expression.Eval(anim.Start.X, e.env)
+	if err != nil {
+		log.Debug("eval start.X", "anim", e.currentAnim, "error", err)
+	}
+	startY, err := expression.Eval(anim.Start.Y, e.env)
+	if err != nil {
+		log.Debug("eval start.Y", "anim", e.currentAnim, "error", err)
+	}
+	startInterval, err := expression.EvalInt(anim.Start.Interval, e.env)
+	if err != nil {
+		log.Debug("eval start.Interval", "anim", e.currentAnim, "error", err)
+	}
+	endX, err := expression.Eval(anim.End.X, e.env)
+	if err != nil {
+		log.Debug("eval end.X", "anim", e.currentAnim, "error", err)
+	}
+	endY, err := expression.Eval(anim.End.Y, e.env)
+	if err != nil {
+		log.Debug("eval end.Y", "anim", e.currentAnim, "error", err)
+	}
+	endInterval, err := expression.EvalInt(anim.End.Interval, e.env)
+	if err != nil {
+		log.Debug("eval end.Interval", "anim", e.currentAnim, "error", err)
+	}
 
 	curX := expression.Lerp(startX, endX, progress)
 	curY := expression.Lerp(startY, endY, progress)

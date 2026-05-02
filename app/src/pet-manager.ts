@@ -7,6 +7,7 @@ import logger = require("./logger");
 import { WorldStore } from "./store";
 
 const log = logger.createLogger("pet-manager");
+const isDebug = process.env.NODE_ENV === "development" || process.env.VERBOSE === "true";
 
 class PetManager {
   backendClient: any;
@@ -342,7 +343,6 @@ class PetManager {
     const entry = this._getPet(petId);
     if (!entry || this.petTimers.has(petId)) return;
 
-    let debugCount = 0;
     let lastBorderCtx = -1;
 
     const schedule = (delay: number) => {
@@ -370,22 +370,17 @@ class PetManager {
           return;
         }
 
-        if (debugCount < 5) {
-          log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${world.screen.w}x${world.screen.h}) desktop=(${world.desktop.w}x${world.desktop.h}) wa=(${world.work_area.w}x${world.work_area.h})`);
-          debugCount++;
-        }
-
         const result = await this.backendClient.stepPet(petId, world);
         const borderCtx = typeof result.border_ctx === "number" ? result.border_ctx : 0;
         const borderLabel = this._borderCtxLabel(borderCtx);
-        if (borderLabel && lastBorderCtx !== borderCtx) {
+        if (isDebug && borderLabel && lastBorderCtx !== borderCtx) {
           const animId = typeof petEntry.currentAnimId === "number" ? petEntry.currentAnimId : -1;
           const animName = typeof petEntry.currentAnimName === "string" && petEntry.currentAnimName ? petEntry.currentAnimName : "unknown";
           log.info(`[DEBUG] collision animName=${animName} animId=${animId} borders=${borderLabel} win=(${winX},${winY}) size=(${winW}x${winH})`);
         }
         lastBorderCtx = borderCtx;
 
-        if (process.env.VERBOSE === "true") {
+        if (isDebug) {
           log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${world.screen.w}x${world.screen.h}) wa=(${world.work_area.w}x${world.work_area.h})`);
           log.info(`[DEBUG] loop result animName=${result.current_anim_name} animId=${result.current_anim_id} x=${result.x} y=${result.y} nextAnim=${result.next_anim_id} borderCtx=${result.border_ctx}`);
         }
@@ -394,12 +389,6 @@ class PetManager {
         const finalY = (result.y ?? 0) + (result.offset_y ?? 0);
         const currentAnimId = typeof result.current_anim_id === "number" ? result.current_anim_id : petEntry.currentAnimId;
         const currentAnimName = typeof result.current_anim_name === "string" ? result.current_anim_name : petEntry.currentAnimName;
-
-        if (debugCount <= 5) {
-          const animId = typeof currentAnimId === "number" ? currentAnimId : -1;
-          const animName = typeof currentAnimName === "string" && currentAnimName ? currentAnimName : "unknown";
-          log.info(`[DEBUG] loop result animName=${animName} animId=${animId} x=${finalX} y=${finalY} nextAnim=${result.next_anim_id}`);
-        }
 
         const nextPetState = {
           frameIndex: result.frame_index,

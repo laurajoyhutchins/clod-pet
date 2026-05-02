@@ -320,20 +320,23 @@ class BackendManager {
         try {
           const result = spawnSync("taskkill", ["/F", "/T", "/PID", this.process.pid.toString()], { stdio: "pipe" });
           if (result.error) {
-            log.error("taskkill failed", { pid, reason, error: result.error.message });
+            log.error("taskkill failed, falling back to kill()", { pid, reason, error: result.error.message });
+            try { this.process.kill(); } catch { /* already gone */ }
           } else if (typeof result.status === "number" && result.status !== 0) {
-            log.error("taskkill exited nonzero", {
+            log.error("taskkill exited nonzero, falling back to kill()", {
               pid,
               reason,
               status: result.status,
               signal: result.signal,
               stderr: result.stderr ? result.stderr.toString().trim() : "",
             });
+            try { this.process.kill(); } catch { /* already gone */ }
           } else {
             log.info("taskkill completed", { pid, reason });
           }
         } catch (err) {
-          log.error("taskkill error:", err);
+          log.error("taskkill error, falling back to kill():", err);
+          try { this.process.kill(); } catch { /* already gone */ }
         }
       } else {
         this.process.kill("SIGTERM");
