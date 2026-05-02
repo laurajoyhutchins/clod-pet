@@ -82,12 +82,12 @@
         "nexts": [
           {
             "probability": 2,
-            "only": "window",
+            "only": "obstacle",
             "value": 11
           },
           {
             "probability": 10,
-            "only": "taskbar",
+            "only": "floor",
             "value": 35
           },
           {
@@ -102,12 +102,12 @@
           },
           {
             "probability": 50,
-            "only": "taskbar",
+            "only": "floor",
             "value": 50
           },
           {
             "probability": 50,
-            "only": "window",
+            "only": "obstacle",
             "value": 49
           }
         ],
@@ -122,12 +122,12 @@
         },
         {
           "probability": 2,
-          "only": "vertical",
+          "only": "walls",
           "value": 37
         },
         {
           "probability": 20,
-          "only": "window",
+          "only": "obstacle",
           "value": 43
         }
       ],
@@ -204,7 +204,7 @@
           },
           {
             "probability": 5,
-            "only": "taskbar",
+            "only": "floor",
             "value": 26
           }
         ],
@@ -365,7 +365,7 @@
           },
           {
             "probability": 20,
-            "only": "taskbar",
+            "only": "floor",
             "value": 25
           }
         ],
@@ -375,7 +375,7 @@
       "border": [
         {
           "probability": 100,
-          "only": "vertical",
+          "only": "walls",
           "value": 8
         }
       ],
@@ -1139,7 +1139,7 @@
       "border": [
         {
           "probability": 80,
-          "only": "taskbar",
+          "only": "floor",
           "value": 7
         },
         {
@@ -1535,7 +1535,7 @@
       "border": [
         {
           "probability": 100,
-          "only": "vertical",
+          "only": "walls",
           "value": 8
         }
       ]
@@ -1583,14 +1583,14 @@
       "border": [
         {
           "probability": 100,
-          "only": "vertical",
+          "only": "walls",
           "value": 8
         }
       ]
     },
     {
       "id": 37,
-      "name": "vertical_walk_up",
+      "name": "walls_walk_up",
       "start": {
         "x": "0",
         "y": "-2",
@@ -1741,7 +1741,7 @@
     },
     {
       "id": 41,
-      "name": "vertical_walk_down",
+      "name": "walls_walk_down",
       "start": {
         "x": "0",
         "y": "2",
@@ -1781,7 +1781,7 @@
     },
     {
       "id": 42,
-      "name": "vertical_walk_over",
+      "name": "walls_walk_over",
       "start": {
         "x": "0",
         "y": "0",
@@ -2116,12 +2116,12 @@
         },
         {
           "probability": 2,
-          "only": "vertical",
+          "only": "walls",
           "value": 37
         },
         {
           "probability": 20,
-          "only": "window",
+          "only": "obstacle",
           "value": 43
         }
       ],
@@ -2183,12 +2183,12 @@
         },
         {
           "probability": 2,
-          "only": "vertical",
+          "only": "walls",
           "value": 37
         },
         {
           "probability": 20,
-          "only": "window",
+          "only": "obstacle",
           "value": 43
         }
       ],

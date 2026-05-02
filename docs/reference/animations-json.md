@@ -59,7 +59,7 @@ Collection of spawn points. Each entry is a possible starting position.
 | Field | Type | Description |
 |-------|------|-------------|
 | `probability` | int | Selection weight |
-| `only` | string | Optional condition: `none`, `floor` (`taskbar` legacy alias), `window`, `horizontal`, `vertical` |
+| `only` | string | Optional condition: `none`, `floor` (`taskbar` legacy), `ceiling` (`horizontal` legacy), `walls` (`vertical` legacy), `obstacle` (`window` legacy) |
 | `value` | int | Target animation ID |
 
 ## `animations`
@@ -107,7 +107,7 @@ Arrays of transitions triggered by border or gravity events.
 | Field | Type | Description |
 |-------|------|-------------|
 | `probability` | int | Selection weight |
-| `only` | string | Optional filter: `none`, `floor` (`taskbar` legacy alias), `window`, `horizontal`, `vertical` |
+| `only` | string | Optional filter: `none`, `floor` (`taskbar` legacy), `ceiling` (`horizontal` legacy), `walls` (`vertical` legacy), `obstacle` (`window` legacy) |
 | `value` | int | Target animation ID |
 
 ## `children`
