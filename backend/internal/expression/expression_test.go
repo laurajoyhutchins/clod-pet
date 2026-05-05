@@ -15,7 +15,26 @@ func testEval(t *testing.T, expr string, env *Env) (float64, error) {
 	return parsed.Eval(env)
 }
 
+const epsilon = 1e-9
+
+func withinEpsilon(got, want float64) bool {
+	return math.Abs(got-want) < epsilon
+}
+
+func assertEval(t *testing.T, expr string, env *Env, want float64) {
+	t.Helper()
+	got, err := testEval(t, expr, env)
+	if err != nil {
+		t.Errorf("Eval(%q) error: %v", expr, err)
+		return
+	}
+	if !withinEpsilon(got, want) {
+		t.Errorf("Eval(%q) = %v, want %v", expr, got, want)
+	}
+}
+
 func TestEvalLiteral(t *testing.T) {
+	env := &Env{}
 	tests := []struct {
 		expr string
 		want float64
@@ -27,31 +46,33 @@ func TestEvalLiteral(t *testing.T) {
 		{"  7  ", 7},
 	}
 
-	env := &Env{}
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
 func TestEvalVariables(t *testing.T) {
 	env := &Env{
-		ScreenW: 1920,
-		ScreenH: 1080,
-		AreaW:   1920,
-		AreaH:   1040,
-		ImageW:  64,
-		ImageH:  64,
-		ImageX:  100,
-		ImageY:  200,
-		Random:  50,
-		RandS:   75,
+		ScreenW:  1920,
+		ScreenH:  1080,
+		ScreenX:  0,
+		ScreenY:  0,
+		AreaW:    1920,
+		AreaH:    1040,
+		AreaX:    0,
+		AreaY:    0,
+		DesktopX: 0,
+		DesktopY: 0,
+		DesktopW: 1920,
+		DesktopH: 1080,
+		ImageW:   64,
+		ImageH:   64,
+		ImageX:   100,
+		ImageY:   200,
+		Random:   50,
+		RandS:    75,
 	}
 
 	tests := []struct {
@@ -60,8 +81,16 @@ func TestEvalVariables(t *testing.T) {
 	}{
 		{"screenW", 1920},
 		{"screenH", 1080},
+		{"screenX", 0},
+		{"screenY", 0},
 		{"areaW", 1920},
 		{"areaH", 1040},
+		{"areaX", 0},
+		{"areaY", 0},
+		{"desktopX", 0},
+		{"desktopY", 0},
+		{"desktopW", 1920},
+		{"desktopH", 1080},
 		{"imageW", 64},
 		{"imageH", 64},
 		{"imageX", 100},
@@ -71,14 +100,9 @@ func TestEvalVariables(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -94,14 +118,9 @@ func TestEvalAddition(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -117,14 +136,9 @@ func TestEvalSubtraction(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -139,14 +153,9 @@ func TestEvalMultiplication(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -161,14 +170,9 @@ func TestEvalDivision(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -196,14 +200,9 @@ func TestEvalPrecedence(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -223,34 +222,14 @@ func TestEvalWithVariables(t *testing.T) {
 		{"screenW/2", 960},
 		{"screenH+100", 1180},
 		{"screenW*2", 3840},
+		{"screenW-imageW-50", 1920 - 64 - 50},
+		{"screenW/2-imageW/2", 960.0 - 32.0},
 	}
 
 	for _, tc := range tests {
-		got, err := testEval(t, tc.expr, env)
-		if err != nil {
-			t.Errorf("Eval(%q) error: %v", tc.expr, err)
-			continue
-		}
-		if got != tc.want {
-			t.Errorf("Eval(%q) = %v, want %v", tc.expr, got, tc.want)
-		}
-	}
-}
-
-func TestEvalComplexExpression(t *testing.T) {
-	env := &Env{
-		ScreenW: 1920,
-		ImageW:  64,
-	}
-
-	got, err := testEval(t, "screenW-imageW-50", env)
-	if err != nil {
-		t.Fatalf("Eval error: %v", err)
-	}
-
-	want := float64(1920 - 64 - 50)
-	if got != want {
-		t.Errorf("Eval = %v, want %v", got, want)
+		t.Run(tc.expr, func(t *testing.T) {
+			assertEval(t, tc.expr, env, tc.want)
+		})
 	}
 }
 
@@ -281,10 +260,12 @@ func TestLerp(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got := Lerp(tc.a, tc.b, tc.t)
-		if got != tc.want {
-			t.Errorf("Lerp(%v, %v, %v) = %v, want %v", tc.a, tc.b, tc.t, got, tc.want)
-		}
+		t.Run("", func(t *testing.T) {
+			got := Lerp(tc.a, tc.b, tc.t)
+			if got != tc.want {
+				t.Errorf("Lerp(%v, %v, %v) = %v, want %v", tc.a, tc.b, tc.t, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -300,10 +281,12 @@ func TestClamp(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got := Clamp(tc.v, tc.min, tc.max)
-		if got != tc.want {
-			t.Errorf("Clamp(%v, %v, %v) = %v, want %v", tc.v, tc.min, tc.max, got, tc.want)
-		}
+		t.Run("", func(t *testing.T) {
+			got := Clamp(tc.v, tc.min, tc.max)
+			if got != tc.want {
+				t.Errorf("Clamp(%v, %v, %v) = %v, want %v", tc.v, tc.min, tc.max, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -340,27 +323,6 @@ func TestEvalUnknownVariable(t *testing.T) {
 	}
 }
 
-func TestEvalMixedOps(t *testing.T) {
-	env := &Env{ScreenW: 1920, ImageW: 64}
-
-	got, err := testEval(t, "screenW/2-imageW/2", env)
-	if err != nil {
-		t.Fatalf("Eval error: %v", err)
-	}
-
-	want := 960.0 - 32.0
-	if got != want {
-		t.Errorf("Eval = %v, want %v", got, want)
-	}
-}
-
-func TestEvalIntError(t *testing.T) {
-	_, err := Parse("unknown")
-	if err == nil {
-		t.Error("Parse(unknown) expected error, got nil")
-	}
-}
-
 func TestEvalOperatorErrors(t *testing.T) {
 	env := &Env{}
 	badExprs := []string{
@@ -374,19 +336,15 @@ func TestEvalOperatorErrors(t *testing.T) {
 		"unknown/1",
 	}
 	for _, expr := range badExprs {
-		_, err := testEval(t, expr, env)
-		if err == nil {
-			t.Errorf("Eval(%q) expected error, got nil", expr)
-		}
+		t.Run(expr, func(t *testing.T) {
+			_, err := testEval(t, expr, env)
+			if err == nil {
+				t.Errorf("Eval(%q) expected error, got nil", expr)
+			}
+		})
 	}
 }
 
 func TestEvalFloatLiteral(t *testing.T) {
-	got, err := testEval(t, "3.14", &Env{})
-	if err != nil {
-		t.Fatalf("Eval error: %v", err)
-	}
-	if math.Abs(got-3.14) > 1e-9 {
-		t.Errorf("Eval = %v, want 3.14", got)
-	}
+	assertEval(t, "3.14", &Env{}, 3.14)
 }

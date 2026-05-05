@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, screen } from "electron";
 import path = require("path");
-import ApiAdapter = require("./api-adapter");
+import BackendClient = require("./backend-client");
 import WindowManager = require("./window-manager");
 import * as BorderDetector from "./border-detector";
 import logger = require("./logger");
@@ -14,10 +14,10 @@ import type {
 } from "./types";
 
 const log = logger.createLogger("pet-manager");
-const isDebug = process.env.NODE_ENV === "development" || process.env.VERBOSE === "true";
+const isDebug = () => process.env.NODE_ENV === "development" || process.env.VERBOSE === "true";
 
 class PetManager {
-  backendClient: InstanceType<typeof ApiAdapter>;
+  backendClient: InstanceType<typeof BackendClient>;
   windowManager: InstanceType<typeof WindowManager>;
   petTimers: Map<string, NodeJS.Timeout>;
   windowToPetId: WeakMap<BrowserWindow, string>;
@@ -31,7 +31,7 @@ class PetManager {
   store: WorldStore | null;
 
   constructor(backendUrl: string, store?: WorldStore) {
-    this.backendClient = new ApiAdapter(backendUrl);
+    this.backendClient = new BackendClient(backendUrl);
     this.store = store || null;
     this.windowManager = new WindowManager(this.store || undefined);
     this.petTimers = new Map();
@@ -111,7 +111,8 @@ class PetManager {
     this._setupIpcHandlers();
 
     try {
-      const settings = await this.backendClient.getSettings();
+      const settingsResp = await this.backendClient.getSettings();
+      const settings = settingsResp?.payload || {};
       if (settings && settings.Scale) {
         this.scale = settings.Scale;
       }
@@ -136,7 +137,7 @@ class PetManager {
         tilesY: petData.tiles_y,
         scale: this.scale,
         volume: this.volume,
-        isDebug: process.env.NODE_ENV === "development" || process.env.VERBOSE === "true",
+        isDebug: isDebug(),
       };
     });
   }
@@ -380,14 +381,14 @@ class PetManager {
         const result = await this.backendClient.stepPet(petId, world) as any;
         const borderCtx = typeof result.border_ctx === "number" ? result.border_ctx : 0;
         const borderLabel = this._borderCtxLabel(borderCtx);
-        if (isDebug && borderLabel && lastBorderCtx !== borderCtx) {
+        if (isDebug() && borderLabel && lastBorderCtx !== borderCtx) {
           const animId = typeof petEntry.currentAnimId === "number" ? petEntry.currentAnimId : -1;
           const animName = typeof petEntry.currentAnimName === "string" && petEntry.currentAnimName ? petEntry.currentAnimName : "unknown";
           log.info(`[DEBUG] collision animName=${animName} animId=${animId} borders=${borderLabel} win=(${winX},${winY}) size=(${winW}x${winH})`);
         }
         lastBorderCtx = borderCtx;
 
-        if (isDebug) {
+        if (isDebug()) {
           log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${world.screen.w}x${world.screen.h}) wa=(${world.work_area.w}x${world.work_area.h})`);
           log.info(`[DEBUG] loop result animName=${result.current_anim_name} animId=${result.current_anim_id} x=${result.x} y=${result.y} nextAnim=${result.next_anim_id} borderCtx=${result.border_ctx}`);
         }

@@ -25,8 +25,9 @@ let shutdownStarted = false;
 
 async function createPet(petPath?: string, opts: { throwOnError?: boolean } = {}) {
   if (!petPath) {
-    const settings = await petManager.backendClient.getSettings().catch(() => ({}) as Record<string, unknown>);
-    const defaultPet = (settings as Record<string, unknown>)?.CurrentPet as string || "eSheep-modern";
+  const settingsResp = await petManager.backendClient.getSettings().catch(() => ({}) as any);
+  const settings = settingsResp?.payload || {};
+  const defaultPet = (settings as Record<string, unknown>)?.CurrentPet as string || "eSheep-modern";
     petPath = `../pets/${defaultPet}`;
   }
   try {
@@ -41,8 +42,9 @@ async function createPet(petPath?: string, opts: { throwOnError?: boolean } = {}
 
 async function handleAutoScaling() {
   try {
-    const settings = await petManager.backendClient.getSettings();
-    // Only auto-scale if the scale is exactly 1.0 (default) 
+    const settingsResp = await petManager.backendClient.getSettings();
+    const settings = settingsResp?.payload || {};
+    // Only auto-scale if the scale is exactly 1.0 (default)
     // and hasn't been manually adjusted or if we want to be proactive.
     // For now, let's only do it if it's 1.0.
     if (settings && settings.Scale === 1.0) {

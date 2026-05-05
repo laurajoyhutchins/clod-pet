@@ -1,5 +1,5 @@
 import http = require("http");
-import type { ChatMessage, ChatStreamEvent } from "./types";
+import type { ChatMessage, ChatStreamEvent, BackendResponse, AppSettings } from "./types";
 
 class BackendClient {
   baseUrl: string;
@@ -16,14 +16,14 @@ class BackendClient {
     return this.connected;
   }
 
-  async request(command: string, payload: Record<string, unknown> = {}) {
+  async request<T = unknown>(command: string, payload: Record<string, unknown> = {}): Promise<BackendResponse<T>> {
     const result = await this._requestJson("/api", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command, payload }),
       requireOk: true,
     });
-    return result;
+    return result as BackendResponse<T>;
   }
 
   async requestRaw(path: string, method = "GET") {
@@ -131,12 +131,17 @@ class BackendClient {
     return this.request("set_scale", { scale });
   }
 
+  async setGravityFactor(gravity: number) {
+    return this.request("set_gravity_factor", { gravity });
+  }
+
   async getStatus() {
     return this.request("get_status");
   }
 
-  async getSettings() {
-    return this.request("get_settings");
+  async getSettings(): Promise<BackendResponse<AppSettings>> {
+    const result = await this.request<AppSettings>("get_settings");
+    return result as BackendResponse<AppSettings>;
   }
 
   async setSettings(settings: Record<string, unknown>) {
@@ -157,6 +162,14 @@ class BackendClient {
       spawn_id: spawnId,
       ...(world ? { world } : {}),
     });
+  }
+
+  async setPosition(petId: string, x: number, y: number) {
+    return this.request("set_position", { pet_id: petId, x, y });
+  }
+
+  async stepPet(petId: string, world: Record<string, unknown>) {
+    return this.request("step_pet", { pet_id: petId, world });
   }
 
   async chat(messages: ChatMessage[], stream = false) {

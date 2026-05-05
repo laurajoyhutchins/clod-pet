@@ -1,5 +1,6 @@
-import { spawn, spawnSync } from "child_process";
+import { spawn, spawnSync, ChildProcess } from "child_process";
 import http from "http";
+import type { LaunchInfo } from "../types";
 
 // Mock modules
 jest.mock("child_process", () => ({
@@ -38,29 +39,71 @@ jest.mock("fs", () => ({
 
 import BackendManager from "../backend-manager";
 
+// Create a proper ChildProcess mock
+function createMockChildProcess(extra: Record<string, unknown> = {}): ChildProcess {
+  return {
+    stdin: null,
+    stdout: { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+    stderr: { on: jest.fn(), removeAllListeners: jest.fn() } as any,
+    stdio: [] as any,
+    killed: false,
+    connected: false,
+    exitCode: null,
+    signalCode: null,
+    pid: undefined,
+    kill: jest.fn(),
+    on: jest.fn(),
+    once: jest.fn(),
+    emit: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    off: jest.fn(),
+    removeAllListeners: jest.fn(),
+    setMaxListeners: jest.fn(),
+    getMaxListeners: jest.fn(),
+    listeners: jest.fn(),
+    rawListeners: jest.fn(),
+    eventNames: jest.fn(),
+    prependListener: jest.fn(),
+    prependOnceListener: jest.fn(),
+    ref: jest.fn(),
+    unref: jest.fn(),
+    ...extra,
+  } as unknown as ChildProcess;
+}
+
+// Create a proper LaunchInfo mock
+function createMockLaunchInfo(extra: Partial<LaunchInfo> = {}): LaunchInfo {
+  return {
+    cmd: "go",
+    args: ["run", "."],
+    cwd: "",
+    port: 8080,
+    petsDir: "",
+    useExe: false,
+    exeExists: false,
+    backendMode: "source",
+    executionMode: "source",
+    restartEnabled: true,
+    pid: 0,
+    ...extra,
+  };
+}
+
 describe("BackendManager", () => {
   let manager: InstanceType<typeof BackendManager>;
-  let mockProcess: { stdout: { on: jest.Mock; removeAllListeners: jest.Mock }; stderr: { on: jest.Mock; removeAllListeners: jest.Mock }; on: jest.Mock; once: jest.Mock; removeListener: jest.Mock; removeAllListeners: jest.Mock; kill: jest.Mock };
   let mockGet: jest.MockedFunction<typeof http.get>;
   let mockSpawnSync: jest.Mock;
 
   beforeEach(() => {
     const fs = require("fs");
     (fs.existsSync as jest.Mock).mockReturnValue(false);
-    mockProcess = {
-      stdout: { on: jest.fn(), removeAllListeners: jest.fn() },
-      stderr: { on: jest.fn(), removeAllListeners: jest.fn() },
-      on: jest.fn(),
-      once: jest.fn(),
-      removeListener: jest.fn(),
-      removeAllListeners: jest.fn(),
-      kill: jest.fn(),
-    };
+    const mockProcess = createMockChildProcess();
     (spawn as jest.Mock).mockReturnValue(mockProcess);
     mockSpawnSync = spawnSync as unknown as jest.Mock;
     mockSpawnSync.mockReset();
     mockGet = http.get as jest.MockedFunction<typeof http.get>;
-    
+
     // Mock http.get for health check
     const mockRes = {
       statusCode: 200,
@@ -73,7 +116,7 @@ describe("BackendManager", () => {
       if (typeof cb === "function") cb(mockRes);
       return { on: jest.fn() } as any;
     });
-    
+
     manager = new BackendManager();
     jest.clearAllMocks();
   });
@@ -94,7 +137,7 @@ describe("BackendManager", () => {
 
   test("should start backend and return url", async () => {
     const url = await manager.start();
-    
+
     expect(spawn).toHaveBeenCalledWith(
       "go",
       ["run", "."],
@@ -160,27 +203,28 @@ describe("BackendManager", () => {
   test("should stop backend process", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "linux" });
-    
-    manager.process = mockProcess;
+
+    const mockProc = createMockChildProcess();
+    manager.process = mockProc;
     manager.stop();
-    
-    expect(mockProcess.kill).toHaveBeenCalledWith("SIGTERM");
+
+    expect(mockProc.kill).toHaveBeenCalledWith("SIGTERM");
     expect(manager.process).toBeNull();
-    
+
     Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
   test("should use taskkill on windows", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "win32" });
-    
-    manager.process = { ...mockProcess, pid: 1234 };
+
+    manager.process = createMockChildProcess({ pid: 1234 });
     mockSpawnSync.mockReturnValue({ status: 0, signal: null, stderr: Buffer.from(""), error: null });
     manager.stop();
-    
+
     expect(spawnSync).toHaveBeenCalledWith("taskkill", ["/F", "/T", "/PID", "1234"], expect.objectContaining({ stdio: "pipe" }));
     expect(manager.process).toBeNull();
-    
+
     Object.defineProperty(process, "platform", { value: originalPlatform });
   });
 
@@ -188,7 +232,7 @@ describe("BackendManager", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "win32" });
 
-    manager.process = { ...mockProcess, pid: 1234 };
+    manager.process = createMockChildProcess({ pid: 1234 });
     mockSpawnSync.mockReturnValue({ status: 1, signal: null, stderr: Buffer.from("denied"), error: null });
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
@@ -197,11 +241,11 @@ describe("BackendManager", () => {
     expect(spawnSync).toHaveBeenCalledWith("taskkill", ["/F", "/T", "/PID", "1234"], expect.objectContaining({ stdio: "pipe" }));
     expect(errorSpy).toHaveBeenCalledWith(
       "[backend-manager]",
-      "taskkill exited nonzero",
+      expect.stringContaining("taskkill exited nonzero"),
       expect.objectContaining({
         pid: 1234,
         status: 1,
-        stderr: "denied",
+        stderr: expect.stringContaining("denied"),
       })
     );
 
@@ -211,10 +255,12 @@ describe("BackendManager", () => {
 
   test("should handle stdout data", async () => {
     let stdoutCallback: ((chunk: Buffer) => void) | undefined;
-    mockProcess.stdout.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.stdout.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "data") stdoutCallback = cb;
     });
-    
+
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     if (stdoutCallback) stdoutCallback(Buffer.from("test output"));
     // Should not throw
@@ -222,10 +268,12 @@ describe("BackendManager", () => {
 
   test("should handle stderr data", async () => {
     let stderrCallback: ((chunk: Buffer) => void) | undefined;
-    mockProcess.stderr.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.stderr.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "data") stderrCallback = cb;
     });
-    
+
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     if (stderrCallback) stderrCallback(Buffer.from("error output"));
     // Should not throw
@@ -233,12 +281,14 @@ describe("BackendManager", () => {
 
   test("should suppress backend debug api command stderr spam", async () => {
     let stderrCallback: ((chunk: Buffer) => void) | undefined;
-    mockProcess.stderr.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.stderr.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "data") stderrCallback = cb;
     });
 
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
 
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     warnSpy.mockClear();
 
@@ -259,15 +309,17 @@ describe("BackendManager", () => {
   test("should NOT suppress backend debug logs when VERBOSE=true", async () => {
     const originalVerbose = process.env.VERBOSE;
     process.env.VERBOSE = "true";
-    
+
     try {
       let stderrCallback: ((chunk: Buffer) => void) | undefined;
-      mockProcess.stderr.on.mockImplementation((event, cb) => {
+      const mockProc = createMockChildProcess();
+      (mockProc.stderr.on as jest.Mock).mockImplementation((event, cb) => {
         if (event === "data") stderrCallback = cb;
       });
 
       const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
 
+      (spawn as jest.Mock).mockReturnValue(mockProc);
       await manager.start();
       warnSpy.mockClear();
 
@@ -289,10 +341,12 @@ describe("BackendManager", () => {
 
   test("appendRecent should truncate long output", async () => {
     let stdoutCallback: ((chunk: Buffer) => void) | undefined;
-    mockProcess.stdout.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.stdout.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "data") stdoutCallback = cb;
     });
-    
+
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     if (stdoutCallback) {
         stdoutCallback(Buffer.from("a".repeat(5000)));
@@ -305,7 +359,7 @@ describe("BackendManager", () => {
 
   test("getDiagnostics should return correct info", () => {
     manager.url = "http://localhost:8080";
-    manager.launch = { cmd: "go", args: ["run", "."] };
+    manager.launch = createMockLaunchInfo();
     manager.lastStdout = "test output";
     manager.lastStderr = "test error";
     manager.lastError = "test error msg";
@@ -322,10 +376,10 @@ describe("BackendManager", () => {
   });
 
   test("stop should clear runtime state for reuse", () => {
-    manager.process = mockProcess;
+    manager.process = createMockChildProcess();
     manager.url = "http://localhost:8080";
     manager.port = 8080;
-    manager.launch = { cmd: "go", args: ["run", "."], pid: 4321 };
+    manager.launch = createMockLaunchInfo({ pid: 4321 });
     manager.lastStdout = "stdout";
     manager.lastStderr = "stderr";
     manager.lastError = "error";
@@ -357,18 +411,19 @@ describe("BackendManager", () => {
   });
 
   test("getDiagnostics should report running when process active", () => {
-    manager.process = mockProcess;
-    (manager.process as any).exitCode = null;
+    manager.process = createMockChildProcess({ exitCode: null });
     const diag = manager.getDiagnostics();
     expect(diag.running).toBe(true);
   });
 
   test("should handle spawn error", async () => {
     let errorCallback: ((err: Error) => void) | undefined;
-    mockProcess.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "error") errorCallback = cb;
     });
 
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     expect(() => {
       if (errorCallback) errorCallback(new Error("spawn failed"));
@@ -378,10 +433,12 @@ describe("BackendManager", () => {
 
   test("should handle process exit", async () => {
     let exitCallback: ((code: number) => void) | undefined;
-    mockProcess.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "close") exitCallback = cb;
     });
 
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     if (exitCallback) exitCallback(1);
     expect(manager.exitCode).toBe(1);
@@ -391,14 +448,16 @@ describe("BackendManager", () => {
     let exitCallback: ((code: number) => void) | undefined;
     let callCount = 0;
 
-    manager.process = mockProcess;
+    const mockProc = createMockChildProcess();
+    (mockProc.once as jest.Mock).mockImplementation((event, cb) => {
+      if (event === "close") exitCallback = cb;
+    });
+
+    (spawn as jest.Mock).mockReturnValue(mockProc);
+    manager.process = mockProc;
     manager.url = "http://localhost:8080";
     manager.state = "starting";
     manager.exitCode = null;
-
-    mockProcess.once.mockImplementation((event, cb) => {
-      if (event === "close") exitCallback = cb;
-    });
 
     mockGet.mockImplementation((url: any, cb?: any) => {
       callCount++;
@@ -423,10 +482,12 @@ describe("BackendManager", () => {
 
   test("should mark backend unavailable after unexpected post-start crash", async () => {
     let exitCallback: ((code: number) => void) | undefined;
-    mockProcess.on.mockImplementation((event, cb) => {
+    const mockProc = createMockChildProcess();
+    (mockProc.on as jest.Mock).mockImplementation((event, cb) => {
       if (event === "close") exitCallback = cb;
     });
 
+    (spawn as jest.Mock).mockReturnValue(mockProc);
     await manager.start();
     expect(manager.ready).toBe(true);
 
@@ -454,7 +515,9 @@ describe("BackendManager", () => {
 
   test("_waitForReady should timeout after max retries", async () => {
     let callCount = 0;
-    manager.process = mockProcess;
+    const mockProc = createMockChildProcess();
+    (spawn as jest.Mock).mockReturnValue(mockProc);
+    manager.process = mockProc;
     manager.url = "http://localhost:8080";
     manager.state = "starting";
     manager.exitCode = null;
@@ -500,7 +563,9 @@ describe("BackendManager", () => {
 
   test("_waitForReady should handle network errors", async () => {
     let callCount = 0;
-    manager.process = mockProcess;
+    const mockProc = createMockChildProcess();
+    (spawn as jest.Mock).mockReturnValue(mockProc);
+    manager.process = mockProc;
     manager.url = "http://localhost:8080";
     manager.state = "starting";
     manager.exitCode = null;

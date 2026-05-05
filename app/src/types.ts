@@ -46,9 +46,9 @@ export interface WorldContext {
 }
 
 // Backend response
-export interface BackendResponse {
+export interface BackendResponse<T = unknown> {
   ok: boolean;
-  payload?: unknown;
+  payload?: T;
   error?: string;
   [key: string]: unknown;
 }
