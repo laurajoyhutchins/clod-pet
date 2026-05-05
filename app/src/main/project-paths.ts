@@ -3,8 +3,9 @@ import path = require("path");
 
 function candidateRepoRoots() {
   return [
-    path.resolve(__dirname, "..", ".."),
+    path.resolve(__dirname, "..", "..", "..", ".."),
     path.resolve(__dirname, "..", "..", ".."),
+    path.resolve(__dirname, "..", ".."),
   ];
 }
 
