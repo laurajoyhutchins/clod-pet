@@ -27,17 +27,39 @@ function select(id: string) {
   return element;
 }
 
+function measureControlPanelSize(): { width: number; height: number } | null {
+  const panel = document.querySelector(".window") as HTMLElement | null;
+  if (!panel) return null;
+
+  const clone = panel.cloneNode(true) as HTMLElement;
+  clone.style.position = "absolute";
+  clone.style.left = "-10000px";
+  clone.style.top = "0";
+  clone.style.visibility = "hidden";
+  clone.style.width = "max-content";
+  clone.style.height = "max-content";
+  clone.style.pointerEvents = "none";
+
+  document.body.appendChild(clone);
+  const rect = clone.getBoundingClientRect();
+  clone.remove();
+
+  return {
+    width: Math.max(190, Math.ceil(rect.width + 8)),
+    height: Math.max(180, Math.ceil(rect.height + 8)),
+  };
+}
+
 function scheduleControlPanelResize() {
   if (resizeFrameHandle !== null) return;
 
   resizeFrameHandle = window.requestAnimationFrame(async () => {
     resizeFrameHandle = null;
 
-    const panel = document.querySelector(".window") as HTMLElement | null;
-    if (!panel) return;
+    const measured = measureControlPanelSize();
+    if (!measured) return;
 
-    const width = Math.max(350, Math.ceil(panel.offsetWidth + 8));
-    const height = Math.max(400, Math.ceil(panel.offsetHeight + 8));
+    const { width, height } = measured;
     const nextSize = { width, height };
 
     if (

@@ -80,8 +80,8 @@ function showControlPanel(): void {
   controlPanelWindow = new BrowserWindow({
     width: 400,
     height: 600,
-    minWidth: 350,
-    minHeight: 400,
+    minWidth: 190,
+    minHeight: 180,
     resizable: true,
     minimizable: false,
     maximizable: false,
