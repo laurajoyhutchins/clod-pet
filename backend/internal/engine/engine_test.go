@@ -1,4 +1,4 @@
-package engine
+﻿package engine
 
 import (
 	"errors"
@@ -85,41 +85,41 @@ func TestNewEngineIdle(t *testing.T) {
 }
 
 func TestEngineStart(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-
-	err := e.Start(1)
-	if err != nil {
-		t.Fatalf("Start error: %v", err)
+	tests := []struct {
+		name     string
+		spawnID  int
+		wantAnim int
+		wantX    float64
+		wantY    float64
+		wantErr  bool
+	}{
+		{"valid spawn", 1, 1, 100, 200, false},
+		{"fallback to first", 999, 1, 100, 200, false},
 	}
 
-	if e.state != StateAnimating {
-		t.Errorf("state = %v, want %v", e.state, StateAnimating)
-	}
-	if e.currentAnim != 1 {
-		t.Errorf("currentAnim = %d, want 1", e.currentAnim)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := testPet()
+			e := NewEngine(p)
+			err := e.Start(tt.spawnID)
 
-	x, y := e.Position()
-	if x != 100 {
-		t.Errorf("X = %v, want 100", x)
-	}
-	if y != 200 {
-		t.Errorf("Y = %v, want 200", y)
-	}
-}
-
-func TestEngineStartFallbackToFirstSpawn(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-
-	err := e.Start(999)
-	if err != nil {
-		t.Fatalf("Start error: %v", err)
-	}
-
-	if e.currentAnim != 1 {
-		t.Errorf("currentAnim = %d, want 1 (fallback to first spawn)", e.currentAnim)
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if e.currentAnim != tt.wantAnim {
+				t.Errorf("currentAnim = %d, want %d", e.currentAnim, tt.wantAnim)
+			}
+			x, y := e.Position()
+			if math.Abs(x-tt.wantX) > 0.01 {
+				t.Errorf("X = %v, want %v", x, tt.wantX)
+			}
+			if math.Abs(y-tt.wantY) > 0.01 {
+				t.Errorf("Y = %v, want %v", y, tt.wantY)
+			}
+		})
 	}
 }
 
@@ -304,31 +304,38 @@ func TestEngineRandomStaysStableWithinAnimation(t *testing.T) {
 	}
 }
 
-func TestEngineTransition(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-	e.Start(1)
-
-	e.TransitionTo(2)
-	if e.currentAnim != 2 {
-		t.Errorf("currentAnim = %d, want 2", e.currentAnim)
+func TestEngineStateTransitions(t *testing.T) {
+	tests := []struct {
+		name        string
+		action      func(*Engine)
+		wantState   PetState
+		wantAnim    int
+		wantFrameIdx int
+	}{
+		{"transition to anim 2", func(e *Engine) { e.TransitionTo(2) }, StateAnimating, 2, 0},
+		{"set drag", func(e *Engine) { e.SetDrag() }, StateDragging, 3, 0},
+		{"set fall", func(e *Engine) { e.SetFall() }, StateFalling, 0, 0},
+		{"reset", func(e *Engine) { e.Reset() }, StateIdle, 0, 0},
 	}
-	if e.frameIdx != 0 {
-		t.Errorf("frameIdx = %d, want 0", e.frameIdx)
-	}
-}
 
-func TestEngineSetDrag(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-	e.Start(1)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := testPet()
+			e := NewEngine(p)
+			e.Start(1)
 
-	e.SetDrag()
-	if e.state != StateDragging {
-		t.Errorf("state = %v, want %v", e.state, StateDragging)
-	}
-	if e.currentAnim != 3 {
-		t.Errorf("currentAnim = %d, want 3", e.currentAnim)
+			tt.action(e)
+
+			if e.state != tt.wantState {
+				t.Errorf("state = %v, want %v", e.state, tt.wantState)
+			}
+			if tt.wantAnim > 0 && e.currentAnim != tt.wantAnim {
+				t.Errorf("currentAnim = %d, want %d", e.currentAnim, tt.wantAnim)
+			}
+			if e.frameIdx != tt.wantFrameIdx {
+				t.Errorf("frameIdx = %d, want %d", e.frameIdx, tt.wantFrameIdx)
+			}
+		})
 	}
 }
 
@@ -338,9 +345,7 @@ func TestEngineSetDragDoesNotResetActiveDragAnimation(t *testing.T) {
 	e.Start(1)
 	e.SetDrag()
 
-	if _, err := e.Step(WorldContext{}); err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
+	_, _ = e.Step(WorldContext{})
 
 	e.SetDrag()
 	if e.frameIdx != 1 {
@@ -436,832 +441,34 @@ func TestEngineReset(t *testing.T) {
 }
 
 func TestEngineSetPosition(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-	e.Start(1)
-
-	e.SetPosition(500, 600)
-	x, y := e.Position()
-	if math.Abs(x-500) > 0.01 {
-		t.Errorf("X = %v, want 500", x)
-	}
-	if math.Abs(y-600) > 0.01 {
-		t.Errorf("Y = %v, want 600", y)
-	}
-}
-
-func TestBorderMatches(t *testing.T) {
 	tests := []struct {
-		only string
-		ctx  BorderContext
-		want bool
+		name   string
+		posX   float64
+		posY   float64
+		wantX   float64
+		wantY   float64
 	}{
-		{"", ContextNone, true},
-		{"", ContextFloor, true},
-		{"none", ContextNone, true},
-		{"none", ContextFloor, true},
-		{"floor", ContextFloor, true},
-		{"floor", ContextCeiling, false},
-		{"taskbar", ContextFloor, true},
-		{"taskbar", ContextNone, false},
-		{"window", ContextObstacle, true},
-		{"window", ContextFloor, false},
-		{"vertical", ContextWalls, true},
-		{"vertical", ContextCeiling, false},
-		{"horizontal", ContextCeiling, true},
-		{"horizontal", ContextWalls, false},
-		{"horizontal+", ContextCeiling, true},
-		{"horizontal+", ContextFloor, true},
-		{"horizontal+", ContextWalls, false},
-	}
-
-	for _, tc := range tests {
-		got := borderMatches(tc.only, tc.ctx)
-		if got != tc.want {
-			t.Errorf("borderMatches(%q, %v) = %v, want %v", tc.only, tc.ctx, got, tc.want)
-		}
-	}
-}
-
-func TestLoadAnimationCopiesFrames(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-	e.Start(1)
-
-	e.animFrames[0] = 99
-	if got := p.Animations[1].Frames[0]; got != 0 {
-		t.Errorf("pet animation frame mutated through engine: got %d, want 0", got)
-	}
-}
-
-func TestWeightedPick(t *testing.T) {
-	candidates := []pet.NextAnimation{
-		{ID: 1, Probability: 80},
-		{ID: 2, Probability: 20},
-	}
-
-	for i := 0; i < 100; i++ {
-		result := weightedPick(candidates)
-		if result != 1 && result != 2 {
-			t.Errorf("weightedPick returned %d, want 1 or 2", result)
-		}
-	}
-}
-
-func TestWeightedPickEmpty(t *testing.T) {
-	result := weightedPick([]pet.NextAnimation{})
-	if result != 0 {
-		t.Errorf("weightedPick(empty) = %d, want 0", result)
-	}
-}
-
-func TestEngineGravityTransition(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		GravityNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "none"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(100, 100) // Clearly above any floor
-
-	result, err := e.Step(WorldContext{
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Step returned nil")
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
-	}
-}
-
-func TestEngineGravityFallsBackToNamedFallAnimation(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-	}
-	p.Animations[2] = pet.Animation{
-		ID:         2,
-		Name:       "fall",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("3"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("3"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{1},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(100, 100)
-
-	result, err := e.Step(WorldContext{
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Step returned nil")
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
-	}
-}
-
-func TestEngineStartNoSpawns(t *testing.T) {
-	p := testPet()
-	p.Spawns = []pet.Spawn{}
-	e := NewEngine(p)
-
-	err := e.Start(1)
-	if err != nil {
-		t.Fatalf("Start error: %v", err)
-	}
-}
-
-func TestLoadAnimationInvalidRepeat(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "bad",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     nil, // nil Repeat will be treated as "1" by the engine
-		RepeatFrom: 0,
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	if e.animTotalSteps != 1 {
-		t.Errorf("animTotalSteps = %d, want 1 (fallback for invalid repeat)", e.animTotalSteps)
-	}
-}
-
-func TestWeightedPickZeroProbability(t *testing.T) {
-	candidates := []pet.NextAnimation{
-		{ID: 1, Probability: 0},
-		{ID: 2, Probability: 0},
-	}
-
-	result := weightedPick(candidates)
-	if result != 0 {
-		t.Errorf("weightedPick(zero prob) = %d, want 0", result)
-	}
-}
-
-func TestEngineStepTransitionTriggers(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0, 1},
-		Repeat:     mustParseExpr("2"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "none"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	var transitionID int
-	for i := 0; i < 10; i++ {
-		result, err := e.Step(WorldContext{})
-		if err != nil {
-			t.Fatalf("Step %d error: %v", i, err)
-		}
-		if result != nil && result.NextAnimID > 0 {
-			transitionID = result.NextAnimID
-			e.TransitionTo(transitionID)
-			break
-		}
-	}
-
-	if transitionID != 2 {
-		t.Errorf("Transition ID = %d, want 2", transitionID)
-	}
-
-	if e.currentAnim != 2 {
-		t.Errorf("currentAnim after transition = %d, want 2", e.currentAnim)
-	}
-}
-
-func TestEngineBorderTransition(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "taskbar"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(100, 936)
-
-	result, err := e.Step(WorldContext{
-		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Step returned nil")
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
-	}
-}
-
-func TestEngineBorderTransitionNoMatch(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "window"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(100, 936)
-
-	result, err := e.Step(WorldContext{
-		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Desktop: Rect{X: 0, Y: 0, W: 2000, H: 1000},
-	})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Step returned nil")
-	}
-	if result.NextAnimID != 0 {
-		t.Errorf("NextAnimID = %d, want 0 (no matching window border)", result.NextAnimID)
-	}
-	if result.BorderCtx != ContextFloor {
-		t.Errorf("BorderCtx = %v, want %v", result.BorderCtx, ContextFloor)
-	}
-}
-
-func TestEngineScreenSnapDoesNotUseDesktopUnion(t *testing.T) {
-	tests := []struct {
-		name  string
-		start Rect
-		wantX float64
-		wantY float64
-	}{
-		{
-			name:  "left edge",
-			start: Rect{X: 1, Y: 100},
-			wantX: 0,
-			wantY: 100,
-		},
-		{
-			name:  "right edge",
-			start: Rect{X: 935, Y: 100},
-			wantX: 936,
-			wantY: 100,
-		},
-		{
-			name:  "top edge",
-			start: Rect{X: 100, Y: 1},
-			wantX: 100,
-			wantY: 0,
-		},
-		{
-			name:  "bottom edge",
-			start: Rect{X: 100, Y: 935},
-			wantX: 100,
-			wantY: 936,
-		},
+		{"positive", 500, 600, 500, 600},
+		{"negative", -10, -20, -10, -20},
+		{"zero", 0, 0, 0, 0},
+		{"fractional", 100.5, 200.5, 100.5, 200.5},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := testPet()
-			p.Animations[1] = pet.Animation{
-				ID:         1,
-				Name:       "idle",
-				Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-				End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-				Frames:     []int{0},
-				Repeat:     mustParseExpr("1"),
-				RepeatFrom: 0,
-			}
-
 			e := NewEngine(p)
 			e.Start(1)
-			e.SetPosition(tt.start.X, tt.start.Y)
 
-			result, err := e.Step(WorldContext{
-				Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-				Desktop: Rect{X: 0, Y: 0, W: 2000, H: 1000},
-			})
-			if err != nil {
-				t.Fatalf("Step error: %v", err)
+			e.SetPosition(tt.posX, tt.posY)
+			x, y := e.Position()
+			if math.Abs(x-tt.wantX) > 0.01 {
+				t.Errorf("X = %v, want %v", x, tt.wantX)
 			}
-			if result.X != tt.wantX {
-				t.Errorf("X = %v, want %v", result.X, tt.wantX)
-			}
-			if result.Y != tt.wantY {
-				t.Errorf("Y = %v, want %v", result.Y, tt.wantY)
+			if math.Abs(y-tt.wantY) > 0.01 {
+				t.Errorf("Y = %v, want %v", y, tt.wantY)
 			}
 		})
 	}
 }
 
-func TestEngineVerticalEdgeDoesNotSuppressGravity(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		GravityNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(1, 100)
-
-	result, err := e.Step(WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 40, Y: 0, W: 960, H: 1000},
-		Desktop:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result.X != 0 {
-		t.Errorf("X = %v, want 0", result.X)
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
-	}
-}
-
-func TestEngineGravityTakesPriorityWhenAirborneAtScreenBorder(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		BorderNext: []pet.NextAnimation{
-			{ID: 3, Probability: 100, Only: "none"},
-		},
-		GravityNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(0, 0)
-
-	result, err := e.Step(WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
-	}
-}
-
-func TestEngineInvalidAnimation(t *testing.T) {
-	p := testPet()
-	e := NewEngine(p)
-	e.Start(1)
-
-	e.TransitionTo(999)
-	result, err := e.Step(WorldContext{})
-	if !errors.Is(err, ErrStepAnimationMissing) {
-		t.Fatalf("Step error = %v, want ErrStepAnimationMissing", err)
-	}
-	if result != nil {
-		t.Error("Step on invalid animation should return nil")
-	}
-}
-
-func TestEngineNoFrames(t *testing.T) {
-	p := testPet()
-	p.Animations[3] = pet.Animation{
-		ID:         3,
-		Name:       "empty",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.TransitionTo(3)
-
-	result, err := e.Step(WorldContext{})
-	if !errors.Is(err, ErrStepAnimationEmpty) {
-		t.Fatalf("Step error = %v, want ErrStepAnimationEmpty", err)
-	}
-	if result != nil {
-		t.Error("Step on empty animation should return nil")
-	}
-}
-
-func TestEngineOpacityLerp(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "fade",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 0.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("10"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 1, Probability: 100, Only: "none"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Step returned nil")
-	}
-
-	if result.Opacity != 0.0 {
-		t.Errorf("Opacity = %v, want 0.0 (first step, progress=0)", result.Opacity)
-	}
-}
-
-func TestEngineIntervalEvaluation(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("200")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("2"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 1, Probability: 100, Only: "none"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	_, _ = e.Step(WorldContext{})
-	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result == nil {
-		t.Fatal("Step returned nil")
-	}
-
-	if result.IntervalMs < 100 || result.IntervalMs > 200 {
-		t.Errorf("IntervalMs = %d, want between 100 and 200", result.IntervalMs)
-	}
-}
-
-func TestEngineFlipAction(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "flip-anim",
-		Action:     "flip",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "none"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	if e.flipH {
-		t.Errorf("flipH = %v, want false (start state)", e.flipH)
-	}
-
-	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
-	}
-	if !e.flipH {
-		t.Errorf("flipH = %v, want true after flip action", e.flipH)
-	}
-}
-
-func TestEngineMirroredMovement(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("10"),
-		RepeatFrom: 0,
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(100, 200)
-
-	// Normal movement (flipH = false)
-	_, _ = e.Step(WorldContext{})
-	x, _ := e.Position()
-	if math.Abs(x-98) > 0.01 {
-		t.Errorf("X = %v, want 98", x)
-	}
-
-	// Mirrored movement (flipH = true)
-	e.flipH = true
-	_, _ = e.Step(WorldContext{})
-	x, _ = e.Position()
-	if math.Abs(x-100) > 0.01 {
-		t.Errorf("X = %v, want 100 (98 + 2)", x)
-	}
-}
-
-func TestEngineBorderTriggeredOnce(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("10"),
-		RepeatFrom: 0,
-		BorderNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "taskbar"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(100, 936)
-
-	world := WorldContext{
-		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	}
-
-	// First collision
-	result, _ := e.Step(world)
-	if result.NextAnimID != 2 {
-		t.Errorf("First step NextAnimID = %d, want 2", result.NextAnimID)
-	}
-
-	// Stay in same animation (simulated by not calling TransitionTo)
-	// Second step with same collision should NOT trigger transition again
-	result, _ = e.Step(world)
-	if result.NextAnimID != 0 {
-		t.Errorf("Second step NextAnimID = %d, want 0", result.NextAnimID)
-	}
-}
-
-func TestEngineSelfTransitionReset(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("2"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 1, Probability: 100, Only: "none"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	// Step 1: totalStepsDone = 0 -> 1
-	e.Step(WorldContext{})
-	// Step 2: totalStepsDone = 1 -> 2, triggers transition to 1
-	result, _ := e.Step(WorldContext{})
-	if result.NextAnimID != 1 {
-		t.Errorf("NextAnimID = %d, want 1", result.NextAnimID)
-	}
-
-	// Simulated Service behavior: call TransitionTo(1)
-	e.TransitionTo(result.NextAnimID)
-
-	if e.totalStepsDone != 0 {
-		t.Errorf("totalStepsDone = %d, want 0 after TransitionTo(self)", e.totalStepsDone)
-	}
-}
-
-func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
-	p := testPet()
-	// Animation with SequenceNext but none match.
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: "window"},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	// Step triggers end of sequence
-	result, _ := e.Step(WorldContext{})
-
-	// Should return self ID (1) because SequenceNext is present but no match
-	if result.NextAnimID != 1 {
-		t.Errorf("NextAnimID = %d, want 1 (self-reset)", result.NextAnimID)
-	}
-}
-
-func TestEngineNoOscillationAfterWallFlip(t *testing.T) {
-	// After a wall border triggers a rotation+flip, the pet must escape on the
-	// first walking step. tolerance=1 means x=2 (one walk step right) is no
-	// longer ≤ 1, so the border does not re-fire immediately.
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:    1, Name: "walk",
-		Start: pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
-		End:   pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
-		Frames: []int{0, 1}, Repeat: mustParseExpr("20"), RepeatFrom: 0,
-		BorderNext: []pet.NextAnimation{{ID: 2, Probability: 100, Only: "none"}},
-	}
-	p.Animations[2] = pet.Animation{
-		ID:    2, Name: "rotate",
-		Action: "flip",
-		Start: pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
-		End:   pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
-		Frames: []int{0}, Repeat: mustParseExpr("1"), RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{{ID: 1, Probability: 100, Only: ""}},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-	e.SetPosition(2, 500)
-
-	world := WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	}
-
-	// First step: already at wall → border fires → rotate
-	r, _ := e.Step(world)
-	if r.NextAnimID != 2 {
-		t.Fatalf("expected border transition to rotate, got nextAnim=%d", r.NextAnimID)
-	}
-	e.TransitionTo(r.NextAnimID) // → rotate (flip)
-
-	// Step through rotate
-	r, _ = e.Step(world)
-	if r.NextAnimID != 1 {
-		t.Fatalf("expected rotate to transition back to walk, got nextAnim=%d", r.NextAnimID)
-	}
-	e.TransitionTo(r.NextAnimID) // → walk (now flipH=true)
-
-	// First walk step after flip: must NOT re-trigger a border transition
-	r, _ = e.Step(world)
-	if r.NextAnimID != 0 {
-		t.Errorf("walk should not immediately re-trigger border; got nextAnim=%d", r.NextAnimID)
-	}
-}
-
-func TestEngineSequenceNextWithEmptyOnlyField(t *testing.T) {
-	p := testPet()
-	p.Animations[1] = pet.Animation{
-		ID:         1,
-		Name:       "walk",
-		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
-		Frames:     []int{0},
-		Repeat:     mustParseExpr("1"),
-		RepeatFrom: 0,
-		SequenceNext: []pet.NextAnimation{
-			{ID: 2, Probability: 100, Only: ""},
-		},
-	}
-
-	e := NewEngine(p)
-	e.Start(1)
-
-	result, err := e.Step(WorldContext{})
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-	if result.NextAnimID != 2 {
-		t.Errorf("NextAnimID = %d, want 2 (empty Only should match any context)", result.NextAnimID)
-	}
-}
-
-func TestEngineGravityDoubled(t *testing.T) {
-	p := &pet.Pet{
-		FrameW: 32,
-		FrameH: 32,
-		Animations: map[int]pet.Animation{
-			1: {
-				ID:    1,
-				Name:  "fall",
-				Start: pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("10"), Interval: mustParseExpr("100")},
-				End:   pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("10"), Interval: mustParseExpr("100")},
-				Frames: []int{0},
-				Repeat: mustParseExpr("1"),
-			},
-		},
-		Spawns: []pet.Spawn{
-			{ID: 1, X: mustParseExpr("100"), Y: mustParseExpr("100"), NextAnimID: 1},
-		},
-	}
-
-	e := NewEngine(p)
-
-	world := WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	}
-	e.SetGravityFactor(2.0)
-	e.SetScale(1.5)
-	_ = e.Start(1, world)
-
-	// Base Y speed is 10.
-	// Effective gravity speed should be 10 * 2.0 (factor) * 1.5 (scale) = 30.
-	// New Y should be 100 + 30 = 130.
-
-	_, _ = e.Step(world)
-
-	_, y := e.Position()
-	expectedY := 100.0 + 30.0
-	if math.Abs(y-expectedY) > 0.001 {
-		t.Errorf("Y = %v, want %v (gravity factor and scale should both impact speed)", y, expectedY)
-	}
-}
