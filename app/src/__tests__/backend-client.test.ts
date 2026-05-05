@@ -8,6 +8,7 @@ jest.mock("http", () => ({
 }));
 
 import BackendClient from "../backend-client";
+import type { BackendResponse } from "../store";
 
 describe("BackendClient", () => {
   let client: InstanceType<typeof BackendClient>;
@@ -167,13 +168,24 @@ describe("BackendClient", () => {
   });
 
   test("loadPet should call correct endpoint", async () => {
-    const mockBody = JSON.stringify({ ok: true, pet: { pngBase64: "abc" } });
+    const mockBody = JSON.stringify({
+      ok: true,
+      payload: {
+        png_base64: "abc",
+        tiles_x: 4,
+        tiles_y: 1,
+      },
+    });
 
     const promise = client.loadPet("../pets/sheep");
     dataCallback!(Buffer.from(mockBody));
     endCallback!();
 
-    await promise;
+    await expect(promise).resolves.toEqual({
+      png_base64: "abc",
+      tiles_x: 4,
+      tiles_y: 1,
+    });
 
     expect(mockRequest).toHaveBeenCalledWith(
       "http://localhost:8080/api/pet/load",
@@ -360,7 +372,7 @@ describe("BackendClient", () => {
     const world = {
       screen: { x: 0, y: 0, w: 1920, h: 1080 },
       work_area: { x: 0, y: 0, w: 1920, h: 1040 },
-      taskbar: { x: 0, y: 1040, w: 1920, h: 40 },
+      desktop: { x: 0, y: 0, w: 1920, h: 1080 },
     };
     const promise = client.addPet("../pets/sheep", 1, world);
     dataCallback!(Buffer.from(mockBody));

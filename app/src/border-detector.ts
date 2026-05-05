@@ -1,25 +1,23 @@
 import { screen } from "electron";
+import { type Rect, type WorldContext, type BackendWorldContext, type DisplayLike, toRect } from "./store";
 
 export const BORDER_TOLERANCE = 2;
 
-export type DisplayLike = {
-  bounds?: { x: number; y: number; width: number; height: number };
-  workArea?: { x: number; y: number; width: number; height: number };
-};
-
-export function intersectionArea(bounds: { x: number; y: number; width: number; height: number }, x: number, y: number, width: number, height: number) {
-  const overlapW = Math.min(x + width, bounds.x + bounds.width) - Math.max(x, bounds.x);
-  const overlapH = Math.min(y + height, bounds.y + bounds.height) - Math.max(y, bounds.y);
+export function intersectionArea(bounds: Rect | Electron.Rectangle, x: number, y: number, width: number, height: number) {
+  const boundsRect = 'width' in bounds ? bounds as Rect : toRect(bounds as Electron.Rectangle);
+  const overlapW = Math.min(x + width, boundsRect.x + boundsRect.width) - Math.max(x, boundsRect.x);
+  const overlapH = Math.min(y + height, boundsRect.y + boundsRect.height) - Math.max(y, boundsRect.y);
   return Math.max(0, overlapW) * Math.max(0, overlapH);
 }
 
-export function rectDistance(bounds: { x: number; y: number; width: number; height: number }, x: number, y: number, width: number, height: number) {
-  const dx = Math.max(bounds.x - (x + width), x - (bounds.x + bounds.width), 0);
-  const dy = Math.max(bounds.y - (y + height), y - (bounds.y + bounds.height), 0);
+export function rectDistance(bounds: Rect | Electron.Rectangle, x: number, y: number, width: number, height: number) {
+  const boundsRect = 'width' in bounds ? bounds as Rect : toRect(bounds as Electron.Rectangle);
+  const dx = Math.max(boundsRect.x - (x + width), x - (boundsRect.x + boundsRect.width), 0);
+  const dy = Math.max(boundsRect.y - (y + height), y - (boundsRect.y + boundsRect.height), 0);
   return dx + dy;
 }
 
-export function nearestDisplay(displays: DisplayLike[], x: number, y: number, width: number, height: number) {
+export function nearestDisplay(displays: DisplayLike[], x: number, y: number, width: number, height: number): DisplayLike | null {
   let bestDisplay: DisplayLike | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -35,7 +33,7 @@ export function nearestDisplay(displays: DisplayLike[], x: number, y: number, wi
   return bestDisplay || displays[0] || null;
 }
 
-export function displayForRect(displays: DisplayLike[], x: number, y: number, width: number, height: number) {
+export function displayForRect(displays: DisplayLike[], x: number, y: number, width: number, height: number): DisplayLike | null {
   if (!Array.isArray(displays) || displays.length === 0) return null;
 
   let bestDisplay: DisplayLike | null = null;
@@ -56,21 +54,22 @@ export function displayForRect(displays: DisplayLike[], x: number, y: number, wi
 
   const centerX = x + width / 2;
   const centerY = y + height / 2;
-  const centeredDisplay = displays.find((display) => (
-    display?.bounds
-    && centerX >= display.bounds.x
-    && centerX <= display.bounds.x + display.bounds.width
-    && centerY >= display.bounds.y
-    && centerY <= display.bounds.y + display.bounds.height
-  ));
+  const centeredDisplay = displays.find((display) => {
+    const bounds = display?.bounds;
+    return bounds
+    && centerX >= bounds.x
+    && centerX <= bounds.x + bounds.width
+    && centerY >= bounds.y
+    && centerY <= bounds.y + bounds.height;
+  });
   if (centeredDisplay) return centeredDisplay;
 
   return nearestDisplay(displays, x, y, width, height);
 }
 
-export function desktopBounds(displays: DisplayLike[]) {
+export function desktopBounds(displays: DisplayLike[]): Rect {
   if (!Array.isArray(displays) || displays.length === 0) {
-    return { x: 0, y: 0, w: 0, h: 0 };
+    return { x: 0, y: 0, width: 0, height: 0 };
   }
 
   let minX = displays[0].bounds?.x ?? 0;
@@ -87,10 +86,10 @@ export function desktopBounds(displays: DisplayLike[]) {
     maxY = Math.max(maxY, bounds.y + bounds.height);
   }
 
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-export function checkBorder(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays(), tolerance = BORDER_TOLERANCE) {
+export function checkBorder(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays() as DisplayLike[], tolerance = BORDER_TOLERANCE): string[] {
   const display = displayForRect(displays, x, y, width, height);
   if (!display?.bounds) return [];
 
@@ -106,7 +105,7 @@ export function checkBorder(x: number, y: number, width: number, height: number,
   return [...new Set(borders)];
 }
 
-export function checkGravity(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays(), tolerance = BORDER_TOLERANCE) {
+export function checkGravity(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays() as DisplayLike[], tolerance = BORDER_TOLERANCE): boolean {
   const display = displayForRect(displays, x, y, width, height);
   if (!display?.workArea) return false;
 
@@ -115,23 +114,32 @@ export function checkGravity(x: number, y: number, width: number, height: number
   return bottom < floorY - tolerance;
 }
 
-export function getRawWorldContext(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays()) {
+function toBackendRect(rect: Rect): { x: number; y: number; w: number; h: number } {
+  return {
+    x: rect.x,
+    y: rect.y,
+    w: rect.width,
+    h: rect.height,
+  };
+}
+
+export function getRawWorldContext(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays() as DisplayLike[]): BackendWorldContext | null {
   const display = displayForRect(displays, x, y, width, height);
   if (!display?.bounds || !display?.workArea) return null;
 
   return {
-    screen: {
+    screen: toBackendRect({
       x: display.bounds.x,
       y: display.bounds.y,
-      w: display.bounds.width,
-      h: display.bounds.height,
-    },
-    work_area: {
+      width: display.bounds.width,
+      height: display.bounds.height,
+    }),
+    work_area: toBackendRect({
       x: display.workArea.x,
       y: display.workArea.y,
-      w: display.workArea.width,
-      h: display.workArea.height,
-    },
-    desktop: desktopBounds(displays),
+      width: display.workArea.width,
+      height: display.workArea.height,
+    }),
+    desktop: toBackendRect(desktopBounds(displays)),
   };
 }

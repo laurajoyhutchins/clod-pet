@@ -1,17 +1,11 @@
 import { BrowserWindow, ipcMain, screen } from "electron";
 import path = require("path");
+import { pathToFileURL } from "url";
 import BackendClient = require("./backend-client");
 import WindowManager = require("./window-manager");
 import * as BorderDetector from "./border-detector";
 import logger = require("./logger");
-import { WorldStore } from "./store";
-import type {
-  PetState,
-  PetData,
-  WorldStoreState,
-  WorldContext,
-  PetWindowOptions,
-} from "./types";
+import { WorldStore, type PetInstance, type PetData, type WorldContext, type BackendWorldContext, type PetWindowOptions, type BackendResponse, type DisplayLike, type StepPetPayload, standardizeError } from "./store";
 
 const log = logger.createLogger("pet-manager");
 const isDebug = () => process.env.NODE_ENV === "development" || process.env.VERBOSE === "true";
@@ -45,11 +39,11 @@ class PetManager {
     this.volume = 0.3;
   }
 
-  private _getPet(petId: string) {
+  private _getPet(petId: string): PetInstance | null {
     return this.store?.getState().pets[petId] || null;
   }
 
-  private _setPet(petId: string, pet: PetState) {
+  private _setPet(petId: string, pet: PetInstance): void {
     if (!this.store) return;
     if (typeof this.store.setPet === "function") {
       this.store.setPet(petId, pet);
@@ -63,14 +57,14 @@ class PetManager {
     this.store.setState({ pets: nextPets });
   }
 
-  private _updatePet(petId: string, updates: Partial<PetState>) {
+  private _updatePet(petId: string, updates: Partial<PetInstance>): void {
     if (!this.store) return;
     if (typeof this.store.updatePet === "function") {
       this.store.updatePet(petId, updates);
     }
   }
 
-  private _removePetFromStore(petId: string) {
+  private _removePetFromStore(petId: string): void {
     if (!this.store) return;
     if (typeof this.store.removePet === "function") {
       this.store.removePet(petId);
@@ -91,23 +85,23 @@ class PetManager {
     }
   }
 
-  private _syncEnvironment() {
+  private _syncEnvironment(): void {
     if (!this.store) return;
     const display = screen.getPrimaryDisplay();
-    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays());
+    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays() as DisplayLike[]);
 
     this.store.setState({
       environment: {
-        DisplayBounds: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },
-        WorkArea: { x: display.workArea.x, y: display.workArea.y, w: display.workArea.width, h: display.workArea.height },
-        Desktop: { x: desktop.x, y: desktop.y, w: desktop.w, h: desktop.h },
+        screen: { x: display.bounds.x, y: display.bounds.y, width: display.bounds.width, height: display.bounds.height },
+        workArea: { x: display.workArea.x, y: display.workArea.y, width: display.workArea.width, height: display.workArea.height },
+        desktop: desktop,
         scale: this.scale,
         volume: this.volume,
       }
     });
   }
 
-  async init() {
+  async init(): Promise<void> {
     this._setupIpcHandlers();
 
     try {
@@ -119,8 +113,8 @@ class PetManager {
       if (settings && typeof settings.Volume === "number") {
         this.volume = settings.Volume;
       }
-    } catch (err) {
-      log.warn("Failed to load initial settings:", err.message);
+    } catch (err: unknown) {
+      log.warn("Failed to load initial settings:", err instanceof Error ? err.message : String(err));
     }
 
     this._syncEnvironment();
@@ -142,7 +136,7 @@ class PetManager {
     });
   }
 
-  async setScale(scale: number) {
+  async setScale(scale: number): Promise<void> {
     this.scale = scale;
     log.info("Setting scale to:", scale);
     this._syncEnvironment();
@@ -157,14 +151,14 @@ class PetManager {
     }
   }
 
-  setVolume(volume: number) {
+  setVolume(volume: number): void {
     this.volume = volume;
     log.info("Setting volume to:", volume);
     this._syncEnvironment();
     // Renderer now subscribes to store:volume
   }
 
-  async loadAndCreatePet(petPath: string, spawnId = 0) {
+  async loadAndCreatePet(petPath: string, spawnId = 0): Promise<string> {
     log.info("Loading pet:", petPath);
     this.lastPetLoad = { petPath, startedAt: new Date().toISOString() };
     const petData = await this.backendClient.loadPet(petPath) as PetData;
@@ -176,13 +170,14 @@ class PetManager {
     }
 
     const workArea = screen.getPrimaryDisplay().workArea;
-    const world = BorderDetector.getRawWorldContext(
+    const backendWorld = BorderDetector.getRawWorldContext(
       workArea.x + Math.floor(workArea.width / 2),
       workArea.y + Math.floor(workArea.height / 2),
       64, 64
-    ) || this._buildWorldContext();
-    const addResult = await this.backendClient.addPet(petPath, spawnId, world) as any;
-    const backendPetId = addResult && addResult.pet_id;
+    ) || this._buildBackendWorldContext();
+    const addResult = await this.backendClient.addPet(petPath, spawnId, backendWorld) as BackendResponse;
+    const addResultPayload = addResult && addResult.payload as Record<string, unknown>;
+    const backendPetId = addResultPayload && addResultPayload.pet_id as string;
     if (!backendPetId) {
       this.lastError = "backend did not return a pet id";
       throw new Error("backend did not return a pet id");
@@ -201,9 +196,11 @@ class PetManager {
     const width = Math.round(frameW * this.scale);
     const height = Math.round(frameH * this.scale);
 
-    const desktop = world.desktop;
-    const rawX = typeof addResult.x === "number" ? addResult.x : desktop.x + Math.floor(Math.random() * desktop.w);
-    const rawY = typeof addResult.y === "number" ? addResult.y : desktop.y + Math.floor(Math.random() * desktop.h * 0.8);
+    const desktop = backendWorld.desktop;
+    const fallbackX = desktop.x + Math.floor(Math.random() * Math.max(1, desktop.w));
+    const fallbackY = desktop.y + Math.floor(Math.random() * Math.max(1, desktop.h * 0.8));
+    const rawX = typeof addResultPayload.x === "number" && Number.isFinite(addResultPayload.x) ? addResultPayload.x as number : fallbackX;
+    const rawY = typeof addResultPayload.y === "number" && Number.isFinite(addResultPayload.y) ? addResultPayload.y as number : fallbackY;
 
     // Clamp to desktop area — Wayland can't position windows off-screen, so the OS would snap an
     // off-screen spawn (e.g. screenW+10) to (0,0). Clamping here puts the pet at the nearest
@@ -217,8 +214,8 @@ class PetManager {
       backendPetId,
       frameW,
       frameH,
-      currentAnimId: typeof addResult.current_anim_id === "number" ? addResult.current_anim_id : 0,
-      currentAnimName: typeof addResult.current_anim_name === "string" ? addResult.current_anim_name : "",
+      currentAnimId: typeof addResultPayload.current_anim_id === "number" ? addResultPayload.current_anim_id as number : 0,
+      currentAnimName: typeof addResultPayload.current_anim_name === "string" ? addResultPayload.current_anim_name as string : "",
       stepFailures: 0,
       lastStepError: null,
       dragOffsetX: 0,
@@ -227,8 +224,8 @@ class PetManager {
         frameIndex: 0,
         x,
         y,
-        flipH: !!addResult.flip_h,
-        borderCtx: typeof addResult.border_ctx === "number" ? addResult.border_ctx : 0,
+        flipH: !!addResultPayload.flip_h,
+        borderCtx: typeof addResultPayload.border_ctx === "number" ? addResultPayload.border_ctx as number : 0,
       },
       loaded: false,
       stopped: false,
@@ -249,12 +246,14 @@ class PetManager {
     if (x !== rawX || y !== rawY) {
       try {
         await this.backendClient.setPosition(backendPetId, x, y);
-      } catch (err) {
-        log.warn("Failed to sync clamped spawn position:", err.message);
+      } catch (err: unknown) {
+        log.warn("Failed to sync clamped spawn position:", err instanceof Error ? err.message : String(err));
       }
     }
 
-    const loadPromise = win.loadFile(path.join(__dirname, "..", "pet.html"), { query: { petId: backendPetId } });
+    const petHtmlUrl = new URL(pathToFileURL(path.join(__dirname, "..", "pet.html")).toString());
+    petHtmlUrl.searchParams.set("petId", backendPetId);
+    const loadPromise = win.loadURL(petHtmlUrl.toString());
 
     let shown = false;
     const showPetWindow = () => {
@@ -262,7 +261,9 @@ class PetManager {
       shown = true;
       // Re-apply the intended position right before showing so the window manager has a
       // chance to honor the spawn coordinates before the first physics sync runs.
-      win.setPosition(x, y);
+      const showX = Number.isFinite(x) ? Math.round(x) : desktop.x;
+      const showY = Number.isFinite(y) ? Math.round(y) : desktop.y;
+      win.setPosition(showX, showY);
       log.debug("Window ready to show", win.getBounds());
       win.showInactive();
       this._startPetLoop(backendPetId);
@@ -293,33 +294,31 @@ class PetManager {
     return backendPetId;
   }
 
-  _buildWorldContext() {
+  _buildWorldContext(): WorldContext {
     const display = screen.getPrimaryDisplay();
-    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays());
+    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays() as DisplayLike[]);
 
     return {
-      screen: {
-        x: display.bounds.x,
-        y: display.bounds.y,
-        w: display.bounds.width,
-        h: display.bounds.height,
-      },
-      work_area: {
-        x: display.workArea.x,
-        y: display.workArea.y,
-        w: display.workArea.width,
-        h: display.workArea.height,
-      },
-      desktop: {
-        x: desktop.x,
-        y: desktop.y,
-        w: desktop.w,
-        h: desktop.h,
-      },
+      screen: { x: display.bounds.x, y: display.bounds.y, width: display.bounds.width, height: display.bounds.height },
+      workArea: { x: display.workArea.x, y: display.workArea.y, width: display.workArea.width, height: display.workArea.height },
+      desktop: desktop,
+      scale: this.scale,
+      volume: this.volume,
     };
   }
 
-  async removePet(petId: string) {
+  _buildBackendWorldContext(): BackendWorldContext {
+    const display = screen.getPrimaryDisplay();
+    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays() as DisplayLike[]);
+
+    return {
+      screen: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },
+      work_area: { x: display.workArea.x, y: display.workArea.y, w: display.workArea.width, h: display.workArea.height },
+      desktop: { x: desktop.x, y: desktop.y, w: desktop.width, h: desktop.height },
+    };
+  }
+
+  async removePet(petId: string): Promise<boolean> {
     this.draggingPets.delete(petId);
     this._clearPetTimer(petId);
     await this.backendClient.removePet(petId);
@@ -328,7 +327,7 @@ class PetManager {
     return true;
   }
 
-  shutdown() {
+  shutdown(): void {
     this.appIsQuitting = true;
 
     const petIds = Object.keys(this.store?.getState().pets || {});
@@ -347,7 +346,7 @@ class PetManager {
     }
   }
 
-  _startPetLoop(petId: string) {
+  _startPetLoop(petId: string): void {
     const entry = this._getPet(petId);
     if (!entry || this.petTimers.has(petId)) return;
 
@@ -372,14 +371,19 @@ class PetManager {
         const [winX, winY] = win.getPosition();
         const [winW, winH] = win.getSize();
 
-        const world = BorderDetector.getRawWorldContext(winX, winY, winW, winH);
-        if (!world) {
+        const backendWorld = BorderDetector.getRawWorldContext(winX, winY, winW, winH, screen.getAllDisplays() as DisplayLike[]);
+        if (!backendWorld) {
           schedule(200);
           return;
         }
 
-        const result = await this.backendClient.stepPet(petId, world) as any;
-        const borderCtx = typeof result.border_ctx === "number" ? result.border_ctx : 0;
+        const result = await this.backendClient.stepPet(petId, backendWorld) as BackendResponse<StepPetPayload>;
+        const resultPayload = result.payload;
+        if (!resultPayload) {
+          schedule(200);
+          return;
+        }
+        const borderCtx = typeof resultPayload.border_ctx === "number" ? resultPayload.border_ctx : 0;
         const borderLabel = this._borderCtxLabel(borderCtx);
         if (isDebug() && borderLabel && lastBorderCtx !== borderCtx) {
           const animId = typeof petEntry.currentAnimId === "number" ? petEntry.currentAnimId : -1;
@@ -389,21 +393,22 @@ class PetManager {
         lastBorderCtx = borderCtx;
 
         if (isDebug()) {
-          log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${world.screen.w}x${world.screen.h}) wa=(${world.work_area.w}x${world.work_area.h})`);
-          log.info(`[DEBUG] loop result animName=${result.current_anim_name} animId=${result.current_anim_id} x=${result.x} y=${result.y} nextAnim=${result.next_anim_id} borderCtx=${result.border_ctx}`);
+          log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${backendWorld.screen.w}x${backendWorld.screen.h}) wa=(${backendWorld.work_area.w}x${backendWorld.work_area.h})`);
+          log.info(`[DEBUG] loop result animName=${resultPayload.current_anim_name} animId=${resultPayload.current_anim_id} x=${resultPayload.x} y=${resultPayload.y} nextAnim=${resultPayload.next_anim_id} borderCtx=${resultPayload.border_ctx}`);
         }
 
-        const finalX = result.x ?? 0;
-        const finalY = (result.y ?? 0) + (result.offset_y ?? 0);
-        const currentAnimId = typeof result.current_anim_id === "number" ? result.current_anim_id : petEntry.currentAnimId;
-        const currentAnimName = typeof result.current_anim_name === "string" ? result.current_anim_name : petEntry.currentAnimName;
+        const finalX = resultPayload.x ?? 0;
+        const finalY = (resultPayload.y ?? 0) + (resultPayload.offset_y ?? 0);
+        const currentAnimId = typeof resultPayload.current_anim_id === "number" ? resultPayload.current_anim_id : petEntry.currentAnimId;
+        const currentAnimName = typeof resultPayload.current_anim_name === "string" ? resultPayload.current_anim_name : petEntry.currentAnimName;
 
         const nextPetState = {
-          frameIndex: result.frame_index,
+          frameIndex: resultPayload.frame_index,
           x: finalX,
           y: finalY,
-          offsetY: result.offset_y,
-          flipH: result.flip_h,
+          offsetY: resultPayload.offset_y,
+          flipH: resultPayload.flip_h,
+          opacity: resultPayload.opacity ?? 1.0,
           borderCtx,
         };
 
@@ -417,24 +422,25 @@ class PetManager {
 
         if (!win.isDestroyed()) {
           win.webContents.send("pet:frame", {
-            frameIndex: result.frame_index,
-            flipH: result.flip_h,
-            opacity: result.opacity ?? 1.0,
-            sound: result.sound,
+            frameIndex: resultPayload.frame_index,
+            flipH: resultPayload.flip_h,
+            opacity: resultPayload.opacity ?? 1.0,
+            sound: resultPayload.sound,
             borderCtx,
-            world,
+            world: backendWorld,
             windowPos: { x: winX, y: winY, w: winW, h: winH },
           });
         }
 
-        schedule(result.interval_ms > 0 ? result.interval_ms : 200);
+        schedule(resultPayload.interval_ms > 0 ? resultPayload.interval_ms : 200);
       } catch (err) {
+        const diag = standardizeError(err, "pet-manager:stepPet");
         const stepFailures = (petEntry.stepFailures || 0) + 1;
-        this.lastError = err.message;
-        log.warn("Step pet error:", err.message);
+        this.lastError = diag.message;
+        log.warn("Step pet error:", diag.message);
         this._updatePet(petId, {
           stepFailures,
-          lastStepError: err.message,
+          lastStepError: diag.message,
         });
         if (stepFailures >= 5) {
           this._updatePet(petId, { stopped: true });
@@ -448,7 +454,7 @@ class PetManager {
     schedule(200);
   }
 
-  _borderCtxLabel(borderCtx: number) {
+  _borderCtxLabel(borderCtx: number): string {
     switch (borderCtx) {
       case 1:
         return "floor";
@@ -463,12 +469,13 @@ class PetManager {
     }
   }
 
-  _setupIpcHandlers() {
+  _setupIpcHandlers(): void {
     if (this.ipcHandlersRegistered) return;
     this.ipcHandlersRegistered = true;
 
     ipcMain.on("pet:drag", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return;
       const petId = this._getPetIdByWindow(win);
       if (petId) {
         this.draggingPets.add(petId);
@@ -489,9 +496,11 @@ class PetManager {
 
     ipcMain.on("pet:drag:move", (event, _data) => {
       const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return;
       const petId = this._getPetIdByWindow(win);
+      if (!petId) return;
       const entry = this._getPet(petId);
-      if (petId && entry) {
+      if (entry) {
         this.draggingPets.add(petId);
         // Use the main-process cursor position instead of the renderer's screenX/screenY —
         // on Wayland those values are window-relative, not absolute screen coordinates.
@@ -505,6 +514,7 @@ class PetManager {
 
     ipcMain.on("pet:drop", (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return;
       const petId = this._getPetIdByWindow(win);
       if (petId) {
         this.draggingPets.delete(petId);
@@ -522,11 +532,11 @@ class PetManager {
     }
   }
 
-  _getPetIdByWindow(win: BrowserWindow | null) {
+  _getPetIdByWindow(win: BrowserWindow | null): string | null {
     return win ? this.windowToPetId.get(win) || null : null;
   }
 
-  getAllPets() {
+  getAllPets(): string[] {
     return Object.keys(this.store?.getState().pets || {});
   }
 

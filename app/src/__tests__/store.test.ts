@@ -1,5 +1,4 @@
-import { WorldStore } from "../store";
-import { initialState } from "../store/state";
+import { WorldStore, initialState } from "../store";
 
 describe("WorldStore", () => {
   let store: WorldStore;

@@ -1,22 +1,61 @@
 (function() {
-const api = (window as any).clodPet.control;
+const api = window.clodPet.control;
 
-let settings: any = {};
+let settings: Partial<AppSettings> = {};
 let pets: string[] = [];
-let activePets: any[] = [];
+let activePets: PetInfo[] = [];
 let diagnosticsRefreshTimer: number | null = null;
 let petTrackerTimer: number | null = null;
+let resizeFrameHandle: number | null = null;
+let lastRequestedSize: { width: number; height: number } | null = null;
 
 function el(id: string) {
-  return document.getElementById(id) as HTMLElement;
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Element #${id} not found`);
+  return element;
 }
 
 function input(id: string) {
-  return document.getElementById(id) as HTMLInputElement;
+  const element = document.getElementById(id);
+  if (!(element instanceof HTMLInputElement)) throw new Error(`Element #${id} is not an HTMLInputElement`);
+  return element;
 }
 
 function select(id: string) {
-  return document.getElementById(id) as HTMLSelectElement;
+  const element = document.getElementById(id);
+  if (!(element instanceof HTMLSelectElement)) throw new Error(`Element #${id} is not an HTMLSelectElement`);
+  return element;
+}
+
+function scheduleControlPanelResize() {
+  if (resizeFrameHandle !== null) return;
+
+  resizeFrameHandle = window.requestAnimationFrame(async () => {
+    resizeFrameHandle = null;
+
+    const panel = document.querySelector(".window") as HTMLElement | null;
+    if (!panel) return;
+
+    const width = Math.max(350, Math.ceil(panel.offsetWidth + 8));
+    const height = Math.max(400, Math.ceil(panel.offsetHeight + 8));
+    const nextSize = { width, height };
+
+    if (
+      lastRequestedSize !== null &&
+      lastRequestedSize.width === nextSize.width &&
+      lastRequestedSize.height === nextSize.height
+    ) {
+      return;
+    }
+
+    lastRequestedSize = nextSize;
+
+    try {
+      await api.resizeWindow(width, height);
+    } catch {
+      // Ignore resize failures while the window is closing or not ready.
+    }
+  });
 }
 
 async function initControlPanel() {
@@ -33,8 +72,9 @@ async function initControlPanel() {
     renderPetSelect();
     await refreshActivePets();
     await refreshDiagnostics();
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 }
 
@@ -63,6 +103,8 @@ function renderSettings() {
   input("win-foreground").checked = settings.WinForeGround || false;
   input("steal-focus").checked = settings.StealTaskbarFocus || false;
   input("autostart").value = String(settings.AutostartPets || 1);
+
+  scheduleControlPanelResize();
 }
 
 function renderPetSelect() {
@@ -83,8 +125,8 @@ async function refreshActivePets() {
     activePets = activePets || [];
     renderActivePets();
     renderPetTracker();
-  } catch (err: any) {
-    updateStatus("Error loading pets: " + err.message, "error");
+  } catch (err: unknown) {
+    updateStatus("Error loading pets: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 }
 
@@ -133,17 +175,18 @@ async function renderPetTracker() {
   const content = el("pet-tracker-content");
   try {
     const diag = await api.diagnostics();
-    const petsDiag = diag.pets || {};
+    const petsDiag = diag.pets || { windows: [] };
     const windows = petsDiag.windows || [];
 
     if (windows.length === 0) {
       content.innerHTML = "No active windows tracked.";
+      scheduleControlPanelResize();
       return;
     }
 
     let html = "";
-    windows.forEach((win: any) => {
-      const b = win.bounds || {};
+    windows.forEach((win: WindowDiagnosticInfo) => {
+      const b = win.bounds || { x: 0, y: 0, width: 0, height: 0 };
       html += `<div style="margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">`;
       html += `ID: ${win.id}<br/>`;
       html += `Pos: ${b.x}, ${b.y}<br/>`;
@@ -152,8 +195,10 @@ async function renderPetTracker() {
       html += `</div>`;
     });
     content.innerHTML = html;
-  } catch (err: any) {
-    content.innerHTML = "Error updating tracker: " + err.message;
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    content.innerHTML = "Error updating tracker: " + (err instanceof Error ? err.message : String(err));
+    scheduleControlPanelResize();
   }
 }
 
@@ -165,8 +210,9 @@ async function removePet(petId: string) {
     await api.removePet(petId);
     updateStatus("Pet removed", "success");
     await refreshActivePets();
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 }
 
@@ -178,8 +224,9 @@ async function addPet() {
     await api.addPet(petName);
     updateStatus(`Added ${petName}`, "success");
     await refreshActivePets();
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 }
 
@@ -194,9 +241,9 @@ async function refreshDiagnostics() {
   const log = el("diagnostics-log");
   try {
     const diag = await api.diagnostics();
-    const backend = diag.backend || {};
-    const launch = backend.launch || {};
-    const petsDiag = diag.pets || {};
+    const backend = diag.backend || { url: null, lastStderr: "", state: "unknown", available: false };
+    const launch = backend.launch || { cmd: "", args: [], useExe: false, petsDir: "" };
+    const petsDiag = diag.pets || { petCount: 0, lastError: null, lastPetLoad: null };
     const backendState = diag.backend?.state || (diag.backendHealth?.ok ? "ready" : "unknown");
     const backendFatal = diag.backend?.fatalError || diag.backend?.lastError || null;
 
@@ -205,7 +252,7 @@ async function refreshDiagnostics() {
     addDiagnosticRow(summary, "URL", backend.url || "not started");
     addDiagnosticRow(summary, "Launch", launch.cmd ? `${launch.cmd} ${Array.isArray(launch.args) ? launch.args.join(" ") : ""}`.trim() : "unknown");
     addDiagnosticRow(summary, "Mode", launch.useExe ? "executable" : "source");
-    addDiagnosticRow(summary, "Pets Dir", launch.petsDir || diag.backendVersion?.pets_dir || "unknown");
+    addDiagnosticRow(summary, "Pets Dir", launch.petsDir || "unknown");
     addDiagnosticRow(summary, "Active", `${petsDiag.petCount || 0} pet(s)`);
     addDiagnosticRow(summary, "Logs", diag.app?.logDir || "unknown");
     addDiagnosticRow(summary, "Last Error", diag.app?.lastError || petsDiag.lastError || backendFatal || "none");
@@ -234,11 +281,13 @@ async function refreshDiagnostics() {
     } else {
       updateStatus("Backend status unknown", "");
     }
-  } catch (err: any) {
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
     summary.innerHTML = "";
     addDiagnosticRow(summary, "Diagnostics", "failed");
-    log.textContent = err.message;
-    updateStatus("Backend unavailable: " + err.message, "error");
+    log.textContent = err instanceof Error ? err.message : String(err);
+    updateStatus("Backend unavailable: " + (err instanceof Error ? err.message : String(err)), "error");
+    scheduleControlPanelResize();
   }
 }
 
@@ -258,8 +307,9 @@ el("volume").addEventListener("input", async (e: Event) => {
   el("volume-value").textContent = Math.round(vol * 100) + "%";
   try {
     await api.setVolume(vol);
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
@@ -268,8 +318,9 @@ el("scale").addEventListener("input", async (e: Event) => {
   el("scale-value").textContent = scale.toFixed(1) + "x";
   try {
     await api.setScale(scale);
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
@@ -278,8 +329,9 @@ el("gravity").addEventListener("input", async (e: Event) => {
   el("gravity-value").textContent = gravity.toFixed(1) + "x";
   try {
     await api.setGravityFactor(gravity);
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
@@ -289,22 +341,23 @@ el("refresh-diagnostics-btn").addEventListener("click", refreshDiagnostics);
 el("pet-select").addEventListener("change", async (e: Event) => {
   try {
     await api.setSettings({ CurrentPet: (e.target as HTMLSelectElement).value });
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
 ["multi-screen", "win-foreground", "steal-focus"].forEach((id) => {
   el(id).addEventListener("change", async (e: Event) => {
-    const keyMap: Record<string, string> = {
+    const keyMap: Record<string, keyof AppSettings> = {
       "multi-screen": "MultiScreenEnabled",
       "win-foreground": "WinForeGround",
       "steal-focus": "StealTaskbarFocus",
     };
     try {
       await api.setSettings({ [keyMap[id]]: (e.target as HTMLInputElement).checked });
-    } catch (err: any) {
-      updateStatus("Error: " + err.message, "error");
+      scheduleControlPanelResize();
+    } catch (err: unknown) {
+      updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
     }
   });
 });
@@ -312,8 +365,9 @@ el("pet-select").addEventListener("change", async (e: Event) => {
 el("autostart").addEventListener("change", async (e: Event) => {
   try {
     await api.setSettings({ AutostartPets: parseInt((e.target as HTMLInputElement).value, 10) });
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
@@ -322,8 +376,9 @@ el("show-advanced").addEventListener("change", async (e: Event) => {
   el("advanced-settings").style.display = show ? "block" : "none";
   try {
     await api.setSettings({ ShowAdvancedSettings: show });
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
@@ -332,8 +387,9 @@ el("show-diagnostics").addEventListener("change", async (e: Event) => {
   el("diagnostics-card").style.display = show ? "block" : "none";
   try {
     await api.setSettings({ ShowDiagnostics: show });
-  } catch (err: any) {
-    updateStatus("Error: " + err.message, "error");
+    scheduleControlPanelResize();
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }
 });
 
@@ -354,6 +410,10 @@ window.addEventListener("beforeunload", () => {
   if (petTrackerTimer !== null) {
     clearInterval(petTrackerTimer);
     petTrackerTimer = null;
+  }
+  if (resizeFrameHandle !== null) {
+    cancelAnimationFrame(resizeFrameHandle);
+    resizeFrameHandle = null;
   }
   if (diagnosticsRefreshTimer !== null) {
     clearInterval(diagnosticsRefreshTimer);

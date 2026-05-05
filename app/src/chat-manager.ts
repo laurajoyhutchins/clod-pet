@@ -10,13 +10,13 @@ class ChatManager {
     this.setupIpc();
   }
 
-  setupIpc() {
+  setupIpc(): void {
     ipcMain.on("chat-close", () => {
       this.closeChat();
     });
   }
 
-  showChat() {
+  showChat(): void {
     if (this.window && !this.window.isDestroyed()) {
       this.window.show();
       this.window.focus();
@@ -24,8 +24,8 @@ class ChatManager {
     }
 
     this.window = new BrowserWindow({
-      width: 400,
-      height: 500,
+      width:400,
+      height:500,
       title: "Pet Chat",
       webPreferences: {
         nodeIntegration: false,
@@ -47,13 +47,13 @@ class ChatManager {
     });
   }
 
-  closeChat() {
+  closeChat(): void {
     if (this.window && !this.window.isDestroyed()) {
       this.window.close();
     }
   }
 
-  isVisible() {
+  isVisible(): boolean {
     return this.window !== null && !this.window.isDestroyed() && this.window.isVisible();
   }
 }

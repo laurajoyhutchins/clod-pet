@@ -21,19 +21,19 @@ class Logger {
     this.level = LOG_LEVELS[level] ?? LOG_LEVELS.info;
   }
 
-  debug(...args) {
+  debug(...args: unknown[]) {
     this._write("debug", args);
   }
 
-  info(...args) {
+  info(...args: unknown[]) {
     this._write("info", args);
   }
 
-  warn(...args) {
+  warn(...args: unknown[]) {
     this._write("warn", args);
   }
 
-  error(...args) {
+  error(...args: unknown[]) {
     this._write("error", args);
   }
 
@@ -41,7 +41,7 @@ class Logger {
     if (this.level > LOG_LEVELS[level]) return;
 
     const line = `[${new Date().toISOString()}] [${level}] [${this.name}] ${args.map(formatArg).join(" ")}`;
-    const consoleMethod = console[level] || console.log;
+    const consoleMethod = (console as any)[level] || console.log;
     consoleMethod(`[${this.name}]`, ...args);
 
     try {

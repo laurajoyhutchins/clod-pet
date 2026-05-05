@@ -1,7 +1,7 @@
 // Mock electron modules
 jest.mock("electron", () => ({
   BrowserWindow: Object.assign(jest.fn().mockImplementation((opts) => ({
-    loadFile: jest.fn().mockResolvedValue(undefined),
+    loadURL: jest.fn().mockResolvedValue(undefined),
     show: jest.fn(),
     showInactive: jest.fn(),
     once: jest.fn((event, cb) => {
@@ -62,7 +62,7 @@ jest.mock("../backend-client", () => {
 
 jest.mock("../window-manager", () => {
   return jest.fn().mockImplementation(() => ({
-    windows: new Map(),
+    windows: new Map<string, { win: any; opts?: unknown }>(),
     createPetWindow: jest.fn(),
     getPetWindow: jest.fn(function (petId) {
       return this.windows.get(petId)?.win || null;
@@ -73,13 +73,21 @@ jest.mock("../window-manager", () => {
     updatePosition: jest.fn(),
     updateSize: jest.fn(),
     getAllWindows: jest.fn(function () {
-      return Array.from(this.windows.entries()).map(([id, { win }]) => ({ id, win }));
+      const entries = Array.from(this.windows.entries()) as Array<[string, { win: any }]>;
+      return entries.map(([id, entry]) => ({ id, win: entry.win }));
     }),
   }));
 });
 
 jest.mock("../store", () => {
-  const createState = () => ({
+  type TestState = {
+    pets: Record<string, any>;
+    backend: Record<string, unknown>;
+    environment: Record<string, unknown>;
+    ui: Record<string, unknown>;
+  };
+
+  const createState = (): TestState => ({
     pets: {},
     backend: {
       status: "idle",
@@ -109,16 +117,16 @@ jest.mock("../store", () => {
   });
 
   const createStore = () => {
-    let state = createState();
+    let state: TestState = createState();
     return {
       getState: jest.fn(() => state),
-      setState: jest.fn((newState) => {
+      setState: jest.fn((newState: Partial<TestState>) => {
         state = {
           ...state,
           ...newState,
         };
       }),
-      setPet: jest.fn((petId, pet) => {
+      setPet: jest.fn((petId: string, pet: unknown) => {
         state = {
           ...state,
           pets: {
@@ -127,7 +135,7 @@ jest.mock("../store", () => {
           },
         };
       }),
-      updatePet: jest.fn((petId, updates) => {
+      updatePet: jest.fn((petId: string, updates: Partial<Record<string, unknown>>) => {
         if (!state.pets[petId]) return;
         state = {
           ...state,
@@ -140,7 +148,7 @@ jest.mock("../store", () => {
           },
         };
       }),
-      removePet: jest.fn((petId) => {
+      removePet: jest.fn((petId: string) => {
         if (!state.pets[petId]) return;
         const pets = { ...state.pets };
         delete pets[petId];
@@ -161,6 +169,10 @@ jest.mock("../store", () => {
   return {
     __esModule: true,
     default: globalStore,
+    standardizeError: jest.fn((err: unknown, source: string) => ({
+      message: err instanceof Error ? err.message : String(err),
+      source,
+    })),
     WorldStore: jest.fn().mockImplementation(() => createStore()),
   };
 });
@@ -171,7 +183,7 @@ import globalStore from "../store";
 
 // Type for mock BrowserWindow
 type MockBrowserWindow = {
-  loadFile: jest.Mock;
+  loadURL: jest.Mock;
   show: jest.Mock;
   showInactive: jest.Mock;
   once: jest.Mock;
@@ -262,10 +274,13 @@ describe("PetManager", () => {
       tiles_x: 4,
       tiles_y: 1,
     });
-    mockBackendClient.addPet.mockResolvedValue({ pet_id: "pet_1", x: 321, y: 654, flip_h: false });
+    mockBackendClient.addPet.mockResolvedValue({
+      ok: true,
+      payload: { pet_id: "pet_1", x: 321, y: 654, flip_h: false },
+    });
 
     const mockWin = {
-      loadFile: jest.fn().mockResolvedValue(undefined),
+      loadURL: jest.fn().mockResolvedValue(undefined),
       show: jest.fn(),
       showInactive: jest.fn(),
       once: jest.fn(),
@@ -292,7 +307,7 @@ describe("PetManager", () => {
       x: 321,
       y: 654,
     }));
-    expect(mockWin.loadFile).toHaveBeenCalledWith(expect.stringContaining("pet.html"), { query: { petId: "pet_1" } });
+    expect(mockWin.loadURL).toHaveBeenCalledWith(expect.stringContaining("pet.html?petId=pet_1"));
     expect(petId).toBe("pet_1");
 
     // Test window events
@@ -320,7 +335,7 @@ describe("PetManager", () => {
 
   test("loadAndCreatePet should throw if backend doesn't return pet id", async () => {
     mockBackendClient.loadPet.mockResolvedValue({ png_base64: "a", tiles_x: 1, tiles_y: 1 });
-    mockBackendClient.addPet.mockResolvedValue({});
+    mockBackendClient.addPet.mockResolvedValue({ ok: true, payload: {} });
     await expect(manager.loadAndCreatePet("bad")).rejects.toThrow("backend did not return a pet id");
   });
 
@@ -351,12 +366,15 @@ describe("PetManager", () => {
     });
 
     mockBackendClient.stepPet = jest.fn().mockResolvedValue({
-      frame_index: 5,
-      x: 110,
-      y: 210,
-      opacity: 0.5,
-      interval_ms: 200,
-      sound: { mime_type: "audio/wav", data_base64: "abc" }
+      ok: true,
+      payload: {
+        frame_index: 5,
+        x: 110,
+        y: 210,
+        opacity: 0.5,
+        interval_ms: 200,
+        sound: { mime_type: "audio/wav", data_base64: "abc" }
+      }
     });
 
     manager["_startPetLoop"]("pet_1");
@@ -379,8 +397,11 @@ describe("PetManager", () => {
 
     // Test default x, y
     mockBackendClient.stepPet.mockResolvedValue({
+      ok: true,
+      payload: {
         frame_index: 6,
         interval_ms: 200
+      }
     });
     await jest.advanceTimersByTimeAsync(200);
     expect(mockStore.updatePet).toHaveBeenCalledWith("pet_1", expect.objectContaining({
@@ -506,11 +527,14 @@ describe("PetManager", () => {
     manager.draggingPets.add("pet_1");
 
     mockBackendClient.stepPet = jest.fn().mockResolvedValue({
-      frame_index: 42,
-      x: 110,
-      y: 210,
-      opacity: 1,
-      interval_ms: 100
+      ok: true,
+      payload: {
+        frame_index: 42,
+        x: 110,
+        y: 210,
+        opacity: 1,
+        interval_ms: 100
+      }
     });
 
     manager["_startPetLoop"]("pet_1");
@@ -552,13 +576,16 @@ describe("PetManager", () => {
       stopped: false,
     });
 
-    mockBackendClient.setPosition.mockResolvedValue({ ok: true });
+    mockBackendClient.setPosition.mockResolvedValue({ ok: true, payload: {} });
     mockBackendClient.stepPet.mockResolvedValue({
-      frame_index: 5,
-      x: 0,
-      y: 10,
-      opacity: 1,
-      interval_ms: 100
+      ok: true,
+      payload: {
+        frame_index: 5,
+        x: 0,
+        y: 10,
+        opacity: 1,
+        interval_ms: 100
+      }
     });
 
     manager["_startPetLoop"]("pet_1");
@@ -597,14 +624,17 @@ describe("PetManager", () => {
     });
 
     mockBackendClient.stepPet.mockResolvedValue({
-      frame_index: 5,
-      x: 100,
-      y: 200,
-      opacity: 1,
-      interval_ms: 100,
-      current_anim_id: 1,
-      current_anim_name: "walk",
-      border_ctx: 1,
+      ok: true,
+      payload: {
+        frame_index: 5,
+        x: 100,
+        y: 200,
+        opacity: 1,
+        interval_ms: 100,
+        current_anim_id: 1,
+        current_anim_name: "walk",
+        border_ctx: 1,
+      }
     });
 
     manager["_startPetLoop"]("pet_1");
@@ -671,10 +701,13 @@ describe("PetManager", () => {
       tiles_x: 4,
       tiles_y: 1,
     });
-    mockBackendClient.addPet.mockResolvedValue({ pet_id: "pet_1", x: 321, y: 654, flip_h: false });
+    mockBackendClient.addPet.mockResolvedValue({
+      ok: true,
+      payload: { pet_id: "pet_1", x: 321, y: 654, flip_h: false },
+    });
 
     const mockWin = {
-      loadFile: jest.fn().mockResolvedValue(undefined),
+      loadURL: jest.fn().mockResolvedValue(undefined),
       show: jest.fn(),
       showInactive: jest.fn(),
       once: jest.fn(),

@@ -1,6 +1,6 @@
 import { BrowserWindow } from "electron";
 import { WorldStore } from "./store";
-import type { PetWindowOptions, PetData } from "./types";
+import type { PetWindowOptions, PetData } from "./store";
 
 interface WindowEntry {
   win: BrowserWindow;

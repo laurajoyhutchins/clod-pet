@@ -60,7 +60,7 @@ describe("border-detector utilities", () => {
       { bounds: { x: 125, y: 25, width: 25, height: 25 } },
     ]);
 
-    expect(bounds).toEqual({ x: -100, y: 0, w: 250, h: 100 });
+    expect(bounds).toEqual({ x: -100, y: 0, width: 250, height: 100 });
   });
 
   test("checkBorder should report ceiling, floor, and walls edges independently", () => {

@@ -5,8 +5,8 @@
     "ignoreDeprecations": "6.0",
     "outDir": "dist",
     "lib": ["ES2020", "DOM"],
-    "strict": false,
-    "useUnknownInCatchVariables": false,
+    "strict": true,
+    "useUnknownInCatchVariables": true,
     "skipLibCheck": true,
     "noEmitOnError": true
   },

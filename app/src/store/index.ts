@@ -94,6 +94,37 @@ export class WorldStore {
   }
 }
 
+// Re-export all types from state for convenience
+export {
+  WorldState,
+  WorldContext,
+  BackendWorldContext,
+  EngineRect,
+  WorldStore as WorldStoreInterface,
+  PetInstance,
+  PetData,
+  PetInfo,
+  StepPetPayload,
+  BackendStatus,
+  BackendResponse,
+  BackendDiagnostics,
+  AppSettings,
+  FullDiagnostics,
+  LaunchInfo,
+  PetsDiagnostics,
+  PetWindowOptions,
+  ChatMessage,
+  ChatStreamEvent,
+  Rect,
+  UIState,
+  DiagnosticEvent,
+  standardizeError,
+  initialState,
+  toRect,
+  toRectangle,
+  DisplayLike,
+} from "./state";
+
 // Export a singleton instance for the main process
 const globalStore = new WorldStore();
 export default globalStore;

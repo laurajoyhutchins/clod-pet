@@ -1,6 +1,6 @@
 import { spawn, spawnSync, ChildProcess } from "child_process";
 import http from "http";
-import type { LaunchInfo } from "../types";
+import type { LaunchInfo } from "../store";
 
 // Mock modules
 jest.mock("child_process", () => ({
@@ -39,8 +39,13 @@ jest.mock("fs", () => ({
 
 import BackendManager from "../backend-manager";
 
+type MockChildProcess = ChildProcess & {
+  stdout: { on: jest.Mock; removeAllListeners: jest.Mock };
+  stderr: { on: jest.Mock; removeAllListeners: jest.Mock };
+};
+
 // Create a proper ChildProcess mock
-function createMockChildProcess(extra: Record<string, unknown> = {}): ChildProcess {
+function createMockChildProcess(extra: Record<string, unknown> = {}): MockChildProcess {
   return {
     stdin: null,
     stdout: { on: jest.fn(), removeAllListeners: jest.fn() } as any,
@@ -69,7 +74,7 @@ function createMockChildProcess(extra: Record<string, unknown> = {}): ChildProce
     ref: jest.fn(),
     unref: jest.fn(),
     ...extra,
-  } as unknown as ChildProcess;
+  } as unknown as MockChildProcess;
 }
 
 // Create a proper LaunchInfo mock
@@ -256,7 +261,7 @@ describe("BackendManager", () => {
   test("should handle stdout data", async () => {
     let stdoutCallback: ((chunk: Buffer) => void) | undefined;
     const mockProc = createMockChildProcess();
-    (mockProc.stdout.on as jest.Mock).mockImplementation((event, cb) => {
+    (mockProc.stdout.on as jest.Mock).mockImplementation((event: string, cb: (chunk: Buffer) => void) => {
       if (event === "data") stdoutCallback = cb;
     });
 
@@ -269,7 +274,7 @@ describe("BackendManager", () => {
   test("should handle stderr data", async () => {
     let stderrCallback: ((chunk: Buffer) => void) | undefined;
     const mockProc = createMockChildProcess();
-    (mockProc.stderr.on as jest.Mock).mockImplementation((event, cb) => {
+    (mockProc.stderr.on as jest.Mock).mockImplementation((event: string, cb: (chunk: Buffer) => void) => {
       if (event === "data") stderrCallback = cb;
     });
 
@@ -282,7 +287,7 @@ describe("BackendManager", () => {
   test("should suppress backend debug api command stderr spam", async () => {
     let stderrCallback: ((chunk: Buffer) => void) | undefined;
     const mockProc = createMockChildProcess();
-    (mockProc.stderr.on as jest.Mock).mockImplementation((event, cb) => {
+    (mockProc.stderr.on as jest.Mock).mockImplementation((event: string, cb: (chunk: Buffer) => void) => {
       if (event === "data") stderrCallback = cb;
     });
 
@@ -313,7 +318,7 @@ describe("BackendManager", () => {
     try {
       let stderrCallback: ((chunk: Buffer) => void) | undefined;
       const mockProc = createMockChildProcess();
-      (mockProc.stderr.on as jest.Mock).mockImplementation((event, cb) => {
+      (mockProc.stderr.on as jest.Mock).mockImplementation((event: string, cb: (chunk: Buffer) => void) => {
         if (event === "data") stderrCallback = cb;
       });
 
@@ -342,7 +347,7 @@ describe("BackendManager", () => {
   test("appendRecent should truncate long output", async () => {
     let stdoutCallback: ((chunk: Buffer) => void) | undefined;
     const mockProc = createMockChildProcess();
-    (mockProc.stdout.on as jest.Mock).mockImplementation((event, cb) => {
+    (mockProc.stdout.on as jest.Mock).mockImplementation((event: string, cb: (chunk: Buffer) => void) => {
       if (event === "data") stdoutCallback = cb;
     });
 
@@ -550,10 +555,10 @@ describe("BackendManager", () => {
     };
     (net.createServer as jest.Mock).mockReturnValue(mockServer);
 
-    mockServer.listen.mockImplementation((port, cb) => {
+    mockServer.listen.mockImplementation((port: number, cb?: () => void) => {
         // Trigger error after the current execution block so .on('error') is registered
         setImmediate(() => {
-            const errorCall = mockServer.on.mock.calls.find(c => c[0] === "error");
+            const errorCall = mockServer.on.mock.calls.find((c: [string, (err: Error) => void]) => c[0] === "error");
             if (errorCall) errorCall[1](new Error("EADDRINUSE"));
         });
     });
@@ -572,8 +577,9 @@ describe("BackendManager", () => {
 
     mockGet.mockImplementation((url: any, cb?: any) => {
       callCount++;
-      const mockReq = {
-        on: jest.fn((event, cb) => {
+      let mockReq: { on: jest.Mock };
+      mockReq = {
+        on: jest.fn((event: string, cb: (err: Error) => void) => {
           if (event === "error") setTimeout(() => cb(new Error("conn refused")), 0);
           return mockReq;
         })

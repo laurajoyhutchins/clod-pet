@@ -1,14 +1,13 @@
 (function() {
-const api = (window as any).clodPet.control;
-const store = (window as any).clodPet.store;
+const api = window.clodPet.control;
+const store = window.clodPet.store;
 
 const chatContainer = document.getElementById("chat-container") as HTMLDivElement;
 const chatInput = document.getElementById("chat-input") as HTMLInputElement;
 const sendBtn = document.getElementById("send-btn") as HTMLButtonElement;
 let backendStatusBanner: HTMLDivElement | null = null;
-let backendStatusRefreshTimer: any = null;
 
-let messages = [
+let messages: ChatMessage[] = [
   { role: "assistant", content: "Hello! I'm your clod-pet. How can I help you today?" }
 ];
 
@@ -38,7 +37,7 @@ function ensureBackendStatusBanner() {
   return backendStatusBanner;
 }
 
-function updateBackendStatus(backend: any) {
+function updateBackendStatus(backend: WorldState['backend']) {
   const banner = ensureBackendStatusBanner();
   const fatal = backend.lastError || "unexpected crash";
 
@@ -81,7 +80,7 @@ async function sendMessage() {
   let assistantContent = "";
 
   try {
-    await api.streamChat(messages, (event: any) => {
+    api.streamChat(messages, (event: ChatStreamEvent) => {
       if (event.content) {
         assistantContent += event.content;
         assistantMsgDiv.textContent = assistantContent;
@@ -99,8 +98,8 @@ async function sendMessage() {
         sendBtn.disabled = false;
       }
     });
-  } catch (err: any) {
-    assistantMsgDiv.textContent = "Error: " + err.message;
+  } catch (err: unknown) {
+    assistantMsgDiv.textContent = "Error: " + (err instanceof Error ? err.message : String(err));
     chatInput.disabled = false;
     sendBtn.disabled = false;
   }
@@ -112,12 +111,12 @@ chatInput.addEventListener("keypress", (e) => {
 });
 
 // Subscribe to store for real-time status updates
-const unsubscribeStore = store.subscribe((state: any) => {
+const unsubscribeStore = store.subscribe((state: WorldState) => {
   updateBackendStatus(state.backend);
 });
 
 // Initial state
-store.getState().then((state: any) => updateBackendStatus(state.backend));
+store.getState().then((state: WorldState) => updateBackendStatus(state.backend));
 
 window.addEventListener("beforeunload", () => {
   unsubscribeStore();

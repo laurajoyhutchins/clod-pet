@@ -158,7 +158,7 @@ async function initPetRenderer() {
     console.log("[pet-renderer] Received init data, loading sprite...");
     
     // Initial sync from store
-    const state = await window.clodPet.store.getState() as any;
+    const state = await window.clodPet.store.getState();
     if (state.environment.scale) renderer.setScale(state.environment.scale);
     if (typeof state.environment.volume === "number") soundPlayer.setVolume(state.environment.volume);
     
@@ -179,46 +179,41 @@ async function initPetRenderer() {
 function subscribeToStore(petId: string | null) {
   if (!petId) return;
 
-  window.clodPet.store.subscribe((state: Record<string, unknown>, _prevState?: Record<string, unknown>) => {
+  window.clodPet.store.subscribe((state: WorldState, _prevState?: WorldState) => {
     // 1. Sync Settings
-    const environment = (state as Record<string, unknown>)?.environment as Record<string, unknown> || {};
-    renderer.setScale((environment as Record<string, unknown>)?.scale as number || 1.0);
-    soundPlayer.setVolume((environment as Record<string, unknown>)?.volume as number || 0.3);
+    renderer.setScale(state.environment.scale || 1.0);
+    soundPlayer.setVolume(state.environment.volume || 0.3);
 
     // 2. Sync Backend Status
-    const backend = (state as Record<string, unknown>)?.backend as Record<string, unknown> || {};
-    const backendStatus = backend?.status as string || "";
-    const backendAvailable = backend?.available as boolean || false;
+    const backendStatus = state.backend.status || "";
+    const backendAvailable = state.backend.available || false;
     if (backendStatus === "fatal" || backendStatus === "failed" || !backendAvailable) {
-      const fatal = (backend?.lastError as string) || "unexpected crash";
+      const fatal = state.backend.lastError || "unexpected crash";
       setBackendStatus(`Backend unavailable: ${fatal}`);
     } else if (backendStatus === "restarting") {
-      const suffix = backend?.nextRestartAt ? `, retrying at ${backend.nextRestartAt}` : "";
+      const suffix = state.backend.nextRestartAt ? `, retrying at ${state.backend.nextRestartAt}` : "";
       setBackendStatus(`Backend restarting after crash${suffix}`);
     } else {
       setBackendStatus(null);
     }
 
-    // 3. Debug Overlays (Reactive)
-    if (isDebug && debugBorders) {
-      const pets = (state as Record<string, unknown>)?.pets as Record<string, Record<string, unknown>> || {};
-      const pet = pets[petId];
-      if (pet) {
-        const petState = pet.state as Record<string, unknown> || {};
-        updateDebugBorders(typeof petState?.borderCtx === "number" ? petState.borderCtx as number : 0);
+    // 3. Reactive Rendering
+    const pet = state.pets[petId];
+    if (pet) {
+      renderer.drawFrame(pet.state.frameIndex, pet.state.flipH);
+      renderer.setOpacity(pet.state.opacity || 1.0);
+
+      if (isDebug && debugBorders) {
+        updateDebugBorders(typeof pet.state.borderCtx === "number" ? pet.state.borderCtx : 0);
       }
     }
   });
 }
 
 const removeFrameListener = window.clodPet.on("pet:frame", (data: Record<string, unknown>) => {
-  renderer.drawFrame(data.frameIndex as number || 0, data.flipH as boolean || false);
-  renderer.setOpacity(data.opacity as number || 1.0);
+  // Sound is a transient event, so we still use IPC for it for now.
+  // Physics and Animation state are now handled reactively via the store.
   soundPlayer.play(data.sound as Record<string, unknown>);
-
-  if (isDebug && debugBorders) {
-    updateDebugBorders(typeof data.borderCtx === "number" ? data.borderCtx as number : 0);
-  }
 });
 
 function updateDebugBorders(borderCtx: number) {

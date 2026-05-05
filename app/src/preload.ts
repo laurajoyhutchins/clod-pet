@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
-import type { ChatMessage, ChatStreamEvent } from "./types";
+import type { ChatMessage, ChatStreamEvent } from "./store";
 
 contextBridge.exposeInMainWorld("clodPet", {
   send: (channel: string, data?: unknown) => ipcRenderer.send(channel, data),
@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld("clodPet", {
     setVolume: (volume: number) => ipcRenderer.invoke("control:set-volume", volume),
     setScale: (scale: number) => ipcRenderer.invoke("control:set-scale", scale),
     setGravityFactor: (gravity: number) => ipcRenderer.invoke("control:set-gravity-factor", gravity),
+    resizeWindow: (width: number, height: number) => ipcRenderer.invoke("control:resize-window", { width, height }),
     diagnostics: () => ipcRenderer.invoke("control:diagnostics"),
     reportError: (source: string, message: string, stack?: string) =>
       ipcRenderer.invoke("control:renderer-error", { source, message, stack }),

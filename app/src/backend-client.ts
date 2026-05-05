@@ -1,5 +1,5 @@
 import http = require("http");
-import type { ChatMessage, ChatStreamEvent, BackendResponse, AppSettings } from "./types";
+import type { ChatMessage, ChatStreamEvent, BackendResponse, AppSettings, PetData, BackendWorldContext } from "./store";
 
 class BackendClient {
   baseUrl: string;
@@ -17,31 +17,31 @@ class BackendClient {
   }
 
   async request<T = unknown>(command: string, payload: Record<string, unknown> = {}): Promise<BackendResponse<T>> {
-    const result = await this._requestJson("/api", {
+    const result = await this._requestJson<BackendResponse<T>>("/api", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command, payload }),
       requireOk: true,
     });
-    return result as BackendResponse<T>;
+    return result;
   }
 
-  async requestRaw(path: string, method = "GET") {
+  async requestRaw(path: string, method = "GET"): Promise<unknown> {
     return this._requestJson(path, { method, requireHttpOk: true });
   }
 
-  _requestJson(path: string, opts: {
+  _requestJson<T = unknown>(path: string, opts: {
     method?: string;
     headers?: Record<string, string>;
     body?: string;
     requireOk?: boolean;
     requireHttpOk?: boolean;
-  } = {}) {
+  } = {}): Promise<T> {
     return new Promise((resolve, reject) => {
       let settled = false;
       let timer: NodeJS.Timeout | undefined;
       let req: http.ClientRequest;
-      const finish = (fn: (value?: unknown) => void, value?: unknown) => {
+      const finish = (fn: (value?: any) => void, value?: any) => {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
@@ -69,14 +69,14 @@ class BackendClient {
           }
 
           try {
-            const result = JSON.parse(body);
+            const result = JSON.parse(body) as any;
             if (opts.requireOk && !result.ok) {
               this.connected = false;
               finish(reject, new Error(result.error || "unknown error"));
               return;
             }
             this.connected = true;
-            finish(resolve, result);
+            finish(resolve, result as T);
           } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
             finish(reject, new Error(`invalid response: ${error.message}`));
@@ -94,69 +94,74 @@ class BackendClient {
     });
   }
 
-  async health() {
+  async health(): Promise<unknown> {
     return this.requestRaw("/api/health", "GET");
   }
 
-  async version() {
+  async version(): Promise<unknown> {
     return this.requestRaw("/api/version", "GET");
   }
 
-  async loadPet(petPath: string) {
-    return this._requestJson("/api/pet/load", {
+  async loadPet(petPath: string): Promise<PetData> {
+    const response = await this._requestJson<BackendResponse<PetData>>("/api/pet/load", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pet_path: petPath }),
       requireOk: true,
     });
+
+    if (!response.payload) {
+      throw new Error("invalid pet response: missing payload");
+    }
+
+    return response.payload;
   }
 
-  async removePet(petId: string) {
+  async removePet(petId: string): Promise<BackendResponse> {
     return this.request("remove_pet", { pet_id: petId });
   }
 
-  async dragPet(petId: string, x: number, y: number) {
+  async dragPet(petId: string, x: number, y: number): Promise<BackendResponse> {
     return this.request("drag_pet", { pet_id: petId, x, y });
   }
 
-  async dropPet(petId: string) {
+  async dropPet(petId: string): Promise<BackendResponse> {
     return this.request("drop_pet", { pet_id: petId });
   }
 
-  async setVolume(volume: number) {
+  async setVolume(volume: number): Promise<BackendResponse> {
     return this.request("set_volume", { volume });
   }
 
-  async setScale(scale: number) {
+  async setScale(scale: number): Promise<BackendResponse> {
     return this.request("set_scale", { scale });
   }
 
-  async setGravityFactor(gravity: number) {
+  async setGravityFactor(gravity: number): Promise<BackendResponse> {
     return this.request("set_gravity_factor", { gravity });
   }
 
-  async getStatus() {
+  async getStatus(): Promise<BackendResponse> {
     return this.request("get_status");
   }
 
   async getSettings(): Promise<BackendResponse<AppSettings>> {
-    const result = await this.request<AppSettings>("get_settings");
-    return result as BackendResponse<AppSettings>;
+    return this.request<AppSettings>("get_settings");
   }
 
-  async setSettings(settings: Record<string, unknown>) {
+  async setSettings(settings: Record<string, unknown>): Promise<BackendResponse> {
     return this.request("set_settings", settings);
   }
 
-  async listPets() {
+  async listPets(): Promise<BackendResponse> {
     return this.request("list_pets");
   }
 
-  async listActive() {
+  async listActive(): Promise<BackendResponse> {
     return this.request("list_active");
   }
 
-  async addPet(petPath: string, spawnId = 0, world?: Record<string, unknown>) {
+  async addPet(petPath: string, spawnId = 0, world?: BackendWorldContext): Promise<BackendResponse> {
     return this.request("add_pet", {
       pet_path: petPath,
       spawn_id: spawnId,
@@ -164,15 +169,15 @@ class BackendClient {
     });
   }
 
-  async setPosition(petId: string, x: number, y: number) {
+  async setPosition(petId: string, x: number, y: number): Promise<BackendResponse> {
     return this.request("set_position", { pet_id: petId, x, y });
   }
 
-  async stepPet(petId: string, world: Record<string, unknown>) {
+  async stepPet(petId: string, world: BackendWorldContext): Promise<BackendResponse> {
     return this.request("step_pet", { pet_id: petId, world });
   }
 
-  async chat(messages: ChatMessage[], stream = false) {
+  async chat(messages: ChatMessage[], stream = false): Promise<BackendResponse> {
     return this.request("llm_chat", { messages, stream });
   }
 

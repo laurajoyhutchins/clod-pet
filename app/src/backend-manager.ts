@@ -4,8 +4,7 @@ import path = require("path");
 import fs = require("fs");
 import logger = require("./logger");
 import { getBackendDir, getPetsDir } from "./project-paths";
-import { WorldStore } from "./store";
-import type { LaunchInfo } from "./types";
+import { WorldStore, type LaunchInfo, type BackendDiagnostics } from "./store";
 
 const log = logger.createLogger("backend-manager");
 const DEFAULT_READY_RETRIES_SOURCE = 60;
@@ -74,7 +73,7 @@ class BackendManager {
     this._syncStore();
   }
 
-  _syncStore() {
+  _syncStore(): void {
     if (!this.store) return;
     this.store.setState({
       backend: {
@@ -93,7 +92,7 @@ class BackendManager {
     });
   }
 
-  async start(portOverride?: number) {
+  async start(portOverride?: number): Promise<string> {
     this.shuttingDown = false;
     this.shutdownReason = null;
     this.exitReason = null;
@@ -141,8 +140,8 @@ class BackendManager {
     });
 
     const pid = this.process.pid;
+    if (this.launch) this.launch.pid = pid;
     this.url = `http://localhost:${port}`;
-    this.launch.pid = pid;
     this._syncStore();
     log.info("starting backend", {
       ...this.launch,
@@ -150,26 +149,30 @@ class BackendManager {
     });
     log.info("backend process spawned", {
       pid,
-      executionMode: this.launch.executionMode,
+      executionMode: this.launch?.executionMode,
       command: cmd,
       args,
       url: this.url,
     });
 
-    this.process.stdout.on("data", (d: Buffer) => {
-      this.lastStdout = appendRecent(this.lastStdout, d.toString());
-      log.debug("backend stdout:", d.toString().trim());
-    });
-    this.process.stderr.on("data", (d: Buffer) => {
-      const stderr = d.toString();
-      this.lastStderr = appendRecent(this.lastStderr, stderr);
+    if (this.process.stdout) {
+      this.process.stdout.on("data", (d: Buffer) => {
+        this.lastStdout = appendRecent(this.lastStdout, d.toString());
+        log.debug("backend stdout:", d.toString().trim());
+      });
+    }
+    if (this.process.stderr) {
+      this.process.stderr.on("data", (d: Buffer) => {
+        const stderr = d.toString();
+        this.lastStderr = appendRecent(this.lastStderr, stderr);
 
-      for (const line of stderr.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        if (!trimmed || shouldSuppressBackendStderr(trimmed)) continue;
-        log.warn("backend stderr:", trimmed);
-      }
-    });
+        for (const line of stderr.split(/\r?\n/)) {
+          const trimmed = line.trim();
+          if (!trimmed || shouldSuppressBackendStderr(trimmed)) continue;
+          log.warn("backend stderr:", trimmed);
+        }
+      });
+    }
     this.process.on("error", (err: Error) => {
       this.lastError = err.message;
       this.available = false;
@@ -246,7 +249,7 @@ class BackendManager {
     return this.url;
   }
 
-  _getReadyTimeout(cmd: string) {
+  _getReadyTimeout(cmd: string): { maxRetries: number; interval: number } {
     const maxRetriesEnv = readPositiveIntEnv("CLOD_PET_BACKEND_READY_MAX_RETRIES");
     const intervalEnv = readPositiveIntEnv("CLOD_PET_BACKEND_READY_INTERVAL_MS");
 
@@ -277,11 +280,11 @@ class BackendManager {
     return null;
   }
 
-  stop() {
+  stop(): void {
     this.stopWithReason("manual stop");
   }
 
-  stopWithReason(reason: string) {
+  stopWithReason(reason: string): void {
     this.shuttingDown = true;
     this.shutdownReason = reason;
     this.ready = false;
@@ -302,16 +305,16 @@ class BackendManager {
     });
     if (this.process) {
       this.process.removeAllListeners();
-      this.process.stdout.removeAllListeners();
-      this.process.stderr.removeAllListeners();
+      if (this.process.stdout) this.process.stdout.removeAllListeners();
+      if (this.process.stderr) this.process.stderr.removeAllListeners();
 
-      if (process.platform === "win32") {
+      if (process.platform === "win32" && this.process.pid) {
         // Use taskkill to ensure child processes (like the actual backend binary) are killed
         try {
           const result = spawnSync("taskkill", ["/F", "/T", "/PID", this.process.pid.toString()], { stdio: "pipe" });
           if (result.error) {
             log.error("taskkill failed, falling back to kill()", { pid, reason, error: result.error.message });
-            try { this.process.kill(); } catch (err) { log.debug("Process already gone:", err.message); }
+            try { this.process.kill(); } catch (err: any) { log.debug("Process already gone:", err.message); }
           } else if (typeof result.status === "number" && result.status !== 0) {
             log.error("taskkill exited nonzero, falling back to kill()", {
               pid,
@@ -320,13 +323,13 @@ class BackendManager {
               signal: result.signal,
               stderr: result.stderr ? result.stderr.toString().trim() : "",
             });
-            try { this.process.kill(); } catch (err) { log.debug("Process already gone:", err.message); }
+            try { this.process.kill(); } catch (err: any) { log.debug("Process already gone:", err.message); }
           } else {
             log.info("taskkill completed", { pid, reason });
           }
-        } catch (err) {
+        } catch (err: any) {
           log.error("taskkill error, falling back to kill():", err);
-          try { this.process.kill(); } catch (err2) { log.debug("Process already gone:", err2.message); }
+          try { this.process.kill(); } catch (err2: any) { log.debug("Process already gone:", err2.message); }
         }
       } else {
         this.process.kill("SIGTERM");
@@ -348,12 +351,12 @@ class BackendManager {
     this._syncStore();
   }
 
-  getDiagnostics() {
+  getDiagnostics(): BackendDiagnostics {
     return {
       url: this.url,
       port: this.port,
       pid: this.process?.pid ?? this.launch?.pid ?? null,
-      launch: this.launch,
+      launch: this.launch as LaunchInfo,
       lastStdout: this.lastStdout,
       lastStderr: this.lastStderr,
       lastError: this.lastError,
@@ -391,7 +394,7 @@ class BackendManager {
     });
   }
 
-  _waitForReady(maxRetries = 20, interval = 500) {
+  _waitForReady(maxRetries = 20, interval = 500): Promise<void> {
     return new Promise((resolve, reject) => {
       let retries = 0;
       let settled = false;
@@ -408,11 +411,11 @@ class BackendManager {
         }
       };
 
-      const finishResolve = (value: unknown) => {
+      const finishResolve = () => {
         if (settled) return;
         settled = true;
         cleanup();
-        resolve(value);
+        resolve();
       };
 
       const finishReject = (err: Error) => {
@@ -451,7 +454,7 @@ class BackendManager {
           res.on("data", (d) => (body += d));
           res.on("end", () => {
             if (settled) return;
-            if (res.statusCode === 200) finishResolve(body);
+            if (res.statusCode === 200) finishResolve();
             else retryOrFail();
           });
         }).on("error", () => {
@@ -472,7 +475,7 @@ class BackendManager {
     });
   }
 
-  _scheduleRestart(code: number | null) {
+  _scheduleRestart(code: number | null): void {
     if (this.shuttingDown || !this.restartEnabled) return;
     if (this.restartAttempt >= this.restartMaxAttempts) {
       this.state = "fatal";
@@ -521,7 +524,7 @@ class BackendManager {
     }, delay);
   }
 
-  _clearRestartTimer() {
+  _clearRestartTimer(): void {
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
@@ -531,12 +534,12 @@ class BackendManager {
   }
 }
 
-function appendRecent(current: string, chunk: string, maxLength = 8000) {
+function appendRecent(current: string, chunk: string, maxLength = 8000): string {
   const next = current + chunk;
   return next.length > maxLength ? next.slice(next.length - maxLength) : next;
 }
 
-function readPositiveIntEnv(name: string) {
+function readPositiveIntEnv(name: string): number | null {
   const raw = process.env[name];
   if (!raw) return null;
 
@@ -546,7 +549,7 @@ function readPositiveIntEnv(name: string) {
   return value;
 }
 
-function shouldSuppressBackendStderr(line: string) {
+function shouldSuppressBackendStderr(line: string): boolean {
   if (process.env.VERBOSE === "true") return false;
   if (!line.startsWith("{")) return false;
 

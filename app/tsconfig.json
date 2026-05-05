@@ -9,8 +9,8 @@
     "types": ["node", "jest"],
     "allowJs": false,
     "checkJs": false,
-    "strict": false,
-    "useUnknownInCatchVariables": false,
+    "strict": true,
+    "useUnknownInCatchVariables": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmitOnError": true
