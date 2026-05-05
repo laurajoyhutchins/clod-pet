@@ -577,6 +577,7 @@ func TestSetSettingsAll(t *testing.T) {
 		"AutostartPets":      5.0,
 		"MultiScreenEnabled": false,
 		"CurrentPet":         "other-pet",
+		"PanelStyle":         "windows-xp",
 	})
 	if err != nil {
 		t.Fatalf("SetSettings failed: %v", err)
@@ -603,6 +604,9 @@ func TestSetSettingsAll(t *testing.T) {
 	}
 	if s["CurrentPet"] != "other-pet" {
 		t.Errorf("expected CurrentPet other-pet, got %v", s["CurrentPet"])
+	}
+	if s["PanelStyle"] != "windows-xp" {
+		t.Errorf("expected PanelStyle windows-xp, got %v", s["PanelStyle"])
 	}
 }
 

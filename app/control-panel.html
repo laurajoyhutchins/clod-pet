@@ -21,15 +21,157 @@
       --win98-title-start: #000080;
       --win98-title-end: #1084d0;
       --win98-desktop: #008080;
+      --win98-text: #000000;
+      --win98-muted: #808080;
+      --win98-input: #ffffff;
+      --win98-radius: 0;
+      --win98-control-radius: 0;
+      --win98-title-height: 22px;
+      --win98-title-text: #ffffff;
+      --win98-accent: #000080;
+      --win98-slider-thumb: var(--win98-face);
+      --win98-slider-track: #ffffff;
+    }
+
+    body.theme-windows-95 {
+      --win98-face: #c0c0c0;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #808080;
+      --win98-shadow: #000000;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #000080;
+      --win98-title-end: #000080;
+      --win98-desktop: #008080;
+    }
+
+    body.theme-windows-98 {
+      --win98-face: #c0c0c0;
+      --win98-face-light: #dfdfdf;
+      --win98-face-dark: #808080;
+      --win98-shadow: #404040;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #000080;
+      --win98-title-end: #1084d0;
+      --win98-desktop: #008080;
+    }
+
+    body.theme-windows-2000 {
+      --win98-face: #d4d0c8;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #808080;
+      --win98-shadow: #404040;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #0a246a;
+      --win98-title-end: #a6caf0;
+      --win98-desktop: #3a6ea5;
+    }
+
+    body.theme-windows-xp {
+      --win98-face: #ece9d8;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #aca899;
+      --win98-shadow: #716f64;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #0058ee;
+      --win98-title-end: #3f9bff;
+      --win98-desktop: #3a6ea5;
+      --win98-radius: 6px;
+      --win98-control-radius: 3px;
+      --win98-title-height: 25px;
+      --win98-accent: #2f7df6;
+      --win98-slider-thumb: #2f7df6;
+    }
+
+    body.theme-windows-vista {
+      --win98-face: #e8eef7;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #7a8ca5;
+      --win98-shadow: #33445a;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #1d4f8f;
+      --win98-title-end: #7fb6df;
+      --win98-desktop: #244b7b;
+      --win98-radius: 7px;
+      --win98-control-radius: 4px;
+      --win98-title-height: 26px;
+      --win98-accent: #0f64b5;
+      --win98-slider-thumb: #dbeeff;
+    }
+
+    body.theme-windows-7 {
+      --win98-face: #f0f0f0;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #b8c7d9;
+      --win98-shadow: #657b95;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #d8ecff;
+      --win98-title-end: #7bb5e9;
+      --win98-desktop: #5b8fc0;
+      --win98-title-text: #000000;
+      --win98-radius: 7px;
+      --win98-control-radius: 3px;
+      --win98-title-height: 26px;
+      --win98-accent: #0f64b5;
+      --win98-slider-thumb: #dbeeff;
+    }
+
+    body.theme-windows-10 {
+      --win98-face: #f3f3f3;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #d0d0d0;
+      --win98-shadow: #767676;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #ffffff;
+      --win98-title-end: #ffffff;
+      --win98-desktop: #f3f3f3;
+      --win98-title-text: #000000;
+      --win98-radius: 0;
+      --win98-control-radius: 0;
+      --win98-title-height: 28px;
+      --win98-accent: #0078d7;
+      --win98-slider-thumb: #0078d7;
+    }
+
+    body.theme-windows-11 {
+      --win98-face: #f7f7f7;
+      --win98-face-light: #ffffff;
+      --win98-face-dark: #d9d9d9;
+      --win98-shadow: #8a8a8a;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #eef6ff;
+      --win98-title-end: #dbeafe;
+      --win98-desktop: #b7d9f7;
+      --win98-title-text: #202020;
+      --win98-radius: 9px;
+      --win98-control-radius: 5px;
+      --win98-title-height: 30px;
+      --win98-accent: #0067c0;
+      --win98-slider-thumb: #0067c0;
+    }
+
+    body.theme-rounded {
+      background: transparent;
+    }
+
+    body.theme-windows-10 {
+      background: transparent;
+      padding: 0;
     }
 
     body {
       font-family: "MS Sans Serif", "Tahoma", sans-serif;
       font-size: 11px;
-      color: #000;
+      color: var(--win98-text);
       padding: 8px;
       overflow: hidden;
       background: var(--win98-desktop);
+    }
+
+    body.theme-windows-xp,
+    body.theme-windows-vista,
+    body.theme-windows-7,
+    body.theme-windows-11 {
+      padding: 6px;
     }
 
     .window {
@@ -47,6 +189,33 @@
         inset 1px 1px 0 var(--win98-face-light),
         inset -1px -1px 0 var(--win98-face-dark);
       padding: 3px;
+      border-radius: var(--win98-radius);
+    }
+
+    body.theme-windows-xp .window {
+      border-color: #1d5fd6 #003c9d #003c9d #1d5fd6;
+      box-shadow:
+        inset 1px 1px 0 rgba(255, 255, 255, 0.55),
+        0 2px 8px rgba(0, 0, 0, 0.35);
+      padding: 4px;
+    }
+
+    body.theme-windows-vista .window,
+    body.theme-windows-7 .window {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(231, 239, 248, 0.92));
+      border-color: rgba(255, 255, 255, 0.82) rgba(64, 91, 124, 0.82) rgba(41, 60, 84, 0.9) rgba(255, 255, 255, 0.82);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 8px 24px rgba(0, 0, 0, 0.32);
+      backdrop-filter: blur(8px);
+    }
+
+    body.theme-windows-10 .window,
+    body.theme-windows-11 .window {
+      border: 1px solid var(--win98-shadow);
+      border-color: var(--win98-shadow);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+      padding: 0;
     }
 
     .titlebar {
@@ -54,14 +223,44 @@
       font-weight: bold;
       padding: 3px 3px 3px 6px;
       background: linear-gradient(90deg, var(--win98-title-start), var(--win98-title-end));
-      color: #fff;
+      color: var(--win98-title-text);
       display: flex;
       align-items: center;
       gap: 8px;
       -webkit-app-region: drag;
-      min-height: 22px;
+      min-height: var(--win98-title-height);
       line-height: 1;
       user-select: none;
+      border-radius: calc(var(--win98-radius) / 2);
+    }
+
+    body.theme-windows-xp .titlebar {
+      background:
+        radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.65), transparent 34%),
+        linear-gradient(180deg, #3f9bff 0%, #0058ee 48%, #003dd8 100%);
+      text-shadow: 1px 1px 0 #003399;
+    }
+
+    body.theme-windows-vista .titlebar,
+    body.theme-windows-7 .titlebar {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.08)),
+        linear-gradient(90deg, var(--win98-title-start), var(--win98-title-end));
+      text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
+    }
+
+    body.theme-windows-10 .titlebar {
+      background: #ffffff;
+      border-radius: 0;
+      padding-left: 10px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    body.theme-windows-11 .titlebar {
+      background: linear-gradient(180deg, #ffffff, #edf4fb);
+      border-bottom: 1px solid #d8d8d8;
+      border-radius: var(--win98-radius) var(--win98-radius) 0 0;
+      padding-left: 10px;
     }
 
     .titlebar-icon {
@@ -101,6 +300,64 @@
       line-height: 1;
       padding: 0;
       position: relative;
+      border-radius: var(--win98-control-radius);
+    }
+
+    body.theme-windows-10 .titlebar button,
+    body.theme-windows-11 .titlebar button {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      height: var(--win98-title-height);
+      width: 34px;
+    }
+
+    body.theme-windows-xp .titlebar button {
+      width: 21px;
+      height: 21px;
+      border: 1px solid #ffffff;
+      box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.65), inset -1px -1px 0 rgba(0, 0, 0, 0.28);
+    }
+
+    body.theme-windows-xp .titlebar-minimize {
+      background: linear-gradient(180deg, #7db4ff, #0055e7 52%, #003cbe);
+      border-color: #b7d6ff #00378b #00378b #b7d6ff;
+    }
+
+    body.theme-windows-xp .titlebar-minimize::before {
+      background: #ffffff;
+    }
+
+    body.theme-windows-xp .titlebar-close {
+      color: #ffffff;
+      background: linear-gradient(180deg, #ffb199, #e6471e 52%, #b71d0d);
+      border-color: #ffd7c7 #8b150b #8b150b #ffd7c7;
+      text-shadow: 1px 1px 0 #8b150b;
+    }
+
+    body.theme-windows-vista .titlebar button,
+    body.theme-windows-7 .titlebar button {
+      width: 24px;
+      height: 20px;
+      border: 1px solid rgba(66, 88, 113, 0.8);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(197, 223, 244, 0.92));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    body.theme-windows-vista .titlebar-close,
+    body.theme-windows-7 .titlebar-close {
+      color: #ffffff;
+      background: linear-gradient(180deg, #f7b09c, #d64b30 56%, #a91d14);
+      border-color: rgba(127, 41, 31, 0.8);
+      text-shadow: 0 1px 1px #5f120d;
+    }
+
+    body.theme-windows-10 .titlebar button:hover {
+      background: rgba(0, 0, 0, 0.08);
+    }
+
+    body.theme-windows-11 .titlebar button:hover {
+      background: rgba(0, 0, 0, 0.08);
     }
 
     .titlebar button:active {
@@ -122,9 +379,16 @@
       font-weight: bold;
     }
 
+    body.theme-windows-10 .titlebar-close:hover,
+    body.theme-windows-11 .titlebar-close:hover {
+      background: #e81123;
+      color: #fff;
+    }
+
     .panel-scroll {
       display: grid;
       gap: 8px;
+      align-content: start;
       flex: 1;
       overflow: auto;
       min-height: 0;
@@ -140,6 +404,20 @@
       margin: 0;
       background: var(--win98-face);
       min-width: 0;
+      border-radius: var(--win98-control-radius);
+    }
+
+    body.theme-windows-vista .groupbox,
+    body.theme-windows-7 .groupbox {
+      background: rgba(255, 255, 255, 0.64);
+      border: 1px solid rgba(116, 139, 165, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    body.theme-windows-10 .groupbox,
+    body.theme-windows-11 .groupbox {
+      border: 1px solid #d7d7d7;
+      box-shadow: none;
     }
 
     .groupbox-title {
@@ -153,6 +431,17 @@
       background: var(--win98-face);
     }
 
+    body.theme-windows-vista .groupbox-title,
+    body.theme-windows-7 .groupbox-title {
+      background: #f3f7fb;
+    }
+
+    body.theme-windows-10 .groupbox-title,
+    body.theme-windows-11 .groupbox-title {
+      background: var(--win98-face);
+      font-weight: 600;
+    }
+
     .btn {
       background: var(--win98-face);
       color: #000;
@@ -164,6 +453,26 @@
       font-family: "MS Sans Serif", "Tahoma", sans-serif;
       min-height: 23px;
       box-shadow: inset 1px 1px 0 var(--win98-face-light), inset -1px -1px 0 var(--win98-face-dark);
+      border-radius: var(--win98-control-radius);
+    }
+
+    body.theme-windows-vista .btn,
+    body.theme-windows-7 .btn {
+      background: linear-gradient(180deg, #ffffff, #d8e6f5);
+      border: 1px solid #7f9db9;
+      box-shadow: inset 0 1px 0 #ffffff;
+    }
+
+    body.theme-windows-10 .btn,
+    body.theme-windows-11 .btn {
+      background: #f5f5f5;
+      border: 1px solid #adadad;
+      box-shadow: none;
+    }
+
+    body.theme-windows-11 .btn {
+      background: #fbfbfb;
+      border-color: #c8c8c8;
     }
 
     .btn:active {
@@ -197,6 +506,50 @@
     input[type="range"] {
       width: 100%;
       margin-bottom: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      height: 18px;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: var(--win98-slider-track);
+      border: 1px solid;
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 18px;
+      margin-top: -8px;
+      background: var(--win98-slider-thumb);
+      border: 2px solid;
+      border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+      border-radius: var(--win98-control-radius);
+      box-shadow: inset 1px 1px 0 var(--win98-face-light), inset -1px -1px 0 var(--win98-face-dark);
+    }
+
+    body.theme-windows-vista input[type="range"]::-webkit-slider-runnable-track,
+    body.theme-windows-7 input[type="range"]::-webkit-slider-runnable-track,
+    body.theme-windows-10 input[type="range"]::-webkit-slider-runnable-track,
+    body.theme-windows-11 input[type="range"]::-webkit-slider-runnable-track {
+      height: 3px;
+      background: #d6d6d6;
+      border: 0;
+    }
+
+    body.theme-windows-vista input[type="range"]::-webkit-slider-thumb,
+    body.theme-windows-7 input[type="range"]::-webkit-slider-thumb,
+    body.theme-windows-10 input[type="range"]::-webkit-slider-thumb,
+    body.theme-windows-11 input[type="range"]::-webkit-slider-thumb {
+      width: 14px;
+      height: 14px;
+      margin-top: -6px;
+      border: 1px solid var(--win98-shadow);
+      box-shadow: none;
     }
 
     .range-label {
@@ -208,7 +561,7 @@
 
     select, input[type="number"] {
       width: 100%;
-      background: #fff;
+      background: var(--win98-input);
       color: #000;
       border: 2px solid;
       border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
@@ -216,6 +569,26 @@
       font-size: 11px;
       font-family: "MS Sans Serif", "Tahoma", sans-serif;
       margin-bottom: 0;
+      border-radius: var(--win98-control-radius);
+    }
+
+    body.theme-windows-vista select,
+    body.theme-windows-vista input[type="number"],
+    body.theme-windows-7 select,
+    body.theme-windows-7 input[type="number"],
+    body.theme-windows-10 select,
+    body.theme-windows-10 input[type="number"],
+    body.theme-windows-11 select,
+    body.theme-windows-11 input[type="number"] {
+      border: 1px solid var(--win98-shadow);
+      padding: 3px 5px;
+    }
+
+    body.theme-windows-10 select,
+    body.theme-windows-10 input[type="number"],
+    body.theme-windows-11 select,
+    body.theme-windows-11 input[type="number"] {
+      border-color: #8a8a8a;
     }
 
     .checkbox-label {
@@ -231,11 +604,11 @@
       width: 13px;
       height: 13px;
       margin: 0;
-      accent-color: #000080;
+      accent-color: var(--win98-accent);
     }
 
     input[type="range"] {
-      accent-color: #000080;
+      accent-color: var(--win98-accent);
     }
 
     .pet-item {
@@ -271,7 +644,7 @@
 
     .pet-id {
       font-size: 11px;
-      color: var(--win98-face-dark);
+      color: var(--win98-muted);
       overflow-wrap: anywhere;
     }
 
@@ -279,10 +652,20 @@
       text-align: center;
       padding: 12px;
       font-size: 11px;
-      color: var(--win98-face-dark);
+      color: var(--win98-muted);
       border: 2px solid;
       border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
       background: #fff;
+      border-radius: var(--win98-control-radius);
+    }
+
+    body.theme-windows-10 .empty-state,
+    body.theme-windows-11 .empty-state,
+    body.theme-windows-10 .status,
+    body.theme-windows-11 .status,
+    body.theme-windows-10 .diag-log,
+    body.theme-windows-11 .diag-log {
+      border: 1px solid #d0d0d0;
     }
 
     .add-pet-row {
@@ -308,6 +691,7 @@
       justify-content: flex-start;
       overflow-wrap: anywhere;
       margin-top: 8px;
+      border-radius: var(--win98-control-radius);
     }
 
     .status.success::before {
@@ -333,7 +717,7 @@
     }
 
     .diag-label {
-      color: var(--win98-face-dark);
+      color: var(--win98-muted);
     }
 
     .diag-value {
@@ -351,6 +735,7 @@
       padding: 4px;
       border: 2px solid;
       border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      border-radius: var(--win98-control-radius);
     }
 
     .settings-grid {
@@ -431,6 +816,20 @@
               <span id="volume-value">30%</span>
               <span>100%</span>
             </div>
+          </div>
+
+          <div class="setting-block">
+            <label for="panel-style">Panel style</label>
+            <select id="panel-style">
+              <option value="windows-95">Windows 95</option>
+              <option value="windows-98">Windows 98</option>
+              <option value="windows-2000">Windows 2000</option>
+              <option value="windows-xp">Windows XP</option>
+              <option value="windows-vista">Windows Vista</option>
+              <option value="windows-7">Windows 7</option>
+              <option value="windows-10">Windows 10</option>
+              <option value="windows-11">Windows 11</option>
+            </select>
           </div>
 
           <div class="checkbox-stack">

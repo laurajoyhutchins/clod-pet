@@ -6,6 +6,7 @@
   "Scale": 3,
   "ShowAdvancedSettings": false,
   "ShowDiagnostics": false,
+  "PanelStyle": "windows-xp",
   "MultiScreenEnabled": false,
   "GravityFactor": 2,
   "CurrentPet": "other-pet",

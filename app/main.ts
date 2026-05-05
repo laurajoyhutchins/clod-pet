@@ -87,9 +87,10 @@ function showControlPanel(): void {
     maximizable: false,
     show: false,
     frame: false,
-    roundedCorners: false,
-    hasShadow: false,
-    backgroundColor: "#008080",
+    roundedCorners: true,
+    hasShadow: true,
+    transparent: true,
+    backgroundColor: "#00000000",
     icon: path.join(__dirname, "assets", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "src", "preload.js"),

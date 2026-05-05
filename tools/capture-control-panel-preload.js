@@ -12,6 +12,7 @@ const config = readConfig();
 const activePets = Number.isFinite(config.activePets) ? Math.max(0, Math.floor(config.activePets)) : 0;
 const showAdvanced = !!config.showAdvanced;
 const showDiagnostics = !!config.showDiagnostics;
+const panelStyle = typeof config.panelStyle === "string" ? config.panelStyle : "windows-98";
 
 function makeActivePet(index) {
   const id = `pet-${index + 1}`;
@@ -45,6 +46,7 @@ contextBridge.exposeInMainWorld("clodPet", {
         AutostartPets: 1,
         CurrentPet: "eSheep-modern",
         GravityFactor: 2.0,
+        PanelStyle: panelStyle,
       }),
     setSettings: () => Promise.resolve({}),
     listPets: () => Promise.resolve(["eSheep-modern", "eDog-modern"]),

@@ -104,6 +104,7 @@ export interface AppSettings {
   Volume?: number;
   ShowAdvancedSettings?: boolean;
   ShowDiagnostics?: boolean;
+  PanelStyle?: string;
   GravityFactor?: number;
   MultiScreenEnabled?: boolean;
   WinForeGround?: boolean;

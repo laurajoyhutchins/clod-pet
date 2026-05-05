@@ -20,6 +20,7 @@ type Config struct {
 	Scale                float64            `json:"Scale"`
 	ShowAdvancedSettings bool               `json:"ShowAdvancedSettings"`
 	ShowDiagnostics      bool               `json:"ShowDiagnostics"`
+	PanelStyle           string             `json:"PanelStyle"`
 	MultiScreenEnabled   bool               `json:"MultiScreenEnabled"`
 	GravityFactor        float64            `json:"GravityFactor"`
 	CurrentPet           string             `json:"CurrentPet"`
@@ -33,6 +34,7 @@ func DefaultConfig() *Config {
 		Scale:                1.0,
 		ShowAdvancedSettings: false,
 		ShowDiagnostics:      false,
+		PanelStyle:           "windows-98",
 		MultiScreenEnabled:   true,
 		GravityFactor:        2.0,
 		AutostartPets:        1,
@@ -61,6 +63,9 @@ func Load(path string) (*Config, error) {
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+	if cfg.PanelStyle == "" {
+		cfg.PanelStyle = "windows-98"
 	}
 
 	return &cfg, nil

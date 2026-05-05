@@ -26,6 +26,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.CurrentPet != "eSheep-modern" {
 		t.Errorf("expected CurrentPet eSheep-modern, got %v", cfg.CurrentPet)
 	}
+	if cfg.PanelStyle != "windows-98" {
+		t.Errorf("expected PanelStyle windows-98, got %v", cfg.PanelStyle)
+	}
 }
 
 func TestLoadNewFile(t *testing.T) {
@@ -77,6 +80,9 @@ func TestLoadExistingFile(t *testing.T) {
 	}
 	if cfg.CurrentPet != "test-pet" {
 		t.Errorf("expected CurrentPet test-pet, got %v", cfg.CurrentPet)
+	}
+	if cfg.PanelStyle != "windows-98" {
+		t.Errorf("expected default PanelStyle windows-98, got %v", cfg.PanelStyle)
 	}
 }
 

@@ -6,6 +6,7 @@
   "Scale": 1.5,
   "ShowAdvancedSettings": false,
   "ShowDiagnostics": false,
+  "PanelStyle": "windows-98",
   "MultiScreenEnabled": true,
   "CurrentPet": "eSheep-modern",
   "LLM": {

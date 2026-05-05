@@ -1,6 +1,25 @@
 (function() {
 const api = window.clodPet.control;
 
+const PANEL_STYLES = [
+  "windows-95",
+  "windows-98",
+  "windows-2000",
+  "windows-xp",
+  "windows-vista",
+  "windows-7",
+  "windows-10",
+  "windows-11",
+] as const;
+type PanelStyle = typeof PANEL_STYLES[number];
+const DEFAULT_PANEL_STYLE: PanelStyle = "windows-98";
+const ROUNDED_PANEL_STYLES = new Set<PanelStyle>([
+  "windows-xp",
+  "windows-vista",
+  "windows-7",
+  "windows-11",
+]);
+
 let settings: Partial<AppSettings> = {};
 let pets: string[] = [];
 let activePets: PetInfo[] = [];
@@ -28,29 +47,72 @@ function select(id: string) {
   return element;
 }
 
+function getPanelStyle(value: unknown): PanelStyle {
+  return typeof value === "string" && PANEL_STYLES.includes(value as PanelStyle)
+    ? (value as PanelStyle)
+    : DEFAULT_PANEL_STYLE;
+}
+
+function applyPanelStyle(style: PanelStyle) {
+  document.body.classList.remove(...PANEL_STYLES.map((panelStyle) => `theme-${panelStyle}`));
+  document.body.classList.add(`theme-${style}`);
+  document.body.classList.toggle("theme-rounded", ROUNDED_PANEL_STYLES.has(style));
+  scheduleControlPanelResize();
+}
+
+function measureScrollContentHeight(container: HTMLElement): number {
+  const style = getComputedStyle(container);
+  const children = Array.from(container.children) as HTMLElement[];
+  const childHeight = children.reduce((total, child) => total + child.getBoundingClientRect().height, 0);
+  const gap = parseFloat(style.rowGap || style.gap || "0");
+  return (
+    parseFloat(style.paddingTop) +
+    parseFloat(style.paddingBottom) +
+    childHeight +
+    Math.max(0, children.length - 1) * (Number.isFinite(gap) ? gap : 0)
+  );
+}
+
 function measureControlPanelSize(): { width: number; height: number } | null {
   const panel = document.querySelector(".window") as HTMLElement | null;
+  const titlebar = document.querySelector(".titlebar") as HTMLElement | null;
+  const panelScroll = document.querySelector(".panel-scroll") as HTMLElement | null;
+  const status = document.querySelector(".status") as HTMLElement | null;
   if (!panel) return null;
 
-  const clone = panel.cloneNode(true) as HTMLElement;
-  clone.style.position = "absolute";
-  clone.style.left = "-10000px";
-  clone.style.top = "0";
-  clone.style.visibility = "hidden";
-  clone.style.width = "max-content";
-  clone.style.height = "max-content";
-  clone.style.pointerEvents = "none";
-
-  document.body.appendChild(clone);
-  const rect = clone.getBoundingClientRect();
   const bodyStyle = getComputedStyle(document.body);
   const horizontalPadding = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
   const verticalPadding = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
-  clone.remove();
+  const panelStyle = getComputedStyle(panel);
+  const panelHorizontalChrome =
+    parseFloat(panelStyle.borderLeftWidth) +
+    parseFloat(panelStyle.borderRightWidth) +
+    parseFloat(panelStyle.paddingLeft) +
+    parseFloat(panelStyle.paddingRight);
+  const panelVerticalChrome =
+    parseFloat(panelStyle.borderTopWidth) +
+    parseFloat(panelStyle.borderBottomWidth) +
+    parseFloat(panelStyle.paddingTop) +
+    parseFloat(panelStyle.paddingBottom);
+  const panelScrollStyle = panelScroll ? getComputedStyle(panelScroll) : null;
+  const statusStyle = status ? getComputedStyle(status) : null;
+
+  const contentWidth = Math.max(
+    titlebar?.scrollWidth || 0,
+    panelScroll?.scrollWidth || 0,
+    status?.scrollWidth || 0,
+  );
+
+  const contentHeight =
+    (titlebar?.getBoundingClientRect().height || 0) +
+    (panelScrollStyle ? parseFloat(panelScrollStyle.marginTop) : 0) +
+    (panelScroll ? measureScrollContentHeight(panelScroll) : 0) +
+    (statusStyle ? parseFloat(statusStyle.marginTop) : 0) +
+    (status?.getBoundingClientRect().height || 0);
 
   return {
-    width: Math.max(320, Math.ceil(rect.width + horizontalPadding)),
-    height: Math.max(260, Math.ceil(rect.height + verticalPadding)),
+    width: Math.max(320, Math.ceil(contentWidth + panelHorizontalChrome + horizontalPadding)),
+    height: Math.max(260, Math.ceil(contentHeight + panelVerticalChrome + verticalPadding)),
   };
 }
 
@@ -127,9 +189,12 @@ function renderSettings() {
   const scale = settings.Scale ?? 1.0;
   const showAdvanced = settings.ShowAdvancedSettings || false;
   const showDiagnostics = settings.ShowDiagnostics || false;
+  const panelStyle = getPanelStyle(settings.PanelStyle);
 
   input("volume").value = String(volume);
   el("volume-value").textContent = Math.round(volume * 100) + "%";
+  select("panel-style").value = panelStyle;
+  applyPanelStyle(panelStyle);
   
   input("show-advanced").checked = showAdvanced;
   el("advanced-settings").style.display = showAdvanced ? "block" : "none";
@@ -387,6 +452,17 @@ el("refresh-diagnostics-btn").addEventListener("click", refreshDiagnostics);
 el("pet-select").addEventListener("change", async (e: Event) => {
   try {
     await api.setSettings({ CurrentPet: (e.target as HTMLSelectElement).value });
+  } catch (err: unknown) {
+    updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
+  }
+});
+
+el("panel-style").addEventListener("change", async (e: Event) => {
+  const panelStyle = getPanelStyle((e.target as HTMLSelectElement).value);
+  settings.PanelStyle = panelStyle;
+  applyPanelStyle(panelStyle);
+  try {
+    await api.setSettings({ PanelStyle: panelStyle });
   } catch (err: unknown) {
     updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
   }

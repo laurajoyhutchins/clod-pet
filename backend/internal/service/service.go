@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"encoding/base64"
-	"github.com/goccy/go-json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -443,6 +443,7 @@ func (s *Service) Settings() map[string]interface{} {
 		"Scale":                s.settings.Scale,
 		"ShowAdvancedSettings": s.settings.ShowAdvancedSettings,
 		"ShowDiagnostics":      s.settings.ShowDiagnostics,
+		"PanelStyle":           s.settings.PanelStyle,
 		"MultiScreenEnabled":   s.settings.MultiScreenEnabled,
 		"GravityFactor":        s.settings.GravityFactor,
 		"CurrentPet":           s.settings.CurrentPet,
@@ -482,6 +483,11 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 	if v, ok := settings["ShowDiagnostics"]; ok {
 		if show, ok := v.(bool); ok {
 			s.settings.ShowDiagnostics = show
+		}
+	}
+	if v, ok := settings["PanelStyle"]; ok {
+		if panelStyle, ok := v.(string); ok {
+			s.settings.PanelStyle = panelStyle
 		}
 	}
 	if v, ok := settings["WinForeGround"]; ok {

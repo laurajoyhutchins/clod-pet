@@ -7,15 +7,17 @@ const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const appDir = path.join(repoRoot, "app");
+const tempDir = path.join(__dirname, "temp");
 
 function parseArgs(argv) {
   const args = {
-    out: path.join(__dirname, "control-panel-live.png"),
+    out: path.join(tempDir, "control-panel-live.png"),
     delayMs: 750,
     postResizeDelayMs: 500,
     showAdvanced: false,
     showDiagnostics: false,
     activePets: 0,
+    panelStyle: "windows-98",
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -40,6 +42,10 @@ function parseArgs(argv) {
       args.activePets = parseInt(argv[++i], 10);
     } else if (arg.startsWith("--active-pets=")) {
       args.activePets = parseInt(arg.slice("--active-pets=".length), 10);
+    } else if (arg === "--style" && argv[i + 1]) {
+      args.panelStyle = argv[++i];
+    } else if (arg.startsWith("--style=")) {
+      args.panelStyle = arg.slice("--style=".length);
     }
   }
 
@@ -73,6 +79,7 @@ if (!process.versions.electron) {
       showAdvanced: args.showAdvanced,
       showDiagnostics: args.showDiagnostics,
       activePets: args.activePets,
+      panelStyle: args.panelStyle,
     }),
   };
 
@@ -107,25 +114,56 @@ function resolveOutputPath(out) {
 function measureScript() {
   return `(() => {
     const panel = document.querySelector(".window");
+    const titlebar = document.querySelector(".titlebar");
+    const panelScroll = document.querySelector(".panel-scroll");
+    const status = document.querySelector(".status");
     if (!panel) return null;
-    const clone = panel.cloneNode(true);
-    clone.style.position = "absolute";
-    clone.style.left = "-10000px";
-    clone.style.top = "0";
-    clone.style.visibility = "hidden";
-    clone.style.width = "max-content";
-    clone.style.height = "max-content";
-    clone.style.pointerEvents = "none";
-    document.body.appendChild(clone);
-    const rect = clone.getBoundingClientRect();
-    clone.remove();
+    const bodyStyle = getComputedStyle(document.body);
+    const horizontalPadding = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
+    const verticalPadding = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
+    const panelStyle = getComputedStyle(panel);
+    const panelHorizontalChrome =
+      parseFloat(panelStyle.borderLeftWidth) +
+      parseFloat(panelStyle.borderRightWidth) +
+      parseFloat(panelStyle.paddingLeft) +
+      parseFloat(panelStyle.paddingRight);
+    const panelVerticalChrome =
+      parseFloat(panelStyle.borderTopWidth) +
+      parseFloat(panelStyle.borderBottomWidth) +
+      parseFloat(panelStyle.paddingTop) +
+      parseFloat(panelStyle.paddingBottom);
+    const panelScrollStyle = panelScroll ? getComputedStyle(panelScroll) : null;
+    const statusStyle = status ? getComputedStyle(status) : null;
+    const measureScrollContentHeight = (container) => {
+      const style = getComputedStyle(container);
+      const children = Array.from(container.children);
+      const childHeight = children.reduce((total, child) => total + child.getBoundingClientRect().height, 0);
+      const gap = parseFloat(style.rowGap || style.gap || "0");
+      return (
+        parseFloat(style.paddingTop) +
+        parseFloat(style.paddingBottom) +
+        childHeight +
+        Math.max(0, children.length - 1) * (Number.isFinite(gap) ? gap : 0)
+      );
+    };
+    const contentWidth = Math.max(
+      titlebar ? titlebar.scrollWidth : 0,
+      panelScroll ? panelScroll.scrollWidth : 0,
+      status ? status.scrollWidth : 0,
+    );
+    const contentHeight =
+      (titlebar ? titlebar.getBoundingClientRect().height : 0) +
+      (panelScrollStyle ? parseFloat(panelScrollStyle.marginTop) : 0) +
+      (panelScroll ? measureScrollContentHeight(panelScroll) : 0) +
+      (statusStyle ? parseFloat(statusStyle.marginTop) : 0) +
+      (status ? status.getBoundingClientRect().height : 0);
     return {
-      width: Math.max(190, Math.ceil(rect.width + 8)),
-      height: Math.max(180, Math.ceil(rect.height + 8)),
+      width: Math.max(320, Math.ceil(contentWidth + panelHorizontalChrome + horizontalPadding)),
+      height: Math.max(260, Math.ceil(contentHeight + panelVerticalChrome + verticalPadding)),
       bodyWidth: document.body.scrollWidth,
       bodyHeight: document.body.scrollHeight,
-      panelWidth: Math.ceil(rect.width),
-      panelHeight: Math.ceil(rect.height),
+      panelWidth: Math.ceil(contentWidth + panelHorizontalChrome),
+      panelHeight: Math.ceil(contentHeight + panelVerticalChrome),
     };
   })();`;
 }
@@ -139,13 +177,14 @@ async function main() {
   await app.whenReady();
 
   const win = new BrowserWindow({
-    width: 900,
+    width: 420,
     height: 900,
     show: false,
     frame: false,
-    roundedCorners: false,
-    hasShadow: false,
-    backgroundColor: "#008080",
+    roundedCorners: true,
+    hasShadow: true,
+    transparent: true,
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
