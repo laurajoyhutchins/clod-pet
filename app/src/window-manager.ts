@@ -10,10 +10,12 @@ interface WindowEntry {
 class WindowManager {
   windows: Map<string, WindowEntry>;
   store: WorldStore | null;
+  petWindowsForeground: boolean;
 
   constructor(store?: WorldStore) {
     this.windows = new Map();
     this.store = store || null;
+    this.petWindowsForeground = false;
     if (this.store) {
       this.subscribeToStore();
     }
@@ -77,8 +79,23 @@ class WindowManager {
     });
 
     this.windows.set(petId, { win, opts });
+    this.applyPetWindowPriority(win);
 
     return win;
+  }
+
+  setPetWindowsForeground(enabled: boolean) {
+    this.petWindowsForeground = enabled;
+    for (const { win } of this.windows.values()) {
+      this.applyPetWindowPriority(win, true);
+    }
+  }
+
+  raisePetWindow(petId: string) {
+    const entry = this.windows.get(petId);
+    if (entry) {
+      this.applyPetWindowPriority(entry.win, true);
+    }
   }
 
   getPetWindow(petId: string): BrowserWindow | null {
@@ -114,6 +131,25 @@ class WindowManager {
       id,
       win,
     }));
+  }
+
+  private applyPetWindowPriority(win: BrowserWindow, raise = false) {
+    if (win.isDestroyed()) return;
+
+    const level = this.petWindowsForeground ? "screen-saver" : "pop-up-menu";
+    try {
+      win.setAlwaysOnTop(true, level);
+    } catch {
+      // Ignore platforms that do not support the requested z-order level.
+    }
+
+    if (raise && typeof win.moveTop === "function") {
+      try {
+        win.moveTop();
+      } catch {
+        // Keep going even if the platform cannot move the window to the top.
+      }
+    }
   }
 }
 

@@ -64,6 +64,8 @@ jest.mock("../window-manager", () => {
   return jest.fn().mockImplementation(() => ({
     windows: new Map<string, { win: any; opts?: unknown }>(),
     createPetWindow: jest.fn(),
+    setPetWindowsForeground: jest.fn(),
+    raisePetWindow: jest.fn(),
     getPetWindow: jest.fn(function (petId) {
       return this.windows.get(petId)?.win || null;
     }),
@@ -205,7 +207,7 @@ type MockBrowserWindow = {
 describe("PetManager", () => {
   let manager: InstanceType<typeof PetManager>;
   let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock; getSettings: jest.Mock };
-  let mockWindowManager: { createPetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
+  let mockWindowManager: { createPetWindow: jest.Mock; setPetWindowsForeground: jest.Mock; raisePetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
   let mockStore: any;
 
   beforeEach(() => {
@@ -283,6 +285,8 @@ describe("PetManager", () => {
       loadURL: jest.fn().mockResolvedValue(undefined),
       show: jest.fn(),
       showInactive: jest.fn(),
+      moveTop: jest.fn(),
+      setAlwaysOnTop: jest.fn(),
       once: jest.fn(),
       on: jest.fn(),
       webContents: {
@@ -314,6 +318,7 @@ describe("PetManager", () => {
     const readyToShowCb = mockWin.once.mock.calls.find(c => c[0] === "ready-to-show")[1];
     readyToShowCb();
     expect(mockWin.showInactive).toHaveBeenCalled();
+    expect(mockWindowManager.raisePetWindow).toHaveBeenCalledWith("pet_1");
 
     const loadCb = mockWin.webContents.on.mock.calls.find(c => c[0] === "did-finish-load")[1];
     loadCb();
@@ -732,6 +737,16 @@ describe("PetManager", () => {
 
     expect(mockBackendClient.removePet).not.toHaveBeenCalled();
     expect(mockStore.getState().pets.pet_1).toBeUndefined();
+  });
+
+  test("should apply foreground priority from settings on init", async () => {
+    mockBackendClient.getSettings.mockResolvedValue({
+      payload: { Scale: 1.0, Volume: 0.3, WinForeGround: true },
+    });
+
+    await manager.init();
+
+    expect(mockWindowManager.setPetWindowsForeground).toHaveBeenCalledWith(true);
   });
 
   test("shutdown should stop timers and close pet windows without backend cleanup", () => {

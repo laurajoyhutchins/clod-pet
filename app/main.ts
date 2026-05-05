@@ -148,6 +148,9 @@ function setupControlPanelHandlers(): void {
     if (settings && typeof settings.MultiScreenEnabled === "boolean") {
       petManager?.setMultiScreenEnabled(settings.MultiScreenEnabled);
     }
+    if (settings && typeof settings.WinForeGround === "boolean") {
+      petManager?.setWindowForegroundEnabled(settings.WinForeGround);
+    }
     return result;
   });
   ipcMain.handle("control:list-pets", async () => {

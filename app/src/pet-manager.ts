@@ -23,6 +23,7 @@ class PetManager {
   scale: number;
   volume: number;
   multiScreenEnabled: boolean;
+  windowForegroundEnabled: boolean;
   store: WorldStore | null;
 
   constructor(backendUrl: string, store?: WorldStore) {
@@ -39,6 +40,7 @@ class PetManager {
     this.scale = 1.0;
     this.volume = 0.3;
     this.multiScreenEnabled = true;
+    this.windowForegroundEnabled = false;
   }
 
   private _getPet(petId: string): PetInstance | null {
@@ -122,6 +124,10 @@ class PetManager {
       if (settings && typeof settings.MultiScreenEnabled === "boolean") {
         this.multiScreenEnabled = settings.MultiScreenEnabled;
       }
+      if (settings && typeof settings.WinForeGround === "boolean") {
+        this.windowForegroundEnabled = settings.WinForeGround;
+        this.windowManager.setPetWindowsForeground(this.windowForegroundEnabled);
+      }
     } catch (err: unknown) {
       log.warn("Failed to load initial settings:", err instanceof Error ? err.message : String(err));
     }
@@ -170,6 +176,11 @@ class PetManager {
   setMultiScreenEnabled(enabled: boolean): void {
     this.multiScreenEnabled = enabled;
     this._syncEnvironment();
+  }
+
+  setWindowForegroundEnabled(enabled: boolean): void {
+    this.windowForegroundEnabled = enabled;
+    this.windowManager.setPetWindowsForeground(enabled);
   }
 
   private _activeDisplays(): DisplayLike[] {
@@ -292,6 +303,7 @@ class PetManager {
       win.setPosition(showX, showY);
       log.debug("Window ready to show", win.getBounds());
       win.showInactive();
+      this.windowManager.raisePetWindow(backendPetId);
       this._startPetLoop(backendPetId);
     };
 

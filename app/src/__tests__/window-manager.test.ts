@@ -8,6 +8,8 @@ jest.mock("electron", () => ({
     showInactive: jest.fn(),
     setPosition: jest.fn(),
     setSize: jest.fn(),
+    setAlwaysOnTop: jest.fn(),
+    moveTop: jest.fn(),
     destroy: jest.fn(),
     isDestroyed: jest.fn(() => false),
     getBounds: jest.fn(() => ({ x: 0, y: 0, width: 100, height: 100 })),
@@ -45,6 +47,7 @@ describe("WindowManager", () => {
         hasShadow: false,
       })
     );
+    expect(win.setAlwaysOnTop).toHaveBeenCalledWith(true, "pop-up-menu");
   });
 
   test("should create pet window with custom options", () => {
@@ -127,6 +130,15 @@ describe("WindowManager", () => {
     manager.updateSize("pet1", 200, 300);
 
     expect(win.setSize).toHaveBeenCalledWith(200, 300);
+  });
+
+  test("should raise all windows when foreground priority is enabled", () => {
+    const win = manager.createPetWindow("pet1") as any;
+
+    manager.setPetWindowsForeground(true);
+
+    expect(win.setAlwaysOnTop).toHaveBeenCalledWith(true, "screen-saver");
+    expect(win.moveTop).toHaveBeenCalled();
   });
 
   test("should not update size for destroyed window", () => {
