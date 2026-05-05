@@ -9,6 +9,11 @@ import (
 	"clod-pet/backend/internal/settings"
 )
 
+func newTestService(t *testing.T) *Service {
+	t.Helper()
+	return New("../../../pets", "test-settings.json", settings.DefaultConfig())
+}
+
 func TestCleanPetPathAllowsPathsInsidePetsDir(t *testing.T) {
 	petsDir := t.TempDir()
 	svc := New(petsDir, "", settings.DefaultConfig())
@@ -44,8 +49,7 @@ func TestCleanPetPathRejectsAbsolutePathOutsidePetsDir(t *testing.T) {
 }
 
 func TestNewService(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 	if svc == nil {
 		t.Fatal("New returned nil")
 	}
@@ -55,16 +59,14 @@ func TestNewService(t *testing.T) {
 }
 
 func TestPetsDir(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("/custom/pets", "settings.json", cfg)
+	svc := New("/custom/pets", "settings.json", settings.DefaultConfig())
 	if svc.PetsDir() != "/custom/pets" {
 		t.Errorf("expected '/custom/pets', got %s", svc.PetsDir())
 	}
 }
 
 func TestLoadPet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	info, err := svc.LoadPet("../../../pets/eSheep-modern")
 	if err != nil {
@@ -79,8 +81,7 @@ func TestLoadPet(t *testing.T) {
 }
 
 func TestLoadPetInvalidPath(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	_, err := svc.LoadPet("")
 	if err == nil {
@@ -89,8 +90,7 @@ func TestLoadPetInvalidPath(t *testing.T) {
 }
 
 func TestLoadPetTraversal(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	_, err := svc.LoadPet("../outside")
 	if err == nil {
@@ -99,8 +99,7 @@ func TestLoadPetTraversal(t *testing.T) {
 }
 
 func TestAddPet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -112,8 +111,7 @@ func TestAddPet(t *testing.T) {
 }
 
 func TestAddPetUsesWorldContext(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	world := engine.WorldContext{
 		Screen:   engine.Rect{W: 1920, H: 1080},
@@ -141,8 +139,7 @@ func TestAddPetUsesWorldContext(t *testing.T) {
 }
 
 func TestAddPetInvalidPath(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	_, err := svc.AddPet("", 0)
 	if err == nil {
@@ -151,8 +148,7 @@ func TestAddPetInvalidPath(t *testing.T) {
 }
 
 func TestRemovePet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -168,16 +164,14 @@ func TestRemovePet(t *testing.T) {
 }
 
 func TestRemovePetNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	// Should not panic
 	svc.RemovePet("non-existent-id")
 }
 
 func TestStepPet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -203,8 +197,7 @@ func TestStepPet(t *testing.T) {
 }
 
 func TestStepPetConcurrentCalls(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -239,8 +232,7 @@ func TestStepPetConcurrentCalls(t *testing.T) {
 }
 
 func TestStepPetsConcurrent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	const numPets = 5
 	petIDs := make([]string, 0, numPets)
@@ -276,8 +268,7 @@ func TestStepPetsConcurrent(t *testing.T) {
 }
 
 func TestStepPetsEmpty(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	states, err := svc.StepPets([]string{}, engine.WorldContext{})
 	if err != nil {
@@ -290,8 +281,7 @@ func TestStepPetsEmpty(t *testing.T) {
 }
 
 func TestStepPetsWithNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -317,8 +307,7 @@ func TestStepPetsWithNonExistent(t *testing.T) {
 }
 
 func TestStepPetNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	_, err := svc.StepPet("non-existent", engine.WorldContext{})
 	if err == nil {
@@ -327,8 +316,7 @@ func TestStepPetNonExistent(t *testing.T) {
 }
 
 func TestStepPetWithBorder(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -349,8 +337,7 @@ func TestStepPetWithBorder(t *testing.T) {
 }
 
 func TestDragPet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -364,8 +351,7 @@ func TestDragPet(t *testing.T) {
 }
 
 func TestDragPetNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.DragPet("non-existent", 100, 200)
 	if err == nil {
@@ -374,8 +360,7 @@ func TestDragPetNonExistent(t *testing.T) {
 }
 
 func TestDropPet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -389,8 +374,7 @@ func TestDropPet(t *testing.T) {
 }
 
 func TestDropPetNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.DropPet("non-existent")
 	if err == nil {
@@ -399,8 +383,7 @@ func TestDropPetNonExistent(t *testing.T) {
 }
 
 func TestValidatePetExists(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -414,8 +397,7 @@ func TestValidatePetExists(t *testing.T) {
 }
 
 func TestValidatePetExistsNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.ValidatePetExists("non-existent")
 	if err == nil {
@@ -424,8 +406,7 @@ func TestValidatePetExistsNonExistent(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	status := svc.Status()
 	if status == nil {
@@ -437,8 +418,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestSettings(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	settings := svc.Settings()
 	if settings == nil {
@@ -450,8 +430,7 @@ func TestSettings(t *testing.T) {
 }
 
 func TestSetSettings(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.SetSettings(map[string]interface{}{
 		"Volume": 0.8,
@@ -468,8 +447,7 @@ func TestSetSettings(t *testing.T) {
 }
 
 func TestListPets(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	pets, err := svc.ListPets()
 	if err != nil {
@@ -481,8 +459,7 @@ func TestListPets(t *testing.T) {
 }
 
 func TestListActive(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -502,8 +479,7 @@ func TestListActive(t *testing.T) {
 }
 
 func TestPet(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {
@@ -520,8 +496,7 @@ func TestPet(t *testing.T) {
 }
 
 func TestPetNonExistent(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	_, err := svc.Pet("non-existent")
 	if err == nil {
@@ -530,8 +505,7 @@ func TestPetNonExistent(t *testing.T) {
 }
 
 func TestSetSettingsInvalidTypes(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	// Should not panic and should ignore invalid types
 	err := svc.SetSettings(map[string]interface{}{
@@ -547,8 +521,7 @@ func TestSetSettingsInvalidTypes(t *testing.T) {
 }
 
 func TestUpdateVolume(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.UpdateVolume(0.7)
 	if err != nil {
@@ -562,8 +535,7 @@ func TestUpdateVolume(t *testing.T) {
 }
 
 func TestUpdateScale(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.UpdateScale(2.5)
 	if err != nil {
@@ -595,8 +567,7 @@ func TestPathWithinOutside(t *testing.T) {
 }
 
 func TestSetSettingsAll(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	err := svc.SetSettings(map[string]interface{}{
 		"Volume":             0.9,
@@ -636,8 +607,7 @@ func TestSetSettingsAll(t *testing.T) {
 }
 
 func TestAddPetDuplicate(t *testing.T) {
-	cfg := settings.DefaultConfig()
-	svc := New("../../../pets", "test-settings.json", cfg)
+	svc := newTestService(t)
 
 	state1, err := svc.AddPet("../../../pets/eSheep-modern", 0)
 	if err != nil {

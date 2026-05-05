@@ -2,12 +2,15 @@ package main
 
 import (
 	"github.com/goccy/go-json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
 	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/service"
@@ -17,6 +20,47 @@ import (
 func TestMain(m *testing.M) {
 	log.Init(false)
 	os.Exit(m.Run())
+}
+
+func writeTempSettingsFile(t *testing.T, cfg *settings.Config) string {
+	t.Helper()
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal settings: %v", err)
+	}
+
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write settings file: %v", err)
+	}
+
+	return path
+}
+
+func newTestService(t *testing.T, addPet bool) *service.Service {
+	t.Helper()
+
+	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
+	if addPet {
+		if _, err := svc.AddPet("../pets/eSheep-modern", 1); err != nil {
+			t.Fatalf("add pet: %v", err)
+		}
+	}
+	return svc
+}
+
+func invokeHandler(t *testing.T, handler http.HandlerFunc, method, target, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(method, target, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	rr := httptest.NewRecorder()
+	handler(rr, req)
+	return rr
 }
 
 func TestEnvOr(t *testing.T) {
@@ -35,17 +79,18 @@ func TestEnvOr(t *testing.T) {
 }
 
 func TestLoadSettingsExisting(t *testing.T) {
-	cfg := loadSettings("clod-pet-settings.json")
+	want := settings.DefaultConfig()
+	cfg := loadSettings(writeTempSettingsFile(t, want))
 	if cfg == nil {
 		t.Fatal("loadSettings returned nil")
 	}
-	if cfg.Volume == 0 {
-		t.Error("expected non-zero volume")
+	if cfg.Volume != want.Volume {
+		t.Errorf("expected volume %v, got %v", want.Volume, cfg.Volume)
 	}
 }
 
 func TestLoadSettingsNonExistent(t *testing.T) {
-	cfg := loadSettings("non-existent-settings.json")
+	cfg := loadSettings(filepath.Join(t.TempDir(), "missing-settings.json"))
 	if cfg == nil {
 		t.Fatal("loadSettings returned nil for non-existent file")
 	}
@@ -64,16 +109,16 @@ func TestWriteJSON(t *testing.T) {
 	}
 
 	contentType := rr.Header().Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("expected Content-Type application/json, got %s", contentType)
+	if !strings.Contains(contentType, "application/json") {
+		t.Errorf("expected application/json content type, got %s", contentType)
 	}
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if result["ok"] != true {
-		t.Error("expected ok to be true")
+	if result["ok"] != true || result["message"] != "test" {
+		t.Errorf("unexpected JSON body: %#v", result)
 	}
 }
 
@@ -85,71 +130,338 @@ func TestWriteError(t *testing.T) {
 		t.Errorf("expected status 400, got %d", rr.Code)
 	}
 
+	rawBody, err := io.ReadAll(rr.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if !strings.Contains(string(rawBody), "test error") {
+		t.Errorf("expected error text in body, got %q", string(rawBody))
+	}
+
 	var result map[string]interface{}
-	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(rawBody, &result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if result["ok"] != false {
-		t.Error("expected ok to be false")
+	if result["ok"] != false || result["error"] != "test error" {
+		t.Errorf("unexpected JSON body: %#v", result)
 	}
 }
 
-func TestWriteResponseOK(t *testing.T) {
-	rr := httptest.NewRecorder()
-	resp := &ipc.Response{OK: true, Payload: []byte(`{"test":true}`)}
-	writeResponse(rr, resp)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d", rr.Code)
+func TestWriteResponse(t *testing.T) {
+	tests := []struct {
+		name       string
+		resp       *ipc.Response
+		wantStatus int
+		wantOK     bool
+		wantError  string
+		wantPayload string
+	}{
+		{
+			name:        "success",
+			resp:        &ipc.Response{OK: true, Payload: []byte(`{"test":true}`)},
+			wantStatus:  http.StatusOK,
+			wantOK:      true,
+			wantPayload: `{"test":true}`,
+		},
+		{
+			name:       "not found",
+			resp:       &ipc.Response{OK: false, Error: engine.ErrPetNotFound.Error()},
+			wantStatus: http.StatusNotFound,
+			wantError:  engine.ErrPetNotFound.Error(),
+		},
+		{
+			name:       "generic error",
+			resp:       &ipc.Response{OK: false, Error: "something went wrong"},
+			wantStatus: http.StatusBadRequest,
+			wantError:  "something went wrong",
+		},
 	}
-}
 
-func TestWriteResponseError(t *testing.T) {
-	rr := httptest.NewRecorder()
-	resp := &ipc.Response{OK: false, Error: "something went wrong"}
-	writeResponse(rr, resp)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			writeResponse(rr, tt.resp)
 
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400, got %d", rr.Code)
-	}
-}
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			}
 
-func TestWriteResponseErrorNotFound(t *testing.T) {
-	rr := httptest.NewRecorder()
-	resp := &ipc.Response{OK: false, Error: "pet not found"}
-	writeResponse(rr, resp)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected status 404, got %d", rr.Code)
+			var got ipc.Response
+			if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if got.OK != tt.wantOK {
+				t.Errorf("expected ok=%v, got %v", tt.wantOK, got.OK)
+			}
+			if tt.wantError != "" && got.Error != tt.wantError {
+				t.Errorf("expected error %q, got %q", tt.wantError, got.Error)
+			}
+			if tt.wantPayload != "" {
+				if string(got.Payload) != tt.wantPayload {
+					t.Errorf("expected payload %s, got %s", tt.wantPayload, string(got.Payload))
+				}
+			}
+		})
 	}
 }
 
 func TestApiHandler(t *testing.T) {
-	rr := httptest.NewRecorder()
-	handler := apiHandler(nil)
+	handler := apiHandler(ipc.NewHandler(newTestService(t, false)))
 
-	// Test wrong method
-	req := httptest.NewRequest(http.MethodGet, "/api", nil)
-	handler(rr, req)
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
+	tests := []struct {
+		name       string
+		method     string
+		body       string
+		wantStatus int
+		wantOK     bool
+	}{
+		{
+			name:       "success",
+			method:     http.MethodPost,
+			body:       `{"command":"get_status"}`,
+			wantStatus: http.StatusOK,
+			wantOK:     true,
+		},
+		{
+			name:       "unknown command",
+			method:     http.MethodPost,
+			body:       `{"command":"unknown"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid json",
+			method:     http.MethodPost,
+			body:       `invalid json`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid method",
+			method:     http.MethodGet,
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := invokeHandler(t, handler, tt.method, "/api", tt.body)
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			}
+
+			var resp ipc.Response
+			if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if tt.wantOK && !resp.OK {
+				t.Error("expected resp.OK to be true")
+			}
+		})
 	}
 }
 
-func TestApiHandlerSuccess(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
-	h := ipc.NewHandler(svc)
-	handler := apiHandler(h)
+func TestLoadPetHandler(t *testing.T) {
+	handler := loadPetHandler(ipc.NewHandler(newTestService(t, false)))
 
-	body := `{"command": "get_status"}`
-	req := httptest.NewRequest(http.MethodPost, "/api", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	tests := []struct {
+		name       string
+		method     string
+		body       string
+		wantStatus int
+		wantOK     bool
+		wantTitle  bool
+	}{
+		{
+			name:       "success",
+			method:     http.MethodPost,
+			body:       `{"pet_path":"../pets/eSheep-modern"}`,
+			wantStatus: http.StatusOK,
+			wantOK:     true,
+			wantTitle:  true,
+		},
+		{
+			name:       "missing pet",
+			method:     http.MethodPost,
+			body:       `{"pet_path":"non-existent"}`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid json",
+			method:     http.MethodPost,
+			body:       `invalid`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "invalid method",
+			method:     http.MethodGet,
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := invokeHandler(t, handler, tt.method, "/api/pet/load", tt.body)
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			}
+
+			if tt.wantOK {
+				var resp ipc.Response
+				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+					t.Fatalf("failed to decode response: %v", err)
+				}
+				if !resp.OK {
+					t.Fatal("expected resp.OK to be true")
+				}
+				var petInfo ipc.PetInfo
+				if err := json.Unmarshal(resp.Payload, &petInfo); err != nil {
+					t.Fatalf("failed to decode payload: %v", err)
+				}
+				if tt.wantTitle && (petInfo.Title == "" || petInfo.PetName == "") {
+					t.Errorf("expected non-empty pet info, got %#v", petInfo)
+				}
+			}
+		})
+	}
+}
+
+func TestHealthHandler(t *testing.T) {
+	tests := []struct {
+		name        string
+		addPet      bool
+		wantStatus  string
+		wantMessage string
+	}{
+		{
+			name:       "degraded when empty",
+			wantStatus: "degraded",
+			wantMessage: "no pets loaded",
+		},
+		{
+			name:       "ok when pet loaded",
+			addPet:     true,
+			wantStatus: "ok",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newTestService(t, tt.addPet)
+
+			rr := invokeHandler(t, healthHandler(svc), http.MethodGet, "/api/health", "")
+
+			if rr.Code != http.StatusOK {
+				t.Fatalf("expected status 200, got %d", rr.Code)
+			}
+
+			var result map[string]interface{}
+			if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if result["status"] != tt.wantStatus {
+				t.Fatalf("expected status %q, got %v", tt.wantStatus, result["status"])
+			}
+			if tt.wantMessage != "" && result["message"] != tt.wantMessage {
+				t.Fatalf("expected message %q, got %v", tt.wantMessage, result["message"])
+			}
+			})
+		}
+	}
+
+func TestVersionHandler(t *testing.T) {
+	handler := versionHandler("../pets", "settings.json")
+
+	tests := []struct {
+		name       string
+		method     string
+		wantStatus int
+		wantOK     bool
+	}{
+		{
+			name:       "get",
+			method:     http.MethodGet,
+			wantStatus: http.StatusOK,
+			wantOK:     true,
+		},
+		{
+			name:       "invalid method",
+			method:     http.MethodPost,
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := invokeHandler(t, handler, tt.method, "/api/version", "")
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			}
+			if tt.wantOK {
+				var result map[string]interface{}
+				if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+					t.Fatalf("failed to decode response: %v", err)
+				}
+				if result["version"] == nil || result["pid"] == nil {
+					t.Fatalf("unexpected response body: %#v", result)
+				}
+				if result["pets_dir"] != "../pets" || result["settings_path"] != "settings.json" {
+					t.Fatalf("unexpected metadata: %#v", result)
+				}
+			}
+		})
+	}
+}
+
+func TestDescribeHandler(t *testing.T) {
+	handler := describeHandler()
+
+	tests := []struct {
+		name       string
+		method     string
+		wantStatus int
+		wantOK     bool
+	}{
+		{
+			name:       "get",
+			method:     http.MethodGet,
+			wantStatus: http.StatusOK,
+			wantOK:     true,
+		},
+		{
+			name:       "invalid method",
+			method:     http.MethodPost,
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := invokeHandler(t, handler, tt.method, "/api/describe", "")
+
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			}
+			if tt.wantOK {
+				var result map[string]interface{}
+				if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+					t.Fatalf("failed to decode response: %v", err)
+				}
+				if result["version"] == nil || result["commands"] == nil || result["endpoints"] == nil {
+					t.Fatalf("unexpected response body: %#v", result)
+				}
+			}
+		})
+	}
+}
+
+func TestWriteResponseNil(t *testing.T) {
 	rr := httptest.NewRecorder()
-
-	handler(rr, req)
+	writeResponse(rr, &ipc.Response{OK: true})
 
 	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 
 	var resp ipc.Response
@@ -157,185 +469,93 @@ func TestApiHandlerSuccess(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 	if !resp.OK {
-		t.Error("expected resp.OK to be true")
+		t.Fatal("expected resp.OK to be true")
 	}
 }
 
-func TestApiHandlerUnknownCommand(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
-	h := ipc.NewHandler(svc)
-	handler := apiHandler(h)
-
-	body := `{"command": "unknown"}`
-	req := httptest.NewRequest(http.MethodPost, "/api", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	handler(rr, req)
+func TestApiHandlerInvalidJSON(t *testing.T) {
+	rr := invokeHandler(t, apiHandler(nil), http.MethodPost, "/api", "invalid json")
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
 	}
 }
 
-func TestLoadPetHandler(t *testing.T) {
-	rr := httptest.NewRecorder()
-	handler := loadPetHandler(nil)
-
-	// Test wrong method
-	req := httptest.NewRequest(http.MethodGet, "/api/pet/load", nil)
-	handler(rr, req)
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 405, got %d", rr.Code)
-	}
-}
-
-func TestLoadPetHandlerSuccess(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
-	h := ipc.NewHandler(svc)
-	handler := loadPetHandler(h)
-
-	body := `{"pet_path": "../pets/eSheep-modern"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/pet/load", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	handler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-}
-
-func TestHealthHandlerOK(t *testing.T) {
-	rr := httptest.NewRecorder()
+func TestLLMHealthHandler(t *testing.T) {
 	cfg := settings.DefaultConfig()
+	cfg.LLM.Provider = "unsupported"
 	svc := service.New("../pets", "test-settings.json", cfg)
-	// Add a pet to make it OK
-	svc.AddPet("../pets/eSheep-modern", 1)
 
-	handler := healthHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	handler(rr, req)
+	rr := invokeHandler(t, llmHealthHandler(svc), http.MethodGet, "/api/llm/health", "")
 
 	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-	var result map[string]interface{}
-	json.NewDecoder(rr.Body).Decode(&result)
-	if result["status"] != "ok" {
-		t.Errorf("expected status ok, got %v", result["status"])
-	}
-}
-
-func TestLoadPetHandlerInvalidJSON(t *testing.T) {
-	rr := httptest.NewRecorder()
-	handler := loadPetHandler(nil)
-	req := httptest.NewRequest(http.MethodPost, "/api/pet/load", strings.NewReader("invalid"))
-	handler(rr, req)
-
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestLoadPetHandlerFail(t *testing.T) {
-	svc := service.New("../pets", "test-settings.json", settings.DefaultConfig())
-	h := ipc.NewHandler(svc)
-	handler := loadPetHandler(h)
-
-	body := `{"pet_path": "non-existent"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/pet/load", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	handler(rr, req)
-
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestVersionHandler(t *testing.T) {
-	rr := httptest.NewRecorder()
-	handler := versionHandler("../pets", "settings.json")
-	req := httptest.NewRequest(http.MethodGet, "/api/version", nil)
-	handler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-}
-
-func TestHealthHandler(t *testing.T) {
-	rr := httptest.NewRecorder()
-	// Use a simple mock or skip if service creation fails
-	cfg := settings.DefaultConfig()
-	svc := service.New("../pets", "test-settings.json", cfg)
-	if svc == nil {
-		t.Skip("service creation returned nil")
-	}
-	handler := healthHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	handler(rr, req)
-
-	if rr.Code != http.StatusOK && rr.Code != http.StatusBadRequest {
-		t.Errorf("expected 200 or 400, got %d", rr.Code)
-	}
-}
-
-func TestDescribeHandler(t *testing.T) {
-	rr := httptest.NewRecorder()
-	handler := describeHandler()
-	req := httptest.NewRequest(http.MethodGet, "/api/describe", nil)
-	handler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
-		t.Fatalf("failed to decode: %v", err)
+		t.Fatalf("failed to decode response: %v", err)
 	}
-	if _, ok := result["commands"]; !ok {
-		t.Error("expected commands in response")
+	if result["ok"] != false {
+		t.Fatalf("expected ok=false, got %#v", result["ok"])
+	}
+	if result["status"] != "error" {
+		t.Fatalf("expected status error, got %#v", result["status"])
+	}
+	if !strings.Contains(result["message"].(string), "unsupported provider") {
+		t.Fatalf("expected unsupported provider message, got %#v", result["message"])
 	}
 }
 
-func TestHealthHandlerDegraded(t *testing.T) {
-	rr := httptest.NewRecorder()
+func TestLLMStreamHandler(t *testing.T) {
+	tests := []struct {
+		name       string
+		method     string
+		body       string
+		wantStatus int
+		wantError  string
+	}{
+		{
+			name:       "invalid method",
+			method:     http.MethodGet,
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name:       "invalid json",
+			method:     http.MethodPost,
+			body:       `invalid`,
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "unsupported provider",
+			method:     http.MethodPost,
+			body:       `{"messages":[{"role":"user","content":"hi"}]}`,
+			wantStatus: http.StatusInternalServerError,
+			wantError:  "unsupported provider",
+		},
+	}
+
 	cfg := settings.DefaultConfig()
+	cfg.LLM.Provider = "unsupported"
 	svc := service.New("../pets", "test-settings.json", cfg)
-	if svc == nil {
-		t.Skip("service creation returned nil")
-	}
-	handler := healthHandler(svc)
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	handler(rr, req)
+	handler := llmStreamHandler(svc)
 
-	var result map[string]interface{}
-	json.NewDecoder(rr.Body).Decode(&result)
-	if status, ok := result["status"]; ok && status != "degraded" {
-		t.Errorf("expected degraded status, got %v", status)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := invokeHandler(t, handler, tt.method, "/api/llm/stream", tt.body)
 
-func TestWriteResponseNil(t *testing.T) {
-	rr := httptest.NewRecorder()
-	// This tests the case where resp might have different fields
-	resp := &ipc.Response{OK: true}
-	writeResponse(rr, resp)
-}
-
-func TestApiHandlerInvalidJSON(t *testing.T) {
-	rr := httptest.NewRecorder()
-	handler := apiHandler(nil)
-	req := httptest.NewRequest(http.MethodPost, "/api", strings.NewReader("invalid json"))
-	req.Header.Set("Content-Type", "application/json")
-	handler(rr, req)
-
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d", rr.Code)
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			}
+			if tt.wantError != "" {
+				body, err := io.ReadAll(rr.Body)
+				if err != nil {
+					t.Fatalf("read body: %v", err)
+				}
+				if !strings.Contains(string(body), tt.wantError) {
+					t.Fatalf("expected body to contain %q, got %q", tt.wantError, string(body))
+				}
+			}
+		})
 	}
 }
