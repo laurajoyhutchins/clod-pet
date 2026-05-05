@@ -4,11 +4,11 @@ Create a new pet directory under `pets/` with an `animations.json` file and a sp
 
 ## Step 1: Create the pet directory
 
-```
+```text
 pets/
-└── my-pet/
-    ├── animations.json
-    └── spritesheet.png
+`-- my-pet/
+    |-- animations.json
+    `-- spritesheet.png
 ```
 
 If you are converting an older XML pet, you can generate the modern layout with:
@@ -56,8 +56,8 @@ A spawn determines where the pet appears:
 }
 ```
 
-- `x`, `y` — [expressions](../reference/expressions.md) for spawn position
-- `next.value` — animation ID to transition into after spawning
+- `x`, `y` - [expressions](../reference/expressions.md) for the spawn position
+- `next.value` - animation ID to transition into after spawning
 
 ## Step 4: Define at least one animation
 
@@ -98,11 +98,9 @@ A spawn determines where the pet appears:
 
 ## Step 5: Load the pet
 
-Edit `app/main.ts`, change the default pet path passed to `createPet()`:
+To make the pet the default startup pet, set `CurrentPet` in the control panel or in your saved settings JSON. The main process falls back to `eSheep-modern` when that setting is not present.
 
-```ts
-async function createPet(petPath = "../pets/eSheep-modern", opts = {}) {
-```
+If you want to hardcode a different development default, update the fallback in `app/main.ts` inside `createPet()`.
 
 Then start the app:
 

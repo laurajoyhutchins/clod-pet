@@ -1,6 +1,7 @@
-# Reference: IPC API
+# Reference: Backend HTTP API
 
-The app communicates with the Go backend via HTTP POST to `http://localhost:{PORT}/api`.
+This page documents the HTTP API between the Electron main process and the Go backend.
+Renderer windows communicate with the main process through the `preload.ts` bridge; they do not call the backend API directly.
 
 ## Request format
 
@@ -39,7 +40,12 @@ Register a pet with the animation engine.
 ```json
 {
   "pet_path": "../pets/eSheep-modern",
-  "spawn_id": 1
+  "spawn_id": 1,
+  "world": {
+    "screen": { "x": 0, "y": 0, "w": 1920, "h": 1080 },
+    "work_area": { "x": 0, "y": 0, "w": 1920, "h": 1040 },
+    "desktop": { "x": 0, "y": 0, "w": 3840, "h": 1080 }
+  }
 }
 ```
 
@@ -47,7 +53,15 @@ Register a pet with the animation engine.
 ```json
 {
   "ok": true,
-  "payload": { "pet_id": "../pets/eSheep-modern" }
+  "payload": {
+    "pet_id": "pet_1",
+    "x": 500,
+    "y": 300,
+    "flip_h": false,
+    "current_anim_id": 1,
+    "current_anim_name": "idle",
+    "border_ctx": 0
+  }
 }
 ```
 
@@ -67,10 +81,10 @@ Advance the pet's animation by one frame and process physics.
 }
 ```
 
-`world`: Raw display geometry used by the backend engine for collision detection and snapping. 
-- `screen`: (**DisplayBounds**) Physical monitor dimensions, used for `ceiling` and `walls`.
-- `work_area`: (**WorkArea**) Screen area excluding taskbar, used for `floor` contact.
-- `desktop`: (**Desktop**) Aggregate geometry of all displays.
+`world` is the raw display geometry used by the backend engine for collision detection and snapping.
+- `screen`: physical monitor dimensions, used for ceiling and walls
+- `work_area`: screen area excluding taskbar, used for floor contact
+- `desktop`: aggregate geometry of all displays
 
 **Response:**
 ```json
@@ -79,18 +93,21 @@ Advance the pet's animation by one frame and process physics.
   "payload": {
     "pet_id": "pet_1",
     "frame_index": 2,
-    "x": 8.0,
-    "y": 0.0,
-    "offset_y": 0.0,
-    "opacity": 1.0,
+    "x": 8,
+    "y": 0,
+    "offset_y": 0,
+    "opacity": 1,
     "interval_ms": 200,
     "flip_h": false,
-    "next_anim_id": 0
+    "current_anim_id": 1,
+    "current_anim_name": "walk",
+    "next_anim_id": 0,
+    "border_ctx": 1
   }
 }
 ```
 
-`next_anim_id > 0` means a transition is triggered (either from internal physics hit, or sequence completion).
+`next_anim_id > 0` means a transition is triggered, either from internal physics or sequence completion.
 
 ### `remove_pet`
 
@@ -98,7 +115,7 @@ Remove a pet from the engine.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/eSheep-modern" }
+{ "pet_id": "pet_1" }
 ```
 
 ### `drag_pet`
@@ -107,16 +124,25 @@ Set the pet to dragging state and update position.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/eSheep-modern", "x": 500, "y": 300 }
+{ "pet_id": "pet_1", "x": 500, "y": 300 }
+```
+
+### `set_position`
+
+Sync the current on-screen position back to the backend.
+
+**Payload:**
+```json
+{ "pet_id": "pet_1", "x": 500, "y": 300 }
 ```
 
 ### `drop_pet`
 
-Set the pet to falling state (gravity animation).
+Set the pet to falling state.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/eSheep-modern" }
+{ "pet_id": "pet_1" }
 ```
 
 ### `border_pet`
@@ -125,7 +151,7 @@ Notify the pet that it hit a screen border.
 
 **Payload:**
 ```json
-{ "pet_id": "../pets/eSheep-modern", "border_ctx": 1 }
+{ "pet_id": "pet_1", "border_ctx": 1 }
 ```
 
 ### `llm_chat`
@@ -155,7 +181,7 @@ Send a message to the AI pet.
 
 ### `get_status`
 
-Get the current engine status (e.g., active pet count).
+Get the current engine status, including the active pet count.
 
 **Response:**
 ```json
@@ -170,7 +196,7 @@ Get the current engine status (e.g., active pet count).
 
 ### `list_pets`
 
-List available pet directories in the `PETS_DIR`.
+List available pet directories in `PETS_DIR`.
 
 **Response:**
 ```json
@@ -182,50 +208,36 @@ List available pet directories in the `PETS_DIR`.
 
 ### `list_active`
 
-List currently running pet instances and their IDs.
+List currently running pet instances.
 
 **Response:**
 ```json
 {
   "ok": true,
   "payload": [
-    { "id": "pet_1", "path": "eSheep-modern" }
+    { "pet_id": "pet_1", "title": "eSheep 64bit", "pet_name": "eSheep" }
   ]
 }
 ```
 
 ### `get_settings` / `set_settings`
 
-Read or update global settings (volume, scale, AI provider).
+Read or update global settings such as volume, scale, and the startup pet.
 
-**`get_settings` Response:**
+**`get_settings` response:**
 ```json
 {
   "ok": true,
   "payload": {
-    "volume": 0.5,
-    "scale": 1.0,
-    "llm_provider": "gemini"
+    "Scale": 1,
+    "Volume": 0.5,
+    "GravityFactor": 2,
+    "CurrentPet": "eSheep-modern"
   }
 }
 ```
 
----
-
-## Streaming and Specialized Endpoints
-
-### `POST /api/llm/stream`
-
-Stream AI response tokens using Server-Sent Events (SSE).
-
-**Payload:** Same as `llm_chat` but `stream` must be `true`.
-
-**Events:**
-- `data: <token>`: Partial message content.
-- `event: error\ndata: <message>`: Error occurred during streaming.
-- `event: done\ndata: {}`: Stream completed successfully.
-
-### `POST /api/pet/load`
+### `get_pet`
 
 Load pet data from an `animations.json` file, or fall back to a legacy `animations.xml` pet when no JSON file is present.
 
@@ -244,11 +256,26 @@ Load pet data from an `animations.json` file, or fall back to a legacy `animatio
     "tiles_x": 16,
     "tiles_y": 11,
     "png_base64": "iVBORw0KGgo...",
-    "spawns": [{"id": 1, "probability": 20}, ...],
+    "frame_w": 64,
+    "frame_h": 64,
+    "spawns": [{ "id": 1, "probability": 20 }],
     "anim_count": 77
   }
 }
 ```
+
+## Streaming and specialized endpoints
+
+### `POST /api/llm/stream`
+
+Stream AI response tokens using Server-sent Events.
+
+**Payload:** Same as `llm_chat` but `stream` must be `true`.
+
+**Events:**
+- `data: <token>`: partial message content
+- `event: error` + `data: <message>`: error occurred during streaming
+- `event: done` + `data: {}`: stream completed successfully
 
 ### `GET /api/health`
 
@@ -257,4 +284,13 @@ Health check.
 **Response:**
 ```json
 { "status": "ok" }
+```
+
+### `GET /api/version`
+
+Return the backend version information.
+
+**Response:**
+```json
+{ "ok": true, "version": "0.1.0" }
 ```

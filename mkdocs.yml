@@ -6,6 +6,9 @@ theme:
   name: mkdocs
   highlightjs: true
 
+extra_css:
+  - styles/win98.css
+
 nav:
   - Home: index.md
   - Tutorials:
@@ -13,7 +16,7 @@ nav:
   - How-to guides:
       - Add a custom pet: howto/add-custom-pet.md
   - Reference:
-      - IPC API: reference/ipc-api.md
+      - Backend HTTP API: reference/ipc-api.md
       - animations.json: reference/animations-json.md
       - Expression language: reference/expressions.md
       - Scripts: reference/scripts.md

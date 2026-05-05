@@ -20,13 +20,13 @@ powershell -ExecutionPolicy Bypass -File scripts/install.ps1
 This script will:
 - Create a self-signed certificate for code signing
 - Build the Go backend
-- Sign the executable (if Windows SDK is installed)
-- Add Windows Defender exclusion
+- Sign the executable if the Windows SDK is installed
+- Add a Windows Defender exclusion
 - Install app dependencies
 - Compile the app TypeScript when the app starts
-- Create Start Menu shortcut
+- Create a Start Menu shortcut
 
-**Manual install (alternative):**
+**Manual install:**
 
 ```bash
 cd app
@@ -36,8 +36,8 @@ npm install
 ## Step 2: Start the application
 
 **If you used the install script:**
-- Use the Start Menu shortcut "ClodPet", or
-- Run `npm start` in the app directory
+- Use the Start Menu shortcut `ClodPet`, or
+- Run `npm start` in the `app/` directory
 
 **Manual start:**
 
@@ -52,29 +52,32 @@ You will see:
 1. A system tray icon appear
 2. The Go backend start on port 8080
 3. A sheep pet appear on your screen
+4. The control panel open automatically
 
 ## Step 3: Watch the pet
 
-The pet walks left across your screen. After 40 frames it decides what to do next (usually keeps walking). This is the `walk` animation (id 1) with 20 repeats of a 2-frame cycle.
+The pet walks left across your screen. After 40 frames it decides what to do next, usually by continuing to walk. This is the `walk` animation with 20 repeats of a 2-frame cycle.
 
-## Step 4: Interact via the tray
+## Step 4: Use the tray
 
 Click the tray icon:
-- **Add Pet** — spawns another pet
-- **Quit** — closes the application
+- `Add Pet` - spawns another pet
+- `Options` - shows the control panel
+- `Chat` - opens the AI chat window
+- `Quit` - closes the application
 
 ## Step 5: Quit
 
-Select **Quit** from the tray menu. The Go backend process terminates automatically.
+Select `Quit` from the tray menu. The main process shuts down the pets, closes the windows, and terminates the Go backend process.
 
 ## What happens under the hood
 
 1. `app/main.ts` compiles to `app/dist/main.js`, which Electron runs
-2. The Go backend reads `pets/eSheep-modern/animations.json` and `spritesheet.png`
-3. `addPet()` loads the pet data, creates a transparent `BrowserWindow`
-4. The animation loop polls `/api` every 200ms for the next frame
-5. Each frame sends `{frame_index, x, y, flip_h, opacity}` to the renderer
-6. The canvas draws the correct tile from the sprite sheet
+2. The main process starts the Go backend, loads settings, and spawns the default pet
+3. `app/src/backend-client.ts` loads `pets/eSheep-modern/animations.json` data and creates a transparent `BrowserWindow`
+4. `pet-manager.ts` polls `/api` every 200 ms with the current world geometry
+5. Each step returns the next frame state, including position, opacity, and optional sound metadata
+6. `pet-renderer.ts` draws the correct tile from the sprite sheet
 
 ## Next steps
 

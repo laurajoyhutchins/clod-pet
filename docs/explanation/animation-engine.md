@@ -4,22 +4,22 @@ The engine is a finite state machine that interprets animation definitions from 
 
 ## Core loop
 
-```
+```text
 Start(spawnID)
-  └─▶ Load animation
-       └─▶ Step(borderCtx)
-            ├─▶ Return current frame + position
-            ├─▶ If sequence complete → pick next animation
-            │    └─▶ Return next_anim_id
-            └─▶ If border hit → pick border transition
-                 └─▶ Return next_anim_id
+  -> Load animation
+       -> Step(borderCtx)
+            -> Return current frame + position
+            -> If sequence complete -> pick next animation
+                 -> Return next_anim_id
+            -> If border hit -> pick border transition
+                 -> Return next_anim_id
 ```
 
 ## Frame interpolation
 
 Each animation defines `start` and `end` movement parameters. The engine interpolates between them over the course of the animation:
 
-```
+```text
 progress = steps_done / total_steps
 x = lerp(start.x, end.x, progress)
 y = lerp(start.y, end.y, progress)
@@ -32,10 +32,10 @@ This allows smooth acceleration, fading, and positional changes without keyframe
 
 | State | When | Animation |
 |-------|------|-----------|
-| `Idle` | Pet exists but hasn't started | None |
+| `Idle` | Pet exists but has not started | None |
 | `Animating` | Normal operation | Current animation from JSON |
-| `Dragging` | User clicked and holds | `drag` animation (if defined) |
-| `Falling` | User released after drag | `fall` animation (if defined) |
+| `Dragging` | User clicked and holds | `drag` animation, if defined |
+| `Falling` | User released after drag | `fall` animation, if defined |
 
 ## Transitions
 
@@ -55,23 +55,23 @@ Triggered when the frame sequence completes its repeat count. Uses weighted prob
 }
 ```
 
-The `only` field filters transitions by border context. `none` means "always eligible."
+The `only` field filters transitions by border context. `none` means always eligible.
 
 ### Border transitions (`border[]`)
 
-Triggered when the pet hits a screen edge or floor contact and `border_ctx` is non-zero. The TypeScript app detects boundaries per display and passes the context to each step. 
+Triggered when the pet hits a screen edge or floor contact and `border_ctx` is non-zero. The TypeScript app detects boundaries per display and passes raw world geometry to the backend.
 
-Standard Nomenclature:
-- `floor`: Bottom of the work area (top of taskbar/dock).
-- `ceiling`: Top edge of the display bounds.
-- `walls`: Left or right edges of the display bounds.
-- `obstacle`: Edge of another window or custom boundary.
+Standard nomenclature:
+- `floor`: bottom of the work area, usually the top of the taskbar or dock
+- `ceiling`: top edge of the display bounds
+- `walls`: left or right edges of the display bounds
+- `obstacle`: edge of another window or custom boundary
 
 Legacy aliases like `taskbar`, `horizontal`, and `vertical` are supported for backward compatibility with older pet definitions.
 
 ### Gravity transitions (`gravity[]`)
 
-Triggered when the pet is above the `floor` and gravity is detected (`gravity: true` in step_pet payload). The app's `BorderDetector.checkGravity()` returns true when the pet's Y position is above the floor for the display containing the pet.
+Triggered when the pet is above the floor and gravity is detected from the world context supplied in `step_pet`. The TypeScript app does not send a separate gravity flag; the Go engine derives gravity from the raw display geometry for the display containing the pet.
 
 Example JSON:
 ```json
@@ -86,7 +86,7 @@ Example JSON:
 
 When multiple transitions are eligible, one is picked by weighted random:
 
-```
+```text
 total = sum(probabilities)
 r = random(0, total)
 cumulative = 0
