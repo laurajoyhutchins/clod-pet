@@ -16,7 +16,7 @@ Run from the repo root after building the app:
 cd app
 npm.cmd run build:ts
 cd ..
-node tools/capture-control-panel.js --out tools/control-panel-live.png
+node tools/capture-control-panel.js --out tools/temp/control-panel-live.png
 ```
 
 Useful flags:
@@ -26,4 +26,3 @@ Useful flags:
 - `--active-pets=<n>` - mock `n` active pets in the panel.
 - `--delay=<ms>` - wait longer before measuring.
 - `--after-resize-delay=<ms>` - wait longer after resizing before capture.
-

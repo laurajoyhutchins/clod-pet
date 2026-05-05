@@ -11,3 +11,5 @@ backend/*.log
 *.log
 clod-pet.cmd
 scripts/*.log
+tools/temp/
+bench-results/
