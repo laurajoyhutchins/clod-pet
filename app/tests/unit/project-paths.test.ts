@@ -47,4 +47,20 @@ describe("project-paths", () => {
       process.env.CLOD_PET_INSTALL_ROOT = originalInstallRoot;
     }
   });
+
+  test("prefers PETS_DIR when the environment provides a valid pets directory", () => {
+    const envPetsDir = path.join(repoRoot, "custom-pets");
+    const originalPetsDir = process.env.PETS_DIR;
+    process.env.PETS_DIR = envPetsDir;
+
+    (fs.existsSync as jest.Mock).mockImplementation((candidate: string) => {
+      return candidate === envPetsDir;
+    });
+
+    try {
+      expect(getPetsDir()).toBe(envPetsDir);
+    } finally {
+      process.env.PETS_DIR = originalPetsDir;
+    }
+  });
 });

@@ -47,5 +47,12 @@ export function getBackendDir() {
 }
 
 export function getPetsDir() {
+  const envPetsDir = process.env.PETS_DIR;
+  if (envPetsDir) {
+    const resolved = path.resolve(envPetsDir);
+    if (fs.existsSync(resolved)) {
+      return resolved;
+    }
+  }
   return resolveAssetDir("pets");
 }
