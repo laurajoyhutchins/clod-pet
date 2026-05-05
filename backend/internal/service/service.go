@@ -27,7 +27,6 @@ type Service struct {
 	settingsPath  string
 	petStore      map[string]*pet.Pet
 	engines       map[string]*engine.Engine
-	petLocks      map[string]*sync.Mutex
 	petPaths      map[string]string
 	pendingSounds map[string]*ipc.SoundPayload
 	mu            sync.RWMutex
@@ -45,7 +44,6 @@ func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
 		settingsPath:  settingsPath,
 		petStore:      make(map[string]*pet.Pet),
 		engines:       make(map[string]*engine.Engine),
-		petLocks:      make(map[string]*sync.Mutex),
 		petPaths:      make(map[string]string),
 		pendingSounds: make(map[string]*ipc.SoundPayload),
 		workerPool:    make(chan struct{}, poolSize),
@@ -199,7 +197,6 @@ func (s *Service) AddPet(petPath string, spawnID int, world ...engine.WorldConte
 	s.idCounter++
 	petID := fmt.Sprintf("pet_%d", s.idCounter)
 	s.engines[petID] = e
-	s.petLocks[petID] = &sync.Mutex{}
 	s.petPaths[petID] = cleanPath
 
 	if soundPayload := s.soundForPet(petDef, e.CurrentAnim()); soundPayload != nil {
@@ -270,28 +267,21 @@ func pathWithin(path, base string) bool {
 }
 
 func (s *Service) RemovePet(petID string) {
-	s.mu.RLock()
-	lock := s.petLocks[petID]
-	s.mu.RUnlock()
-	if lock != nil {
-		lock.Lock()
-		defer lock.Unlock()
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.engines, petID)
-	delete(s.petLocks, petID)
 	delete(s.petPaths, petID)
 	delete(s.pendingSounds, petID)
 }
 
 func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetState, error) {
-	e, unlock, err := s.lockPet(petID)
-	if err != nil {
-		return nil, err
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	e, ok := s.engines[petID]
+	if !ok {
+		return nil, engine.ErrPetNotFound
 	}
-	defer unlock.Unlock()
 
 	step, err := e.Step(world)
 	if err != nil {
@@ -309,19 +299,15 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 		oldAnim := e.CurrentAnim()
 		e.TransitionTo(step.NextAnimID)
 		if oldAnim != step.NextAnimID {
-			s.mu.RLock()
 			petDef := e.PetDef()
-			s.mu.RUnlock()
 			if petDef != nil {
 				soundPayload = s.soundForPet(petDef, step.NextAnimID)
 			}
 		}
 	}
 	if soundPayload == nil {
-		s.mu.Lock()
 		soundPayload = s.pendingSounds[petID]
 		delete(s.pendingSounds, petID)
-		s.mu.Unlock()
 	}
 
 	currentAnimID := e.CurrentAnim()
@@ -374,36 +360,39 @@ func (s *Service) StepPets(petIDs []string, world engine.WorldContext) ([]*ipc.P
 }
 
 func (s *Service) SetPosition(petID string, x, y float64) error {
-	e, unlock, err := s.lockPet(petID)
-	if err != nil {
-		return err
+	s.mu.Lock()
+	e, ok := s.engines[petID]
+	if !ok {
+		s.mu.Unlock()
+		return engine.ErrPetNotFound
 	}
-	defer unlock.Unlock()
-
 	e.SetPosition(x, y)
+	s.mu.Unlock()
 	return nil
 }
 
 func (s *Service) DragPet(petID string, x, y float64) error {
-	e, unlock, err := s.lockPet(petID)
-	if err != nil {
-		return err
+	s.mu.Lock()
+	e, ok := s.engines[petID]
+	if !ok {
+		s.mu.Unlock()
+		return engine.ErrPetNotFound
 	}
-	defer unlock.Unlock()
-
 	e.SetDrag()
 	e.SetPosition(x, y)
+	s.mu.Unlock()
 	return nil
 }
 
 func (s *Service) DropPet(petID string) error {
-	e, unlock, err := s.lockPet(petID)
-	if err != nil {
-		return err
+	s.mu.Lock()
+	e, ok := s.engines[petID]
+	if !ok {
+		s.mu.Unlock()
+		return engine.ErrPetNotFound
 	}
-	defer unlock.Unlock()
-
 	e.SetFall()
+	s.mu.Unlock()
 	return nil
 }
 
@@ -421,29 +410,6 @@ func (s *Service) Status() map[string]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return map[string]int{"pet_count": len(s.engines)}
-}
-
-func (s *Service) lockPet(petID string) (*engine.Engine, *sync.Mutex, error) {
-	s.mu.RLock()
-	e, ok := s.engines[petID]
-	lock := s.petLocks[petID]
-	s.mu.RUnlock()
-	if !ok || lock == nil {
-		return nil, nil, engine.ErrPetNotFound
-	}
-
-	lock.Lock()
-
-	s.mu.RLock()
-	currentEngine, ok := s.engines[petID]
-	currentLock := s.petLocks[petID]
-	s.mu.RUnlock()
-	if !ok || currentEngine != e || currentLock != lock {
-		lock.Unlock()
-		return nil, nil, engine.ErrPetNotFound
-	}
-
-	return e, lock, nil
 }
 
 func (s *Service) UpdateVolume(volume float64) error {
