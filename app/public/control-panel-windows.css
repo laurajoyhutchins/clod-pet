@@ -9,6 +9,46 @@ body.theme-windows-95 {
   --win98-desktop: #008080;
 }
 
+body[class*="theme-windows-"] .titlebar-close::before,
+body[class*="theme-windows-"] .titlebar-zoom::before {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 1;
+  font-family: "Tahoma", "MS Sans Serif", sans-serif;
+  font-weight: 700;
+  color: currentColor;
+}
+
+body[class*="theme-windows-"] .titlebar button {
+  color: #000;
+}
+
+body[class*="theme-windows-"] .titlebar-close {
+  order: 3;
+}
+
+body[class*="theme-windows-"] .titlebar-minimize {
+  order: 1;
+}
+
+body[class*="theme-windows-"] .titlebar-zoom {
+  order: 2;
+}
+
+body[class*="theme-windows-"] .titlebar-close::before {
+  content: "×";
+  font-size: 13px;
+}
+
+body[class*="theme-windows-"] .titlebar-zoom::before {
+  content: "□";
+  font-size: 10px;
+}
+
 body.theme-windows-98 {
   --win98-face: #c0c0c0;
   --win98-face-light: #dfdfdf;

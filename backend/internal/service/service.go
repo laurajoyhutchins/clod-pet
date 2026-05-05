@@ -16,6 +16,7 @@ import (
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
 	"clod-pet/backend/internal/llm"
+	log "clod-pet/backend/internal/logutil"
 	"clod-pet/backend/internal/pet"
 	"clod-pet/backend/internal/settings"
 	"clod-pet/backend/internal/sound"
@@ -454,6 +455,7 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	gravityUpdated := false
 	if v, ok := settings["Volume"]; ok {
 		if vol, ok := v.(float64); ok {
 			s.settings.Volume = vol
@@ -473,6 +475,7 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 			for _, e := range s.engines {
 				e.SetGravityFactor(gravity)
 			}
+			gravityUpdated = true
 		}
 	}
 	if v, ok := settings["ShowAdvancedSettings"]; ok {
@@ -515,7 +518,13 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 			s.settings.CurrentPet = pet
 		}
 	}
-	return s.settings.Save(s.settingsPath)
+	if err := s.settings.Save(s.settingsPath); err != nil {
+		return err
+	}
+	if gravityUpdated {
+		log.Info("updated gravity factor", "gravity_factor", s.settings.GravityFactor, "active_pets", len(s.engines))
+	}
+	return nil
 }
 
 func (s *Service) ListPets() ([]string, error) {

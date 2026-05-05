@@ -433,8 +433,9 @@ func TestSetSettings(t *testing.T) {
 	svc := newTestService(t)
 
 	err := svc.SetSettings(map[string]interface{}{
-		"Volume": 0.8,
-		"Scale":  2.0,
+		"Volume":        0.8,
+		"Scale":         2.0,
+		"GravityFactor": 3.5,
 	})
 	if err != nil {
 		t.Fatalf("SetSettings failed: %v", err)
@@ -443,6 +444,9 @@ func TestSetSettings(t *testing.T) {
 	settings := svc.Settings()
 	if settings["Volume"] != 0.8 {
 		t.Errorf("expected Volume 0.8, got %v", settings["Volume"])
+	}
+	if settings["GravityFactor"] != 3.5 {
+		t.Errorf("expected GravityFactor 3.5, got %v", settings["GravityFactor"])
 	}
 }
 
@@ -589,6 +593,9 @@ func TestSetSettingsAll(t *testing.T) {
 	}
 	if s["Scale"] != 3.0 {
 		t.Errorf("expected Scale 3.0, got %v", s["Scale"])
+	}
+	if s["GravityFactor"] != 2.0 {
+		t.Errorf("expected GravityFactor 2.0, got %v", s["GravityFactor"])
 	}
 	if s["WinForeGround"] != true {
 		t.Error("expected WinForeGround true")

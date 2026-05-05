@@ -138,7 +138,7 @@ class BackendClient {
   }
 
   async setGravityFactor(gravity: number): Promise<BackendResponse> {
-    return this.request("set_gravity_factor", { gravity });
+    return this.setSettings({ GravityFactor: gravity });
   }
 
   async getStatus(): Promise<BackendResponse> {

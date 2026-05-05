@@ -25,18 +25,30 @@ func Init(verbose bool) {
 }
 
 func Debug(msg string, args ...any) {
+	if logger == nil {
+		return
+	}
 	logger.Debug(msg, args...)
 }
 
 func Info(msg string, args ...any) {
+	if logger == nil {
+		return
+	}
 	logger.Info(msg, args...)
 }
 
 func Warn(msg string, args ...any) {
+	if logger == nil {
+		return
+	}
 	logger.Warn(msg, args...)
 }
 
 func Error(msg string, args ...any) {
+	if logger == nil {
+		return
+	}
 	logger.Error(msg, args...)
 }
 
