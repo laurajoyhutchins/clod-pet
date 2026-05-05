@@ -1,6 +1,7 @@
 site_name: Clod Pet
 site_description: A desktop pet application with a Go backend and Electron app.
-repo_url: https://github.com/yourname/clod-pet
+repo_url: https://github.com/laurajoyhutchins/clod-pet
+site_url: https://laurajoyhutchins.github.io/clod-pet/
 
 theme:
   name: mkdocs

@@ -2,6 +2,7 @@ import {
   cloneDocument,
   makeDefaultLayout,
   mergeLayout,
+  rewriteAnimationReferences,
   snapshotDocument,
 } from "./document";
 import { buildGraphModel } from "./graph";
@@ -984,7 +985,7 @@ export class EditorApp {
       setPathValue(this.document as unknown as Record<string, unknown>, path.replace(".framesText", ""), next);
 
       if (path.startsWith("animations.") && path.endsWith(".id")) {
-        this.rewriteAnimationReferences(previous, next);
+        rewriteAnimationReferences(this.document, previous, next);
       }
       if (path.startsWith("spawns.") && path.endsWith(".id")) {
         this.renameLayoutKey(`spawn:${previous}:${path.match(/spawns\.(\d+)\.id/)?.[1] || "0"}`, `spawn:${next}:${path.match(/spawns\.(\d+)\.id/)?.[1] || "0"}`);
@@ -1013,31 +1014,8 @@ export class EditorApp {
   }
 
   private rewriteAnimationReferences(previous: unknown, next: unknown) {
-    if (!this.document || typeof previous !== "number" || typeof next !== "number") return;
-    if (previous === next) return;
-
-    for (const animation of this.document.animations) {
-      for (const group of [animation.sequence.nexts, animation.border, animation.gravity] as const) {
-        for (const transition of group || []) {
-          if (transition.value === previous) {
-            transition.value = next;
-          }
-        }
-      }
-    }
-    for (const spawn of this.document.spawns) {
-      if (spawn.next.value === previous) {
-        spawn.next.value = next;
-      }
-    }
-    for (const child of this.document.children || []) {
-      if (child.next.value === previous) {
-        child.next.value = next;
-      }
-      if (child.animation_id === previous) {
-        child.animation_id = next;
-      }
-    }
+    rewriteAnimationReferences(this.document, previous, next);
+    if (typeof previous !== "number" || typeof next !== "number") return;
     if (this.selection?.kind === "animation" && this.selection.id === previous) {
       this.selection = { kind: "animation", id: next };
     }

@@ -47,6 +47,11 @@ function animationLabel(animationId: number, name: string) {
   return `#${animationId} ${name || "unnamed"}`;
 }
 
+function targetLabel(animationMap: Map<number, ModernPetDocument["animations"][number]>, animationId: number) {
+  const target = animationMap.get(animationId);
+  return target ? animationLabel(target.id, target.name) : `#${animationId}`;
+}
+
 export function buildGraphModel(document: ModernPetDocument, layout: EditorLayoutState): GraphModel {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
@@ -130,7 +135,7 @@ export function buildGraphModel(document: ModernPetDocument, layout: EditorLayou
         targetKey: `animation:${next.value}`,
         sourceId: animation.id,
         targetId: next.value,
-        label: `sequence | ${next.only || "none"} | ${next.probability} -> #${next.value}`,
+        label: `sequence | ${next.only || "none"} | ${next.probability} -> ${targetLabel(animationMap, next.value)}`,
         probability: next.probability,
         only: next.only,
         index,
@@ -145,7 +150,7 @@ export function buildGraphModel(document: ModernPetDocument, layout: EditorLayou
         targetKey: `animation:${next.value}`,
         sourceId: animation.id,
         targetId: next.value,
-        label: `border | ${next.only || "none"} | ${next.probability} -> #${next.value}`,
+        label: `border | ${next.only || "none"} | ${next.probability} -> ${targetLabel(animationMap, next.value)}`,
         probability: next.probability,
         only: next.only,
         index,
@@ -160,7 +165,7 @@ export function buildGraphModel(document: ModernPetDocument, layout: EditorLayou
         targetKey: `animation:${next.value}`,
         sourceId: animation.id,
         targetId: next.value,
-        label: `gravity | ${next.only || "none"} | ${next.probability} -> #${next.value}`,
+        label: `gravity | ${next.only || "none"} | ${next.probability} -> ${targetLabel(animationMap, next.value)}`,
         probability: next.probability,
         only: next.only,
         index,
@@ -176,7 +181,7 @@ export function buildGraphModel(document: ModernPetDocument, layout: EditorLayou
       targetKey: `animation:${spawn.next.value}`,
       sourceId: spawn.id,
       targetId: spawn.next.value,
-      label: `spawn | ${spawn.next.probability} -> #${spawn.next.value}`,
+      label: `spawn | ${spawn.next.probability} -> ${targetLabel(animationMap, spawn.next.value)}`,
       probability: spawn.next.probability,
       only: spawn.next.only,
       index,
@@ -191,7 +196,7 @@ export function buildGraphModel(document: ModernPetDocument, layout: EditorLayou
       targetKey: `animation:${child.next.value}`,
       sourceId: child.animation_id,
       targetId: child.next.value,
-      label: `child | ${child.next.probability} -> #${child.next.value}`,
+      label: `child | ${child.next.probability} -> ${targetLabel(animationMap, child.next.value)}`,
       probability: child.next.probability,
       only: child.next.only,
       index,

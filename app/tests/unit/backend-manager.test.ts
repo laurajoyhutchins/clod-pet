@@ -205,6 +205,13 @@ describe("BackendManager", () => {
     process.env.CLOD_PET_BACKEND_MODE = originalEnv;
   });
 
+  test("should fail when source fallback is disabled and no backend binary exists", async () => {
+    const m = new BackendManager({ preferSource: false });
+
+    await expect(m.start()).rejects.toThrow("backend binary not found");
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
   test("should stop backend process", () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, "platform", { value: "linux" });

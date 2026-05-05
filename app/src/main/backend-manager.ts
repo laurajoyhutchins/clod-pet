@@ -118,6 +118,11 @@ class BackendManager {
     const exeExists = Boolean(backendExe);
     const useSource = backendMode === "source" || (backendMode !== "exe" && !exeExists && this.preferSource);
     const useExe = !useSource && exeExists;
+    if (!useSource && !useExe) {
+      const searched = this._backendBinarySearchPaths(backendPath);
+      throw new Error(`backend binary not found. searched: ${searched.join(", ")}`);
+    }
+
     const cmd = useExe && backendExe ? backendExe : "go";
     const args = useExe ? [] : ["run", "."];
 
@@ -278,6 +283,26 @@ class BackendManager {
       if (fs.existsSync(candidate)) return candidate;
     }
     return null;
+  }
+
+  _backendBinarySearchPaths(backendPath: string): string[] {
+    const names = process.platform === "win32"
+      ? ["clod-pet-backend.exe", "clod-pet.exe"]
+      : ["clod-pet-backend", "clod-pet"];
+
+    const searchRoots = [
+      path.join(backendPath, "bin"),
+      backendPath,
+    ];
+
+    const paths = [] as string[];
+    for (const root of searchRoots) {
+      for (const name of names) {
+        paths.push(path.join(root, name));
+      }
+    }
+
+    return paths;
   }
 
   stop(): void {

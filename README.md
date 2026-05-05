@@ -2,13 +2,22 @@
 
 Clod Pet is a desktop pet app with a Go backend and a TypeScript/Electron frontend.
 
-## Quick Start
+## Quickstart
+
+1. Install the frontend dependencies.
 
 ```bash
-cd app && npm install && npm start
+cd app
+npm install
 ```
 
-On Windows, the full install script is:
+2. Start the desktop app from source.
+
+```bash
+cd app && npm start
+```
+
+3. On Windows, use the full installer if you want the backend, shortcuts, and default settings set up for you.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/install.ps1

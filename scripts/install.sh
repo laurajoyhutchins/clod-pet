@@ -66,19 +66,12 @@ log "App TypeScript build complete"
 
 info "Configuring settings..."
 mkdir -p "$settings_dir"
-if [[ ! -f "$settings_path" ]]; then
-  cat >"$settings_path" <<EOF
-{
-  "PETS_DIR": "$repo_root/pets",
-  "PORT": 8080,
-  "SETTINGS_PATH": "$settings_path"
-}
-EOF
-  success "Default settings written: $settings_path"
-  log "Default settings written: $settings_path"
-else
+if [[ -f "$settings_path" ]]; then
   warn "Settings already exist: $settings_path"
   log "Settings already exist: $settings_path"
+else
+  info "Settings will be created on first launch: $settings_path"
+  log "Settings will be created on first launch: $settings_path"
 fi
 
 info "Creating launcher script..."
@@ -90,7 +83,7 @@ repo_root="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 app_dir="\$repo_root/app"
 settings_path="\${XDG_CONFIG_HOME:-\$HOME/.config}/clod-pet/clod-pet-settings.json"
 
-export PETS_DIR="\${PETS_DIR:-\$repo_root/pets}"
+export CLOD_PET_INSTALL_ROOT="\${CLOD_PET_INSTALL_ROOT:-\$app_dir/dist}"
 export SETTINGS_PATH="\${SETTINGS_PATH:-\$settings_path}"
 
 cd "\$app_dir"

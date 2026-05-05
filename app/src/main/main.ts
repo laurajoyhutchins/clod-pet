@@ -7,6 +7,7 @@ import ChatManager = require("./chat-manager");
 import EditorWindowManager = require("./editor-window");
 import globalStore, { standardizeError } from "../shared/store";
 import { StoreBridge } from "./store-bridge";
+import { getPetsDir } from "./project-paths";
 import path = require("path");
 import type { BackendResponse, FullDiagnostics, DiagnosticEvent } from "../shared/store";
 
@@ -36,7 +37,7 @@ async function createPet(petPath?: string, opts: { throwOnError?: boolean } = {}
     const settingsResp = await petManager.backendClient.getSettings().catch(() => ({}) as BackendResponse);
     const settings = settingsResp?.payload || {};
     const defaultPet = (settings as Record<string, unknown>)?.CurrentPet as string || "eSheep-modern";
-    petPath = `../pets/${defaultPet}`;
+    petPath = path.join(getPetsDir(), defaultPet);
   }
   try {
     return await petManager.loadAndCreatePet(petPath);
@@ -201,7 +202,7 @@ function setupControlPanelHandlers(): void {
     if (!petName || typeof petName !== "string") {
       throw new Error("pet name is required");
     }
-    return createPet(`../pets/${petName}`, { throwOnError: true });
+    return createPet(path.join(getPetsDir(), petName), { throwOnError: true });
   });
   ipcMain.handle("control:remove-pet", (_event, petId) => petManager?.removePet(petId));
   ipcMain.handle("control:diagnostics", async () => getDiagnostics());

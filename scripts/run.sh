@@ -84,7 +84,7 @@ else
   success "Dependencies installed"
 fi
 
-export PETS_DIR="${PETS_DIR:-$repo_root/pets}"
+export CLOD_PET_INSTALL_ROOT="${CLOD_PET_INSTALL_ROOT:-$app_dir/dist}"
 export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 
 info "Starting Electron app..."

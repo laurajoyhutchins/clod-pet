@@ -5,7 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 app_dir="$repo_root/app"
 settings_path="${XDG_CONFIG_HOME:-$HOME/.config}/clod-pet/clod-pet-settings.json"
 
-export PETS_DIR="${PETS_DIR:-$repo_root/pets}"
+export CLOD_PET_INSTALL_ROOT="${CLOD_PET_INSTALL_ROOT:-$app_dir/dist}"
 export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 
 cd "$app_dir"

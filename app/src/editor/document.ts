@@ -127,6 +127,42 @@ export function normalizeDocument(raw: unknown): ModernPetDocument {
   };
 }
 
+export function rewriteAnimationReferences(document: ModernPetDocument | null | undefined, previous: unknown, next: unknown) {
+  if (!document || typeof previous !== "number" || typeof next !== "number") return;
+  if (previous === next) return;
+
+  for (const animation of document.animations) {
+    for (const group of [animation.sequence.nexts, animation.border, animation.gravity] as const) {
+      for (const transition of group || []) {
+        if (transition.value === previous) {
+          transition.value = next;
+        }
+      }
+    }
+  }
+
+  for (const spawn of document.spawns) {
+    if (spawn.next.value === previous) {
+      spawn.next.value = next;
+    }
+  }
+
+  for (const child of document.children || []) {
+    if (child.next.value === previous) {
+      child.next.value = next;
+    }
+    if (child.animation_id === previous) {
+      child.animation_id = next;
+    }
+  }
+
+  for (const sound of document.sounds || []) {
+    if (sound.animation_id === previous) {
+      sound.animation_id = next;
+    }
+  }
+}
+
 export function serializeDocument(document: ModernPetDocument): string {
   return `${JSON.stringify(document, null, 2)}\n`;
 }
