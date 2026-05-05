@@ -1,4 +1,4 @@
-import type { EditorLayoutState, EditorReadResult, EditorRecentDocument, EditorSaveResult, ModernPetDocument } from "./types";
+import type { EditorLayoutState, EditorPreviewState, EditorReadResult, EditorRecentDocument, EditorSaveResult, ModernPetDocument } from "./types";
 
 export const editorApi = window.clodPet.editor;
 
@@ -32,6 +32,10 @@ export function showItemInFolder(path: string) {
 
 export function getRecentDocuments(): Promise<EditorRecentDocument[]> {
   return editorApi.getRecentDocuments();
+}
+
+export function refreshDocumentPreviews(documentPath: string, document: ModernPetDocument): Promise<EditorPreviewState> {
+  return editorApi.refreshDocumentPreviews({ documentPath, document });
 }
 
 export type { EditorReadResult, EditorSaveResult };

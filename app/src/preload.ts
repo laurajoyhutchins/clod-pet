@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld("clodPet", {
     openPetDirectory: () => ipcRenderer.invoke("editor:open-pet-directory"),
     openAnimationFile: () => ipcRenderer.invoke("editor:open-animation-file"),
     readDocument: (input: { path: string }) => ipcRenderer.invoke("editor:read-document", input),
+    refreshDocumentPreviews: (input: { documentPath: string; document: Record<string, unknown> }) =>
+      ipcRenderer.invoke("editor:refresh-document-previews", input),
     saveDocument: (input: Record<string, unknown>) => ipcRenderer.invoke("editor:save-document", input),
     saveDocumentAs: (input: Record<string, unknown>) => ipcRenderer.invoke("editor:save-document-as", input),
     showItemInFolder: (targetPath: string) => ipcRenderer.invoke("editor:show-item-in-folder", targetPath),

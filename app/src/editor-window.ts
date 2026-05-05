@@ -99,6 +99,16 @@ class EditorWindowManager {
       } satisfies EditorReadResult;
     });
 
+    ipcMain.handle("editor:refresh-document-previews", async (_event, input: { documentPath: string; document: ModernPetDocument }) => {
+      if (!input?.documentPath) {
+        throw new Error("document path is required");
+      }
+      const resolvedPath = await this.resolveDocumentPath(input.documentPath);
+      const petDir = path.dirname(resolvedPath);
+      const document = normalizeDocument(input.document);
+      return this.loadPreviews(document, petDir);
+    });
+
     ipcMain.handle("editor:save-document", async (_event, input: SavePayload) => {
       return this.saveDocument(input, false);
     });

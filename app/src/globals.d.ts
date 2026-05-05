@@ -98,6 +98,10 @@ declare global {
     openPetDirectory(): Promise<string | null>;
     openAnimationFile(): Promise<string | null>;
     readDocument(input: { path: string }): Promise<EditorReadResult>;
+    refreshDocumentPreviews(input: {
+      documentPath: string;
+      document: Record<string, unknown>;
+    }): Promise<EditorPreviewState>;
     saveDocument(input: {
       documentPath: string;
       document: Record<string, unknown>;

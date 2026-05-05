@@ -1,4 +1,4 @@
-import type { PanelStyle, EditorRecentDocument, EditorReadResult, EditorSaveResult, EditorLayoutState, ModernPetDocument } from "./types";
+import type { PanelStyle, EditorRecentDocument, EditorReadResult, EditorSaveResult, EditorLayoutState, EditorPreviewState, ModernPetDocument } from "./types";
 
 declare global {
   interface SharedThemes {
@@ -21,6 +21,10 @@ declare global {
     openPetDirectory(): Promise<string | null>;
     openAnimationFile(): Promise<string | null>;
     readDocument(input: { path: string }): Promise<EditorReadResult>;
+    refreshDocumentPreviews(input: {
+      documentPath: string;
+      document: ModernPetDocument;
+    }): Promise<EditorPreviewState>;
     saveDocument(input: {
       documentPath: string;
       document: ModernPetDocument;

@@ -2,6 +2,7 @@ import {
   cloneDocument,
   makeDefaultLayout,
   mergeLayout,
+  rewriteAnimationReferences as rewriteAnimationReferencesInDocument,
   snapshotDocument,
 } from "./document";
 import { buildGraphModel } from "./graph";
@@ -12,6 +13,7 @@ import {
   openAnimationFile,
   openPetDirectory,
   readDocument,
+  refreshDocumentPreviews,
   saveDocument,
   saveDocumentAs,
   showItemInFolder,
@@ -159,6 +161,7 @@ export class EditorApp {
   };
   private themeStyle: PanelStyle = "windows-98";
   private previewImagePromise: Promise<HTMLImageElement> | null = null;
+  private previewRefreshToken = 0;
   private readonly els = {
     title: byId<HTMLElement>("window-title"),
     validationSummary: byId<HTMLElement>("validation-summary"),
@@ -319,6 +322,7 @@ export class EditorApp {
   }
 
   private async loadDocument(documentPath: string) {
+    this.previewRefreshToken++;
     const result = await readDocument(documentPath);
     this.document = cloneDocument(result.document);
     this.documentPath = result.documentPath;
@@ -623,8 +627,8 @@ export class EditorApp {
     this.lastGraphKey = `${model.nodes.length}:${model.edges.length}`;
 
     const filter = this.getSearchFilter();
-    this.els.graphTitle.textContent = `${this.document.header.title || this.document.header.petname || "untitled"} • ${model.nodes.length} nodes`;
-    this.els.graphHint.textContent = `scroll to zoom • drag background to pan • drag node headers to move`;
+    this.els.graphTitle.textContent = `${this.document.header.title || this.document.header.petname || "untitled"} | ${model.nodes.length} nodes`;
+    this.els.graphHint.textContent = "scroll to zoom | drag background to pan | drag node headers to move";
 
     const viewport = this.layout.viewport;
     this.els.graphViewport.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
@@ -664,6 +668,7 @@ export class EditorApp {
         const canvas = node.kind === "animation" ? `<canvas class="sprite-preview" data-preview-key="${escapeAttr(node.key)}"></canvas>` : "";
         const badges = node.kind === "animation"
           ? `<div class="graph-node-badges">
+              ${this.document?.animations.find((animation) => animation.id === node.id)?.sequence.action ? '<span class="badge">action</span>' : ""}
               ${this.document?.sounds?.some((sound) => sound.animation_id === node.id) ? '<span class="badge">sounds</span>' : ""}
               ${this.document?.children?.some((child) => child.animation_id === node.id) ? '<span class="badge">children</span>' : ""}
               ${this.document?.animations.find((animation) => animation.id === node.id)?.border?.length ? '<span class="badge">border</span>' : ""}
@@ -1004,11 +1009,26 @@ export class EditorApp {
     });
   }
 
-  private commitDocumentMutation(mutator: () => void) {
+  private async refreshPreviewState() {
+    if (!this.document || !this.documentPath) return;
+    const token = ++this.previewRefreshToken;
+    try {
+      const previews = await refreshDocumentPreviews(this.documentPath, this.document);
+      if (token !== this.previewRefreshToken) return;
+      this.previews = previews;
+      this.previewImagePromise = null;
+    } catch (err) {
+      if (token !== this.previewRefreshToken) return;
+      this.setStatus(`preview refresh failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  private async commitDocumentMutation(mutator: () => void) {
     if (!this.document) return;
     mutator();
     this.pushHistory();
     this.markDirty();
+    await this.refreshPreviewState();
     this.render();
   }
 
@@ -1016,28 +1036,8 @@ export class EditorApp {
     if (!this.document || typeof previous !== "number" || typeof next !== "number") return;
     if (previous === next) return;
 
-    for (const animation of this.document.animations) {
-      for (const group of [animation.sequence.nexts, animation.border, animation.gravity] as const) {
-        for (const transition of group || []) {
-          if (transition.value === previous) {
-            transition.value = next;
-          }
-        }
-      }
-    }
-    for (const spawn of this.document.spawns) {
-      if (spawn.next.value === previous) {
-        spawn.next.value = next;
-      }
-    }
-    for (const child of this.document.children || []) {
-      if (child.next.value === previous) {
-        child.next.value = next;
-      }
-      if (child.animation_id === previous) {
-        child.animation_id = next;
-      }
-    }
+    rewriteAnimationReferencesInDocument(this.document, previous, next);
+
     if (this.selection?.kind === "animation" && this.selection.id === previous) {
       this.selection = { kind: "animation", id: next };
     }
@@ -1184,12 +1184,32 @@ export class EditorApp {
 
   private focusPath(path: string) {
     if (!this.document) return;
+    const fieldPath = this.mapValidationPathToFieldPath(path);
+
     if (path.startsWith("animations[")) {
       const match = path.match(/animations\[(\d+)\]/);
       if (match) {
-        const animation = this.document.animations[Number(match[1])];
+        const animationIndex = Number(match[1]);
+        const animation = this.document.animations[animationIndex];
         if (animation) {
-          this.selection = { kind: "animation", id: animation.id };
+          if (path.includes(".sequence.nexts[")) {
+            const transitionMatch = path.match(/sequence\.nexts\[(\d+)\]/);
+            if (transitionMatch) {
+              this.selection = { kind: "transition", ownerId: animation.id, group: "sequence", index: Number(transitionMatch[1]) };
+            }
+          } else if (path.includes(".border[")) {
+            const transitionMatch = path.match(/border\[(\d+)\]/);
+            if (transitionMatch) {
+              this.selection = { kind: "transition", ownerId: animation.id, group: "border", index: Number(transitionMatch[1]) };
+            }
+          } else if (path.includes(".gravity[")) {
+            const transitionMatch = path.match(/gravity\[(\d+)\]/);
+            if (transitionMatch) {
+              this.selection = { kind: "transition", ownerId: animation.id, group: "gravity", index: Number(transitionMatch[1]) };
+            }
+          } else {
+            this.selection = { kind: "animation", id: animation.id };
+          }
         }
       }
     } else if (path.startsWith("spawns[")) {
@@ -1203,7 +1223,30 @@ export class EditorApp {
         this.selection = { kind: "child", index: Number(match[1]) };
       }
     }
+
     this.render();
+    window.requestAnimationFrame(() => this.focusField(fieldPath));
+  }
+
+  private mapValidationPathToFieldPath(path: string) {
+    const topLevel = path
+      .replace(/^animations\[(\d+)\]/, "animations.$1")
+      .replace(/^spawns\[(\d+)\]/, "spawns.$1")
+      .replace(/^children\[(\d+)\]/, "children.$1");
+
+    if (/\.sequence\.frames\[\d+\]/.test(topLevel)) {
+      return topLevel.replace(/\.sequence\.frames\[\d+\](?:\.[^.]+)?$/, ".sequence.framesText");
+    }
+
+    return topLevel;
+  }
+
+  private focusField(path: string) {
+    const selector = `[data-path="${CSS.escape(path)}"]`;
+    const field = this.els.documentInspector.querySelector<HTMLElement>(selector) || this.els.selectionInspector.querySelector<HTMLElement>(selector);
+    if (!field) return;
+    field.focus?.();
+    field.scrollIntoView?.({ block: "center", inline: "nearest" });
   }
 
   private renderStatus() {

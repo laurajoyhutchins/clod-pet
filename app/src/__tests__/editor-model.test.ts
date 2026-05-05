@@ -1,7 +1,7 @@
 import fs = require("fs");
 import path = require("path");
 import { buildGraphModel } from "../editor/graph";
-import { makeDefaultLayout, normalizeDocument, serializeDocument } from "../editor/document";
+import { makeDefaultLayout, normalizeDocument, rewriteAnimationReferences, serializeDocument } from "../editor/document";
 import { validateDocumentStructure } from "../editor/validation";
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
@@ -92,6 +92,36 @@ describe("editor document model", () => {
 
     expect(duplicateEdges).toHaveLength(2);
     expect(new Set(duplicateEdges.map((edge) => edge.key)).size).toBe(2);
+    expect(duplicateEdges[0].label).toContain("#2 target");
     expect(serializeDocument(doc)).toContain('"header"');
+  });
+
+  test("renaming an animation updates sound references too", () => {
+    const doc = normalizeDocument({
+      header: { title: "Sound refs" },
+      image: { tiles_x: 2, tiles_y: 2, spritesheet: "spritesheet.png" },
+      spawns: [],
+      animations: [
+        {
+          id: 1,
+          name: "from",
+          start: { x: "0", y: "0", interval: "100" },
+          sequence: { frames: [0], nexts: [], repeat: "0", repeat_from: 0 },
+        },
+        {
+          id: 2,
+          name: "to",
+          start: { x: "0", y: "0", interval: "100" },
+          sequence: { frames: [1], nexts: [], repeat: "0", repeat_from: 0 },
+        },
+      ],
+      sounds: [
+        { animation_id: 1, probability: 10, base64: "AAAA" },
+      ],
+    });
+
+    rewriteAnimationReferences(doc, 1, 2);
+
+    expect(doc.sounds?.[0]?.animation_id).toBe(2);
   });
 });
