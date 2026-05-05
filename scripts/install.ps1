@@ -39,11 +39,13 @@ Write-Info "Checking required tools..."
 if (-not (Test-CommandExists "go")) {
     Write-Error "Go is not installed or not in PATH"
     "$timestamp ERROR: Go is not installed or not in PATH" | Out-File -FilePath $logFile -Append -Encoding utf8
+    Show-FailureSheep "installation failed!"
     exit 1
 }
 if (-not (Test-CommandExists "npm")) {
     Write-Error "npm is not installed or not in PATH"
     "$timestamp ERROR: npm is not installed or not in PATH" | Out-File -FilePath $logFile -Append -Encoding utf8
+    Show-FailureSheep "installation failed!"
     exit 1
 }
 Write-Success "Required tools found"
@@ -80,6 +82,7 @@ if (-not $cert) {
 Write-Info "Building Go backend..."
 if (-not (Test-Path $backendDir)) {
     Write-Error "Backend directory not found: $backendDir"
+    Show-FailureSheep "installation failed!"
     exit 1
 }
 
@@ -88,6 +91,7 @@ if (Test-Path $backendBuildScript) {
     & $backendBuildScript
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Backend build failed"
+        Show-FailureSheep "installation failed!"
         exit 1
     }
 } else {
@@ -95,6 +99,7 @@ if (Test-Path $backendBuildScript) {
     go build -o (Join-Path $backendBinDir $backendOutput) .
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Backend build failed"
+        Show-FailureSheep "installation failed!"
         Pop-Location
         exit 1
     }
@@ -135,6 +140,7 @@ catch {
 Write-Info "Installing app dependencies..."
 if (-not (Test-Path $appDir)) {
     Write-Error "App directory not found: $appDir"
+    Show-FailureSheep "installation failed!"
     exit 1
 }
 
@@ -154,6 +160,7 @@ try {
 catch {
     Write-Error "Failed to install app dependencies: $_"
     "$timestamp ERROR: Failed to install app dependencies: $_" | Out-File -FilePath $logFile -Append -Encoding utf8
+    Show-FailureSheep "installation failed!"
     Pop-Location
     exit 1
 }

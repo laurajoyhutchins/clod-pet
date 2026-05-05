@@ -3,6 +3,8 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
+trap 'status=$?; if [[ $status -ne 0 ]]; then show_failure_sheep "uninstall failed!"; fi' EXIT
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 backend_dir="$repo_root/backend"
@@ -69,4 +71,3 @@ warn "Settings: $settings_path"
 warn "Log:      $log_file"
 
 show_success_sheep "uninstall complete!"
-

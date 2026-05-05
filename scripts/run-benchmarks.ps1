@@ -12,6 +12,19 @@ $benchResultsDir = Join-Path $repoRoot "bench-results"
 
 Write-Header "Running all backend benchmarks"
 
+Write-Info "Checking required tools..."
+if (-not (Test-CommandExists "go")) {
+    Write-Error "Go is not installed or not in PATH"
+    Show-FailureSheep "benchmarks failed!"
+    exit 1
+}
+
+if (-not (Test-Path $backendDir)) {
+    Write-Error "Backend directory not found: $backendDir"
+    Show-FailureSheep "benchmarks failed!"
+    exit 1
+}
+
 # Create output directory
 if (-not (Test-Path $benchResultsDir)) {
     New-Item -ItemType Directory -Path $benchResultsDir | Out-Null
@@ -34,6 +47,10 @@ try {
         $outputPath = Join-Path $benchResultsDir "$($pkg.Name).txt"
         
         go test -bench=. -benchtime=3s -count=3 $($pkg.Path) | Tee-Object -FilePath $outputPath | Where-Object { $_ -match "^(Benchmark|ns/op)" }
+        if ($LASTEXITCODE -ne 0) {
+            Show-FailureSheep "benchmarks failed!"
+            exit $LASTEXITCODE
+        }
     }
 }
 finally {

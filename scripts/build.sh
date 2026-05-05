@@ -3,6 +3,8 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
+trap 'status=$?; if [[ $status -ne 0 ]]; then show_failure_sheep "build failed!"; fi' EXIT
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 backend_dir="$repo_root/backend"
@@ -48,4 +50,3 @@ printf "${BOLD}${GREEN}║  Build complete!                       ║${RESET}\n"
 printf "${BOLD}${GREEN}╚══════════════════════════════════════╝${RESET}\n"
 
 show_success_sheep "build completed successfully!"
-

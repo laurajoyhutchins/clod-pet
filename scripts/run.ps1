@@ -57,11 +57,13 @@ if ($build) {
     $buildScript = Join-Path $scriptDir "build.ps1"
     if (-not (Test-Path $buildScript)) {
         Write-Error "build.ps1 not found at $buildScript"
+        Show-FailureSheep "run failed!"
         exit 1
     }
     & $buildScript
     if ($LASTEXITCODE -ne 0) {
         Write-Error "build.ps1 failed with exit code $LASTEXITCODE"
+        Show-FailureSheep "run failed!"
         exit $LASTEXITCODE
     }
     Write-Success "Build completed"
@@ -76,17 +78,20 @@ if ($debug) {
 Write-Info "Checking required tools..."
 if (-not (Test-CommandExists "go")) {
     Write-Error "Go is not installed or not in PATH"
+    Show-FailureSheep "run failed!"
     exit 1
 }
 
 if (-not (Test-CommandExists "npm")) {
     Write-Error "npm is not installed or not in PATH"
+    Show-FailureSheep "run failed!"
     exit 1
 }
 Write-Success "Required tools found"
 
 if (-not (Test-Path $appDir)) {
     Write-Error "App directory not found: $appDir"
+    Show-FailureSheep "run failed!"
     exit 1
 }
 
@@ -109,7 +114,9 @@ try {
         }
 
         if ($LASTEXITCODE -ne 0) {
-            throw "Failed to install app dependencies"
+            Write-Error "Failed to install app dependencies"
+            Show-FailureSheep "run failed!"
+            exit 1
         }
         Write-Success "Dependencies installed"
     } else {
@@ -133,6 +140,8 @@ try {
     $exit = $LASTEXITCODE
     if ($exit -eq 0) {
         Show-SuccessSheep "app exited successfully!"
+    } else {
+        Show-FailureSheep "app exited with errors!"
     }
     exit $exit
 }

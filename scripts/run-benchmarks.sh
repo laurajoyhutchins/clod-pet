@@ -1,39 +1,37 @@
 #!/usr/bin/env bash
-# Run all backend benchmarks and generate a summary report
+set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
+trap 'status=$?; if [[ $status -ne 0 ]]; then show_failure_sheep "benchmarks failed!"; fi' EXIT
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+backend_dir="$repo_root/backend"
+bench_results_dir="$repo_root/bench-results"
+
 header "Running all backend benchmarks"
 
+mkdir -p "$bench_results_dir"
 
-# Create output directory
-mkdir -p bench-results
+run_benchmark() {
+  local title="$1"
+  local name="$2"
+  local path="$3"
+  local output_path="$bench_results_dir/$name.txt"
 
-# Run benchmarks for each package
-echo -e "\n=== Engine Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/engine/... > ../bench-results/engine.txt 2>&1
-cat ../bench-results/engine.txt | grep -E "^(Benchmark|ns/op)"
+  printf '\n=== %s Benchmarks ===\n' "$title"
+  (cd "$backend_dir" && go test -bench=. -benchtime=3s -count=3 "$path" > "$output_path" 2>&1)
+  grep -E "^(Benchmark|ns/op)" "$output_path" || true
+}
 
-echo -e "\n=== Expression Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/expression/... > ../bench-results/expression.txt 2>&1
-cat ../bench-results/expression.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== Pet Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/pet/... > ../bench-results/pet.txt 2>&1
-cat ../bench-results/pet.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== IPC Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/ipc/... > ../bench-results/ipc.txt 2>&1
-cat ../bench-results/ipc.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== Service Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/service/... > ../bench-results/service.txt 2>&1
-cat ../bench-results/service.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== LLM Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/llm/... > ../bench-results/llm.txt 2>&1
-cat ../bench-results/llm.txt | grep -E "^(Benchmark|ns/op)"
+run_benchmark "Engine" "engine" "./internal/engine/..."
+run_benchmark "Expression" "expression" "./internal/expression/..."
+run_benchmark "Pet" "pet" "./internal/pet/..."
+run_benchmark "IPC" "ipc" "./internal/ipc/..."
+run_benchmark "Service" "service" "./internal/service/..."
+run_benchmark "LLM" "llm" "./internal/llm/..."
 
 echo -e "\n=========================================="
-info "Benchmark results saved to bench-results/"
+info "Benchmark results saved to $bench_results_dir/"
 show_success_sheep "benchmarks completed!"

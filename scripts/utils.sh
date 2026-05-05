@@ -154,3 +154,117 @@ show_success_sheep() {
     done
     echo -e "$reset"
 }
+
+show_failure_sheep() {
+    local message="${1:-Task failed!}"
+
+    printf "\n"
+    printf "${RED}  __________________________________${RESET}\n"
+    printf "${RED} /                                  \\${RESET}\n"
+    printf "${RED}|  %-32s|${RESET}\n" "$message"
+    printf "${RED} \\__________________________________/${RESET}\n"
+
+    local esc="\033"
+    local reset="${esc}[0m"
+    local upper="▀"
+    local lower="▄"
+    local nb=" "
+
+    # Color index (R;G;B)
+    declare -A colors
+    colors['#']="0;0;0"
+    colors['W']="96;96;96"
+    colors['Y']="192;64;64"
+    colors['+']="160;32;32"
+    colors['-']="96;16;16"
+    colors['P']="160;96;96"
+    colors['A']="224;64;64"
+    colors['O']="128;0;0"
+    colors['D']="64;0;0"
+    colors['M']="255;96;96"
+    colors['V']="160;0;0"
+    colors['L']="255;160;160"
+    colors['B']="192;192;192"
+
+    get_fg() {
+        local ch="$1"
+        if [[ -z "${colors[$ch]}" ]]; then echo ""; return; fi
+        echo -e "${esc}[38;2;${colors[$ch]}m"
+    }
+
+    get_bg() {
+        local ch="$1"
+        if [[ -z "${colors[$ch]}" ]]; then echo ""; return; fi
+        echo -e "${esc}[48;2;${colors[$ch]}m"
+    }
+
+    local sheep=(
+"........................................"
+"..............###########..............."
+"............##WWWWWWWWWWW##............."
+"........####WWWWWYYYYYYYWWW#............"
+"......##WWWWWWWYY######YYYWW#..........."
+".....#WWWWWWWYY##MMDMMM##YYWW#.........."
+"....#WWWWWWYYY#MDMMDMMDMM#YYWW#........."
+"...#WWWWWYYYYY#MMDMVVMVMVM#YW##........."
+"...#WWWWYYYYY#DVMM#####MDV###LL#........"
+"...#WWWWYYYYY#MDV#VDDVD#DD#PPLL#........"
+"..#WWWWYYYYY#MMV#DDVDVDD##PPPPLL#......."
+"..#WWWWYYYYY#MV#DDDD#####PPPP####......."
+"..#WWWWYYYYY#MD#DD###PPPPPPP#WW###......"
+"..#WWWWYYYYY#MD#DD#PPP###PP#BW####......"
+".#WWWWYYYYYY#MD#DD#PPP###PP#BW####......"
+".#WWWYYYYYYY#MVV#DV###OOOPP#BW#W##......"
+"#WWWYYYYYYYY-#DD#VDV###AAPP#BW#####....."
+"#WWYYYYYYYYY-#VDV#DDVV###AP#BBW###L#...."
+"#WWYYYYYYYYYY-#VDD####DD##PP#BBW#PPL#..."
+"#WYYYYYYYYYYYY#DDDVDDDD#--#PP###PPPPL#.."
+"#WYYYYYYYYYYYY-##VDDV##--YY#PPPPPPPPPL#."
+"#YYYYYYYYYYYYYY--####--YYYY#PPPPPPPPPPL#"
+"#YYYYYYYYYYYYYYYY----YYYYYY+#PPPPPPPPPA#"
+"#YYYYYYYYYYYYYYYYYYYYYYYY+++#APPPPPPPAA#"
+"#+YYYY++YYYY+YYYYYYYYY+++Y++#AAAPPPPAAA#"
+"#+++YYYY++++YYYY+YY+YYYYY+++#OAAAAAAAAA#"
+".#++++YYY++YYYY+YYYY+++++++++#OAAAAAAAO#"
+".#YYYYY+YY+++++YYY+YYYY++++++-#OOAAAOO#."
+"..#YY++++YY+++YY++++++++++--+--#OOOOO#.."
+"..#+++++++++++++++--+++----++++#OOOOO#.."
+"...#-+++++--+++--++-------++---#OOO##..."
+"....#--++-------++++-----------####....."
+".....#----------+-------------#........."
+"......##--------------#------#.........."
+".......######------##########..........."
+".......#OAA#O######.#OOO#OAP#..........."
+".......#OAPP#OOO#..#OOO#OAPP#..........."
+"........#APPP#OO#..#OO#OAPP#............"
+"........#OAPP#O#....##OAPP#............."
+".........#OA###......##AP#.............."
+"..........##...........##..............."
+    )
+
+    for ((y=0; y<${#sheep[@]}; y+=2)); do
+        local top="${sheep[$y]}"
+        local bottom="${sheep[$((y+1))]}"
+        if [[ -z "$bottom" ]]; then
+            bottom=$(printf '%.0s.' $(seq 1 ${#top}))
+        fi
+
+        local out=""
+        for ((x=0; x<${#top}; x++)); do
+            local t="${top:$x:1}"
+            local b="${bottom:$x:1}"
+
+            if [[ "$t" == "." && "$b" == "." ]]; then
+                out+="$nb"
+            elif [[ "$t" != "." && "$b" == "." ]]; then
+                out+="$(get_fg "$t")$upper$reset"
+            elif [[ "$t" == "." && "$b" != "." ]]; then
+                out+="$(get_fg "$b")$lower$reset"
+            else
+                out+="$(get_fg "$t")$(get_bg "$b")$upper$reset"
+            fi
+        done
+        echo -e "$out"
+    done
+    echo -e "$reset"
+}

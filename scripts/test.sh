@@ -163,6 +163,8 @@ any_failed=0
 
 if [[ $any_failed -eq 0 ]]; then
   show_success_sheep "all tests passed!"
+else
+  show_failure_sheep "one or more test targets failed!"
 fi
 
 exit $any_failed

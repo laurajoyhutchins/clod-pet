@@ -90,4 +90,8 @@ export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 info "Starting Electron app..."
 if (cd "$app_dir" && npm start "${PASSTHROUGH_ARGS[@]}"); then
   show_success_sheep "app exited successfully!"
+else
+  status=$?
+  show_failure_sheep "app exited with errors!"
+  exit $status
 fi

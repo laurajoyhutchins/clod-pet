@@ -197,6 +197,7 @@ $anyFailed = ($backendResult -and $backendResult.ExitCode -ne 0) -or
              ($e2eResult -and $e2eResult.ExitCode -ne 0)
 
 if ($anyFailed) {
+    Show-FailureSheep "one or more test targets failed!"
     exit 1
 } else {
     Show-SuccessSheep "all tests passed!"

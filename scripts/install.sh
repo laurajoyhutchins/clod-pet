@@ -3,6 +3,8 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
+trap 'status=$?; if [[ $status -ne 0 ]]; then show_failure_sheep "installation failed!"; fi' EXIT
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 backend_dir="$repo_root/backend"
@@ -113,4 +115,3 @@ warn "Launcher: $launcher_path"
 warn "Log:      $log_file"
 
 show_success_sheep "installation complete!"
-

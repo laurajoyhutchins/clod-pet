@@ -17,10 +17,12 @@ Write-Header "Building ClodPet"
 Write-Info "Checking required tools..."
 if (-not (Test-CommandExists "go")) {
     Write-Fail "Go is not installed or not in PATH"
+    Show-FailureSheep "build failed!"
     exit 1
 }
 if (-not (Test-CommandExists "npm")) {
     Write-Fail "npm is not installed or not in PATH"
+    Show-FailureSheep "build failed!"
     exit 1
 }
 Write-Success "Required tools found"
@@ -30,6 +32,7 @@ if (Test-Path $backendBuildScript) {
     & $backendBuildScript
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Backend build failed"
+        Show-FailureSheep "build failed!"
         exit 1
     }
 } else {
@@ -38,6 +41,7 @@ if (Test-Path $backendBuildScript) {
         go build -o $backendOutput .
         if ($LASTEXITCODE -ne 0) {
             Write-Fail "Backend build failed"
+            Show-FailureSheep "build failed!"
             exit 1
         }
     } finally {
@@ -58,6 +62,7 @@ try {
         }
         if ($LASTEXITCODE -ne 0) {
             Write-Fail "Failed to install app dependencies"
+            Show-FailureSheep "build failed!"
             exit 1
         }
         Write-Success "Dependencies installed"
@@ -69,6 +74,7 @@ try {
     npm run build:ts
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "TypeScript build failed"
+        Show-FailureSheep "build failed!"
         exit 1
     }
     Write-Success "TypeScript build complete"
