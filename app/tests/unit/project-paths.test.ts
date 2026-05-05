@@ -27,4 +27,24 @@ describe("project-paths", () => {
   test("resolves pets directory from the repository root", () => {
     expect(getPetsDir()).toBe(path.join(repoRoot, "pets"));
   });
+
+  test("prefers an install root over the repository root when provided", () => {
+    const installRoot = path.join(repoRoot, "app", "dist");
+    const originalInstallRoot = process.env.CLOD_PET_INSTALL_ROOT;
+    process.env.CLOD_PET_INSTALL_ROOT = installRoot;
+
+    (fs.existsSync as jest.Mock).mockImplementation((candidate: string) => {
+      return candidate === path.join(installRoot, "backend")
+        || candidate === path.join(installRoot, "pets")
+        || candidate === path.join(repoRoot, "backend")
+        || candidate === path.join(repoRoot, "pets");
+    });
+
+    try {
+      expect(getBackendDir()).toBe(path.join(installRoot, "backend"));
+      expect(getPetsDir()).toBe(path.join(installRoot, "pets"));
+    } finally {
+      process.env.CLOD_PET_INSTALL_ROOT = originalInstallRoot;
+    }
+  });
 });
