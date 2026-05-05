@@ -8,6 +8,7 @@ import {
   intersectionArea,
   nearestDisplay,
   rectDistance,
+  workAreaBounds,
 } from "../border-detector";
 
 jest.mock("electron", () => ({
@@ -61,6 +62,21 @@ describe("border-detector utilities", () => {
     ]);
 
     expect(bounds).toEqual({ x: -100, y: 0, width: 250, height: 100 });
+  });
+
+  test("workAreaBounds should union every display work area", () => {
+    const bounds = workAreaBounds([
+      {
+        bounds: { x: -100, y: 0, width: 100, height: 100 },
+        workArea: { x: -100, y: 0, width: 100, height: 90 },
+      },
+      {
+        bounds: { x: 0, y: 0, width: 100, height: 100 },
+        workArea: { x: 0, y: 0, width: 100, height: 80 },
+      },
+    ]);
+
+    expect(bounds).toEqual({ x: -100, y: 0, width: 200, height: 90 });
   });
 
   test("checkBorder should report ceiling, floor, and walls edges independently", () => {
@@ -132,6 +148,27 @@ describe("border-detector utilities", () => {
       screen: { x: 0, y: 0, w: 100, h: 100 },
       work_area: { x: 0, y: 0, w: 100, h: 90 },
       desktop: { x: 0, y: 0, w: 200, h: 100 },
+    });
+  });
+
+  test("getRawWorldContext should use virtual desktop bounds in multi-screen mode", () => {
+    const displays = [
+      {
+        id: 0,
+        bounds: { x: -1280, y: 0, width: 1280, height: 1024 },
+        workArea: { x: -1280, y: 0, width: 1280, height: 984 },
+      },
+      {
+        id: 1,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+      },
+    ];
+
+    expect(getRawWorldContext(-100, 100, 64, 64, displays, { multiScreen: true })).toEqual({
+      screen: { x: -1280, y: 0, w: 3200, h: 1080 },
+      work_area: { x: -1280, y: 0, w: 3200, h: 1040 },
+      desktop: { x: -1280, y: 0, w: 3200, h: 1080 },
     });
   });
 

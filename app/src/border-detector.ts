@@ -3,6 +3,10 @@ import { type Rect, type WorldContext, type BackendWorldContext, type DisplayLik
 
 export const BORDER_TOLERANCE = 2;
 
+export interface WorldContextOptions {
+  multiScreen?: boolean;
+}
+
 export function intersectionArea(bounds: Rect | Electron.Rectangle, x: number, y: number, width: number, height: number) {
   const boundsRect = 'width' in bounds ? bounds as Rect : toRect(bounds as Electron.Rectangle);
   const overlapW = Math.min(x + width, boundsRect.x + boundsRect.width) - Math.max(x, boundsRect.x);
@@ -89,6 +93,18 @@ export function desktopBounds(displays: DisplayLike[]): Rect {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
+export function workAreaBounds(displays: DisplayLike[]): Rect {
+  const workAreas = displays
+    .map((display) => display.workArea)
+    .filter((workArea): workArea is Rect => !!workArea);
+
+  if (workAreas.length === 0) {
+    return desktopBounds(displays);
+  }
+
+  return desktopBounds(workAreas.map((workArea) => ({ bounds: workArea })));
+}
+
 export function checkBorder(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays() as DisplayLike[], tolerance = BORDER_TOLERANCE): string[] {
   const display = displayForRect(displays, x, y, width, height);
   if (!display?.bounds) return [];
@@ -123,9 +139,26 @@ function toBackendRect(rect: Rect): { x: number; y: number; w: number; h: number
   };
 }
 
-export function getRawWorldContext(x: number, y: number, width: number, height: number, displays: DisplayLike[] = screen.getAllDisplays() as DisplayLike[]): BackendWorldContext | null {
+export function getRawWorldContext(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  displays: DisplayLike[] = screen.getAllDisplays() as DisplayLike[],
+  options: WorldContextOptions = {},
+): BackendWorldContext | null {
   const display = displayForRect(displays, x, y, width, height);
   if (!display?.bounds || !display?.workArea) return null;
+
+  if (options.multiScreen && displays.length > 1) {
+    const desktop = desktopBounds(displays);
+    const workArea = workAreaBounds(displays);
+    return {
+      screen: toBackendRect(desktop),
+      work_area: toBackendRect(workArea),
+      desktop: toBackendRect(desktop),
+    };
+  }
 
   return {
     screen: toBackendRect({

@@ -142,7 +142,13 @@ function setupControlPanelHandlers(): void {
     const resp = await petManager?.backendClient.getSettings();
     return resp?.payload || {};
   });
-  ipcMain.handle("control:set-settings", (_event, settings) => petManager?.backendClient.setSettings(settings));
+  ipcMain.handle("control:set-settings", async (_event, settings) => {
+    const result = await petManager?.backendClient.setSettings(settings);
+    if (settings && typeof settings.MultiScreenEnabled === "boolean") {
+      petManager?.setMultiScreenEnabled(settings.MultiScreenEnabled);
+    }
+    return result;
+  });
   ipcMain.handle("control:list-pets", async () => {
     const resp = await petManager?.backendClient.listPets();
     return resp?.payload || [];

@@ -22,6 +22,7 @@ class PetManager {
   lastPetLoad: Record<string, unknown> | null;
   scale: number;
   volume: number;
+  multiScreenEnabled: boolean;
   store: WorldStore | null;
 
   constructor(backendUrl: string, store?: WorldStore) {
@@ -37,6 +38,7 @@ class PetManager {
     this.lastPetLoad = null;
     this.scale = 1.0;
     this.volume = 0.3;
+    this.multiScreenEnabled = true;
   }
 
   private _getPet(petId: string): PetInstance | null {
@@ -87,13 +89,17 @@ class PetManager {
 
   private _syncEnvironment(): void {
     if (!this.store) return;
-    const display = screen.getPrimaryDisplay();
-    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays() as DisplayLike[]);
+    const displays = this._activeDisplays();
+    const display = displays[0] || screen.getPrimaryDisplay();
+    const displayBounds = display.bounds || { x: 0, y: 0, width: 0, height: 0 };
+    const desktop = BorderDetector.desktopBounds(displays);
+    const screenBounds = this.multiScreenEnabled ? desktop : displayBounds;
+    const workArea = this.multiScreenEnabled ? BorderDetector.workAreaBounds(displays) : (display.workArea || displayBounds);
 
     this.store.setState({
       environment: {
-        screen: { x: display.bounds.x, y: display.bounds.y, width: display.bounds.width, height: display.bounds.height },
-        workArea: { x: display.workArea.x, y: display.workArea.y, width: display.workArea.width, height: display.workArea.height },
+        screen: { x: screenBounds.x, y: screenBounds.y, width: screenBounds.width, height: screenBounds.height },
+        workArea: { x: workArea.x, y: workArea.y, width: workArea.width, height: workArea.height },
         desktop: desktop,
         scale: this.scale,
         volume: this.volume,
@@ -112,6 +118,9 @@ class PetManager {
       }
       if (settings && typeof settings.Volume === "number") {
         this.volume = settings.Volume;
+      }
+      if (settings && typeof settings.MultiScreenEnabled === "boolean") {
+        this.multiScreenEnabled = settings.MultiScreenEnabled;
       }
     } catch (err: unknown) {
       log.warn("Failed to load initial settings:", err instanceof Error ? err.message : String(err));
@@ -158,6 +167,18 @@ class PetManager {
     // Renderer now subscribes to store:volume
   }
 
+  setMultiScreenEnabled(enabled: boolean): void {
+    this.multiScreenEnabled = enabled;
+    this._syncEnvironment();
+  }
+
+  private _activeDisplays(): DisplayLike[] {
+    if (this.multiScreenEnabled) {
+      return screen.getAllDisplays() as DisplayLike[];
+    }
+    return [screen.getPrimaryDisplay() as DisplayLike];
+  }
+
   async loadAndCreatePet(petPath: string, spawnId = 0): Promise<string> {
     log.info("Loading pet:", petPath);
     this.lastPetLoad = { petPath, startedAt: new Date().toISOString() };
@@ -169,11 +190,16 @@ class PetManager {
       throw new Error(`invalid pet sprite data for ${petPath}`);
     }
 
-    const workArea = screen.getPrimaryDisplay().workArea;
+    const displays = this._activeDisplays();
+    const spawnDisplay = displays[0] || screen.getPrimaryDisplay();
+    const spawnBounds = spawnDisplay.bounds || { x: 0, y: 0, width: 0, height: 0 };
+    const workArea = spawnDisplay.workArea || spawnBounds;
     const backendWorld = BorderDetector.getRawWorldContext(
       workArea.x + Math.floor(workArea.width / 2),
       workArea.y + Math.floor(workArea.height / 2),
-      64, 64
+      64, 64,
+      displays,
+      { multiScreen: this.multiScreenEnabled },
     ) || this._buildBackendWorldContext();
     const addResult = await this.backendClient.addPet(petPath, spawnId, backendWorld) as BackendResponse;
     const addResultPayload = addResult && addResult.payload as Record<string, unknown>;
@@ -295,12 +321,16 @@ class PetManager {
   }
 
   _buildWorldContext(): WorldContext {
-    const display = screen.getPrimaryDisplay();
-    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays() as DisplayLike[]);
+    const displays = this._activeDisplays();
+    const display = displays[0] || screen.getPrimaryDisplay();
+    const displayBounds = display.bounds || { x: 0, y: 0, width: 0, height: 0 };
+    const desktop = BorderDetector.desktopBounds(displays);
+    const screenBounds = this.multiScreenEnabled ? desktop : displayBounds;
+    const workArea = this.multiScreenEnabled ? BorderDetector.workAreaBounds(displays) : (display.workArea || displayBounds);
 
     return {
-      screen: { x: display.bounds.x, y: display.bounds.y, width: display.bounds.width, height: display.bounds.height },
-      workArea: { x: display.workArea.x, y: display.workArea.y, width: display.workArea.width, height: display.workArea.height },
+      screen: { x: screenBounds.x, y: screenBounds.y, width: screenBounds.width, height: screenBounds.height },
+      workArea: { x: workArea.x, y: workArea.y, width: workArea.width, height: workArea.height },
       desktop: desktop,
       scale: this.scale,
       volume: this.volume,
@@ -308,12 +338,16 @@ class PetManager {
   }
 
   _buildBackendWorldContext(): BackendWorldContext {
-    const display = screen.getPrimaryDisplay();
-    const desktop = BorderDetector.desktopBounds(screen.getAllDisplays() as DisplayLike[]);
+    const displays = this._activeDisplays();
+    const display = displays[0] || screen.getPrimaryDisplay();
+    const displayBounds = display.bounds || { x: 0, y: 0, width: 0, height: 0 };
+    const desktop = BorderDetector.desktopBounds(displays);
+    const screenBounds = this.multiScreenEnabled ? desktop : displayBounds;
+    const workArea = this.multiScreenEnabled ? BorderDetector.workAreaBounds(displays) : (display.workArea || displayBounds);
 
     return {
-      screen: { x: display.bounds.x, y: display.bounds.y, w: display.bounds.width, h: display.bounds.height },
-      work_area: { x: display.workArea.x, y: display.workArea.y, w: display.workArea.width, h: display.workArea.height },
+      screen: { x: screenBounds.x, y: screenBounds.y, w: screenBounds.width, h: screenBounds.height },
+      work_area: { x: workArea.x, y: workArea.y, w: workArea.width, h: workArea.height },
       desktop: { x: desktop.x, y: desktop.y, w: desktop.width, h: desktop.height },
     };
   }
@@ -371,7 +405,14 @@ class PetManager {
         const [winX, winY] = win.getPosition();
         const [winW, winH] = win.getSize();
 
-        const backendWorld = BorderDetector.getRawWorldContext(winX, winY, winW, winH, screen.getAllDisplays() as DisplayLike[]);
+        const backendWorld = BorderDetector.getRawWorldContext(
+          winX,
+          winY,
+          winW,
+          winH,
+          this._activeDisplays(),
+          { multiScreen: this.multiScreenEnabled },
+        );
         if (!backendWorld) {
           schedule(200);
           return;
