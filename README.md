@@ -55,24 +55,19 @@ clod-pet/
 |       |-- settings/         # JSON config persistence
 |       `-- sound/            # Sound selection and browser-playable audio encoding
 |-- app/                      # TypeScript + Electron desktop shell
-|   |-- main.ts               # Source entry point
-|   |-- main.js               # Generated Electron entry point
-|   |-- control-panel.ts      # Source for the options UI renderer
-|   |-- control-panel.js      # Generated browser script
-|   |-- pet.html              # Transparent pet window template
-|   |-- control-panel.html    # Options UI
+|   |-- public/               # Static HTML/CSS entrypoints
+|   |-- src/
+|   |   |-- main/             # Electron main-process code
+|   |   |-- preload/          # Context bridge exposed to renderers
+|   |   |-- renderer/         # Chat/control-panel/pet renderer entrypoints
+|   |   |-- editor/           # Standalone editor subsystem
+|   |   `-- shared/           # Shared store and types
+|   |-- tests/
+|   |   |-- unit/             # Jest unit tests
+|   |   `-- e2e/              # Backend API end-to-end tests
 |   |-- tsconfig.json         # Main/preload TypeScript build
-|   |-- tsconfig.browser.json # Browser-script TypeScript build
-|   `-- src/
-|       |-- backend-manager.ts   # Backend process lifecycle
-|       |-- pet-manager.ts       # Pet creation, loop, IPC handlers
-|       |-- backend-client.ts    # HTTP client for backend API
-|       |-- api-adapter.ts       # Backend API payload adapter
-|       |-- window-manager.ts    # BrowserWindow management
-|       |-- tray-manager.ts      # System tray menu
-|       |-- border-detector.ts   # Per-display screen geometry provider
-|       |-- preload.ts           # Context bridge (ipcRenderer)
-|       `-- pet-renderer.ts      # Canvas sprite sheet renderer
+|   |-- tsconfig.browser.json # Renderer TypeScript build
+|   `-- tsconfig.editor.json  # Editor TypeScript build
 |-- pets/                     # Pet data directories
 |   `-- eSheep-modern/
 |       |-- animations.json   # Modern pet definition

@@ -67,19 +67,16 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - Tests: Go built-in testing (run with `go test -v -cover ./...`)
 
 ## Frontend
-- Source entry: `app/main.ts`; Electron runtime entry: generated `app/dist/main.js`
+- Source entry: `app/src/main/main.ts`; Electron runtime entry: generated `app/dist/src/main/main.js`
 - Build: `cd app && npm run build:ts`
 - Jest config in `package.json` (`testEnvironment: "node"`)
-- Coverage excludes `preload.js`, `pet-renderer.js`
+- Coverage excludes `src/preload/preload.ts`, `src/renderer/pet-renderer.ts`
 - Key TypeScript modules: 
-  - `backend-manager`: Spawns and monitors the Go process
-  - `backend-client`: HTTP/SSE client for backend communication (includes former api-adapter logic)
-  - `chat-manager`: Manages the AI chat window and lifecycle
-  - `pet-manager`: Orchestrates multiple pet instances
-  - `window-manager`: Low-level Electron window control
-  - `tray-manager`: System tray icon and menu
-  - `border-detector`: Screen boundary detection for pet physics
-- UI: `index.html` (Main), `chat.html` (AI Chat), `control-panel.html` (Settings)
+  - `main/`: backend startup, window lifecycle, tray, and app commands
+  - `preload/`: context bridge for renderer windows
+  - `renderer/`: chat, control-panel, and pet window entrypoints
+  - `shared/store/`: world state, diagnostics, and shared types
+- UI: `public/index.html` (Main), `public/chat.html` (AI Chat), `public/control-panel.html` (Settings)
 
 ## Pet format
 - Directory per pet under `pets/` (e.g., `pets/eSheep-modern/`)

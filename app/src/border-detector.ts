@@ -1,5 +1,5 @@
 import { screen } from "electron";
-import { type Rect, type WorldContext, type BackendWorldContext, type DisplayLike, toRect } from "./store";
+import { type Rect, type WorldContext, type BackendWorldContext, type DisplayLike, toRect } from "./shared/store";
 
 export const BORDER_TOLERANCE = 2;
 

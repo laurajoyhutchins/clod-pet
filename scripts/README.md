@@ -2,6 +2,8 @@
 
 Lifecycle and build automation for the project.
 
+The app shell is organized under `app/src/main`, `app/src/preload`, `app/src/renderer`, `app/src/editor`, and `app/src/shared`, with static entry files in `app/public` and tests in `app/tests/unit` and `app/tests/e2e`.
+
 ## Files
 
 - `install.ps1` / `install.sh` - full install flow.

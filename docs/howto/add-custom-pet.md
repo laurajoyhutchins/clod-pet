@@ -100,7 +100,7 @@ A spawn determines where the pet appears:
 
 To make the pet the default startup pet, set `CurrentPet` in the control panel or in your saved settings JSON. The main process falls back to `eSheep-modern` when that setting is not present.
 
-If you want to hardcode a different development default, update the fallback in `app/main.ts` inside `createPet()`.
+If you want to hardcode a different development default, update the fallback in `app/src/main/main.ts` inside `createPet()`.
 
 Then start the app:
 

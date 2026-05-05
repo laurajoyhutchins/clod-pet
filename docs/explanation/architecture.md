@@ -31,13 +31,13 @@ The original desktop pet (eSheep) was a single Windows application. This project
 
 - **Go** owns the animation logic and physics because it is computationally simple, testable in isolation, and allows for a language-agnostic headless engine. It also manages AI provider integrations (OpenAI, Gemini, etc.) to keep secrets and complex networking out of the frontend.
 - **TypeScript/Electron** owns window management, the tray menu, the control panel, and the renderer bridge because transparent frameless windows and native display APIs are well-supported.
-- **Electron main process** is the boundary between the two: renderer windows talk to it over Electron IPC, and it talks to the Go backend over HTTP and SSE.
+- **Electron main process** is the boundary between the two: renderer windows talk to it over Electron IPC through the preload bridge, and it talks to the Go backend over HTTP and SSE.
 
 ## Communication models
 
 Clod Pet uses three communication patterns depending on the task:
 
-1. **Electron IPC:** Renderer windows call methods exposed from `app/src/preload.ts`. The control panel and chat window use this bridge to reach the main process.
+1. **Electron IPC:** Renderer windows call methods exposed from `app/src/preload/preload.ts`. The control panel and chat window use this bridge to reach the main process.
 2. **Request-response HTTP:** The animation loop uses standard HTTP POST requests. The main process sends world geometry to the Go backend and receives the next frame state. This is simple, easy to debug, and sufficient for 200 ms intervals.
 3. **Server-sent events:** AI chat responses use SSE via the `/api/llm/stream` endpoint. This allows the backend to stream tokens from LLM providers directly to the chat UI for a responsive typing effect.
 
@@ -45,10 +45,12 @@ Clod Pet uses three communication patterns depending on the task:
 
 The app source is TypeScript. `npm run build:ts` compiles:
 
-- Main-process, preload, and window-management code with `tsconfig.json`
-- Browser scripts such as `control-panel.ts`, `chat.ts`, and `src/pet-renderer.ts` with `tsconfig.browser.json`
+- Main-process code with `tsconfig.json`
+- Preload code with `tsconfig.json`
+- Browser scripts such as `app/src/renderer/control-panel.ts`, `app/src/renderer/chat.ts`, and `app/src/renderer/pet-renderer.ts` with `tsconfig.browser.json`
+- Editor code with `tsconfig.editor.json`
 
-Electron still loads generated JavaScript (`main.js`, `preload.js`, and browser `<script>` files). Treat `.ts` files as the source of truth and generated `.js` files as runtime artifacts.
+Electron still loads generated JavaScript from `app/dist/src/main/main.js`, `app/dist/src/preload/preload.js`, `app/dist/src/renderer/*.js`, and `app/dist/editor/*.js`. Treat `.ts` files as the source of truth and generated `.js` files as runtime artifacts.
 
 ## Animation pipeline
 

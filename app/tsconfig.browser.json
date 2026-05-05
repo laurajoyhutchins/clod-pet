@@ -4,11 +4,12 @@
     "module": "None",
     "ignoreDeprecations": "6.0",
     "outDir": "dist",
+    "rootDir": ".",
     "lib": ["ES2020", "DOM"],
     "strict": true,
     "useUnknownInCatchVariables": true,
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "include": ["control-panel.ts", "control-panel-themes.ts", "chat.ts", "src/pet-renderer.ts", "src/ui/themes.ts", "src/globals.d.ts"]
+  "include": ["src/renderer/**/*.ts", "src/globals.d.ts"]
 }
