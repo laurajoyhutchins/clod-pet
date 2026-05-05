@@ -8,7 +8,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"clod-pet/backend/internal/expression"
 )
+
+func mustParseExpr(s string) *expression.ParsedExpr {
+	parsed, err := expression.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}
 
 const minimalXML = `<?xml version="1.0"?>
 <animations>
@@ -172,8 +182,8 @@ func TestLoadPetSpawns(t *testing.T) {
 	if s.Probability != 100 {
 		t.Errorf("Spawn Probability = %d, want 100", s.Probability)
 	}
-	if s.X != "screenW/2" {
-		t.Errorf("Spawn X = %q, want %q", s.X, "screenW/2")
+	if s.X.String() != "screenW/2" {
+		t.Errorf("Spawn X = %q, want %q", s.X.String(), "screenW/2")
 	}
 	if s.NextAnimID != 1 {
 		t.Errorf("Spawn NextAnimID = %d, want 1", s.NextAnimID)
@@ -203,11 +213,11 @@ func TestLoadPetAnimations(t *testing.T) {
 	if walk.Name != "walk" {
 		t.Errorf("Animation 1 Name = %q, want %q", walk.Name, "walk")
 	}
-	if walk.Start.X != "-2" {
-		t.Errorf("Walk Start.X = %q, want %q", walk.Start.X, "-2")
+	if walk.Start.X.String() != "-2" {
+		t.Errorf("Walk Start.X = %q, want %q", walk.Start.X.String(), "-2")
 	}
-	if walk.End.X != "-2" {
-		t.Errorf("Walk End.X = %q, want %q", walk.End.X, "-2")
+	if walk.End.X.String() != "-2" {
+		t.Errorf("Walk End.X = %q, want %q", walk.End.X.String(), "-2")
 	}
 	if len(walk.Frames) != 2 {
 		t.Errorf("Walk Frames count = %d, want 2", len(walk.Frames))
@@ -215,8 +225,8 @@ func TestLoadPetAnimations(t *testing.T) {
 	if walk.Frames[0] != 0 || walk.Frames[1] != 1 {
 		t.Errorf("Walk Frames = %v, want [0 1]", walk.Frames)
 	}
-	if walk.Repeat != "1" {
-		t.Errorf("Walk Repeat = %q, want %q", walk.Repeat, "1")
+	if walk.Repeat.String() != "1" {
+		t.Errorf("Walk Repeat = %q, want %q", walk.Repeat.String(), "1")
 	}
 	if walk.RepeatFrom != 0 {
 		t.Errorf("Walk RepeatFrom = %d, want 0", walk.RepeatFrom)
@@ -317,8 +327,8 @@ func TestLoadPetChildren(t *testing.T) {
 	if c.AnimationID != 1 {
 		t.Errorf("Child AnimationID = %d, want 1", c.AnimationID)
 	}
-	if c.X != "imageX+10" {
-		t.Errorf("Child X = %q, want %q", c.X, "imageX+10")
+	if c.X.String() != "imageX+10" {
+		t.Errorf("Child X = %q, want %q", c.X.String(), "imageX+10")
 	}
 	if c.NextProbability != 100 {
 		t.Errorf("Child NextProbability = %d, want 100", c.NextProbability)
@@ -545,50 +555,50 @@ func TestExportModernPet(t *testing.T) {
 			Transparency: "Magenta",
 		},
 		Spawns: []Spawn{
-			{ID: 2, Probability: 25, X: "x2", Y: "y2", NextProbability: 80, NextAnimID: 2},
-			{ID: 1, Probability: 75, X: "x1", Y: "y1", NextProbability: 20, NextAnimID: 1},
+			{ID: 2, Probability: 25, X: mustParseExpr("100"), Y: mustParseExpr("200"), NextProbability: 80, NextAnimID: 2},
+			{ID: 1, Probability: 75, X: mustParseExpr("300"), Y: mustParseExpr("400"), NextProbability: 20, NextAnimID: 1},
 		},
 		Animations: map[int]Animation{
 			2: {
 				ID:   2,
 				Name: "second",
 				Start: Movement{
-					X:        "10",
-					Y:        "20",
+					X:        mustParseExpr("10"),
+					Y:        mustParseExpr("20"),
 					OffsetY:  3,
 					Opacity:  0.5,
-					Interval: "150",
+					Interval: mustParseExpr("150"),
 				},
 				End: Movement{
-					X:        "30",
-					Y:        "40",
+					X:        mustParseExpr("30"),
+					Y:        mustParseExpr("40"),
 					OffsetY:  4,
 					Opacity:  0.75,
-					Interval: "250",
+					Interval: mustParseExpr("250"),
 				},
 				Frames:       []int{3, 4},
 				SequenceNext: []NextAnimation{{ID: 1, Probability: 100, Only: "none"}},
 				BorderNext:   []NextAnimation{{ID: 3, Probability: 10, Only: "window"}},
 				GravityNext:  []NextAnimation{{ID: 4, Probability: 20, Only: "none"}},
-				Repeat:       "2",
+				Repeat:       mustParseExpr("2"),
 				RepeatFrom:   1,
 			},
 			1: {
 				ID:   1,
 				Name: "first",
 				Start: Movement{
-					X:        "1",
-					Y:        "2",
-					Interval: "100",
+					X:        mustParseExpr("1"),
+					Y:        mustParseExpr("2"),
+					Interval: mustParseExpr("100"),
 				},
-				End:        Movement{X: "1", Y: "2", Interval: "100"},
+				End:        Movement{X: mustParseExpr("1"), Y: mustParseExpr("2"), Interval: mustParseExpr("100")},
 				Frames:     []int{0, 1},
-				Repeat:     "1",
+				Repeat:     mustParseExpr("1"),
 				RepeatFrom: 0,
 			},
 		},
 		Children: []Child{
-			{AnimationID: 2, X: "childX", Y: "childY", NextProbability: 42, NextAnimID: 1},
+			{AnimationID: 2, X: mustParseExpr("500"), Y: mustParseExpr("600"), NextProbability: 42, NextAnimID: 1},
 		},
 		Sounds: map[int][]Sound{
 			1: []Sound{
@@ -769,15 +779,15 @@ func TestLoadPetInvalidSoundBase64(t *testing.T) {
 
 func TestMovementClone(t *testing.T) {
 	m := Movement{
-		X:        "-2",
-		Y:        "0",
+		X:        mustParseExpr("-2"),
+		Y:        mustParseExpr("0"),
 		OffsetY:  5,
 		Opacity:  0.8,
-		Interval: "200",
+		Interval: mustParseExpr("200"),
 	}
 
 	c := m.Copy()
-	if c != m {
+	if c.X.String() != m.X.String() || c.Y.String() != m.Y.String() || c.Interval.String() != m.Interval.String() {
 		t.Errorf("Copy = %+v, want %+v", c, m)
 	}
 }

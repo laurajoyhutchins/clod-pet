@@ -102,8 +102,8 @@ func buildModernRoot(p *Pet, iconName string, opts ModernExportOptions) modernRo
 		root.Spawns = append(root.Spawns, modernSpawn{
 			ID:          spawn.ID,
 			Probability: spawn.Probability,
-			X:           spawn.X,
-			Y:           spawn.Y,
+			X:           spawn.X.String(),
+			Y:           spawn.Y.String(),
 			Next: modernNext{
 				Probability: spawn.NextProbability,
 				Value:       spawn.NextAnimID,
@@ -122,26 +122,26 @@ func buildModernRoot(p *Pet, iconName string, opts ModernExportOptions) modernRo
 			ID:   anim.ID,
 			Name: anim.Name,
 			Start: modernMovement{
-				X:        anim.Start.X,
-				Y:        anim.Start.Y,
+				X:        anim.Start.X.String(),
+				Y:        anim.Start.Y.String(),
 				OffsetY:  intPtr(anim.Start.OffsetY),
 				Opacity:  floatPtr(anim.Start.Opacity),
-				Interval: anim.Start.Interval,
+				Interval: anim.Start.Interval.String(),
 			},
 			Sequence: modernSequence{
 				Frames:     append([]int(nil), anim.Frames...),
 				Action:     anim.Action,
-				Repeat:     anim.Repeat,
+				Repeat:     anim.Repeat.String(),
 				RepeatFrom: anim.RepeatFrom,
 			},
 		}
 		end := anim.End
 		mm.End = &modernMovement{
-			X:        end.X,
-			Y:        end.Y,
+			X:        end.X.String(),
+			Y:        end.Y.String(),
 			OffsetY:  intPtr(end.OffsetY),
 			Opacity:  floatPtr(end.Opacity),
-			Interval: end.Interval,
+			Interval: end.Interval.String(),
 		}
 		for _, next := range anim.SequenceNext {
 			mm.Sequence.Nexts = append(mm.Sequence.Nexts, modernNext{
@@ -170,8 +170,8 @@ func buildModernRoot(p *Pet, iconName string, opts ModernExportOptions) modernRo
 	for _, child := range p.Children {
 		root.Children = append(root.Children, modernChild{
 			AnimationID: child.AnimationID,
-			X:           child.X,
-			Y:           child.Y,
+			X:           child.X.String(),
+			Y:           child.Y.String(),
 			Next: modernNext{
 				Probability: child.NextProbability,
 				Value:       child.NextAnimID,

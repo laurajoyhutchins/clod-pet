@@ -127,11 +127,11 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	e.setWorldContext(world)
 	e.env.RegenerateRandom()
 
-	x, err := expression.Eval(spawn.X, e.env)
+	x, err := spawn.X.Eval(e.env)
 	if err != nil {
 		return fmt.Errorf("spawn X expression: %w", err)
 	}
-	y, err := expression.Eval(spawn.Y, e.env)
+	y, err := spawn.Y.Eval(e.env)
 	if err != nil {
 		return fmt.Errorf("spawn Y expression: %w", err)
 	}
@@ -229,27 +229,27 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 		progress = expression.Clamp(float64(e.totalStepsDone)/float64(e.animTotalSteps), 0, 1)
 	}
 
-	startX, err := expression.Eval(anim.Start.X, e.env)
+	startX, err := anim.Start.X.Eval(e.env)
 	if err != nil {
 		log.Debug("eval start.X", "anim", e.currentAnim, "error", err)
 	}
-	startY, err := expression.Eval(anim.Start.Y, e.env)
+	startY, err := anim.Start.Y.Eval(e.env)
 	if err != nil {
 		log.Debug("eval start.Y", "anim", e.currentAnim, "error", err)
 	}
-	startInterval, err := expression.EvalInt(anim.Start.Interval, e.env)
+	startInterval, err := anim.Start.Interval.EvalInt(e.env)
 	if err != nil {
 		log.Debug("eval start.Interval", "anim", e.currentAnim, "error", err)
 	}
-	endX, err := expression.Eval(anim.End.X, e.env)
+	endX, err := anim.End.X.Eval(e.env)
 	if err != nil {
 		log.Debug("eval end.X", "anim", e.currentAnim, "error", err)
 	}
-	endY, err := expression.Eval(anim.End.Y, e.env)
+	endY, err := anim.End.Y.Eval(e.env)
 	if err != nil {
 		log.Debug("eval end.Y", "anim", e.currentAnim, "error", err)
 	}
-	endInterval, err := expression.EvalInt(anim.End.Interval, e.env)
+	endInterval, err := anim.End.Interval.EvalInt(e.env)
 	if err != nil {
 		log.Debug("eval end.Interval", "anim", e.currentAnim, "error", err)
 	}
@@ -506,7 +506,7 @@ func (e *Engine) loadAnimation() {
 		return
 	}
 
-	repeat, err := expression.EvalInt(anim.Repeat, e.env)
+	repeat, err := anim.Repeat.EvalInt(e.env)
 	if err != nil || repeat <= 0 {
 		repeat = 1
 	}

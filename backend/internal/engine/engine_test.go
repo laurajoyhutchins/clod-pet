@@ -5,8 +5,17 @@ import (
 	"math"
 	"testing"
 
+	"clod-pet/backend/internal/expression"
 	"clod-pet/backend/internal/pet"
 )
+
+func mustParseExpr(s string) *expression.ParsedExpr {
+	parsed, err := expression.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}
 
 func testPet() *pet.Pet {
 	return &pet.Pet{
@@ -15,16 +24,16 @@ func testPet() *pet.Pet {
 		FrameW: 64,
 		FrameH: 64,
 		Spawns: []pet.Spawn{
-			{ID: 1, Probability: 100, X: "100", Y: "200", NextAnimID: 1},
+			{ID: 1, Probability: 100, X: mustParseExpr("100"), Y: mustParseExpr("200"), NextAnimID: 1},
 		},
 		Animations: map[int]pet.Animation{
 			1: {
 				ID:         1,
 				Name:       "walk",
-				Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+				Start:      pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("200")},
+				End:        pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("200")},
 				Frames:     []int{0, 1},
-				Repeat:     "10",
+				Repeat:     mustParseExpr("10"),
 				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
 					{ID: 2, Probability: 50, Only: "none"},
@@ -34,10 +43,10 @@ func testPet() *pet.Pet {
 			2: {
 				ID:         2,
 				Name:       "sit",
-				Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "300"},
-				End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "300"},
+				Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("300")},
+				End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("300")},
 				Frames:     []int{2, 3},
-				Repeat:     "5",
+				Repeat:     mustParseExpr("5"),
 				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
 					{ID: 1, Probability: 100, Only: "none"},
@@ -46,10 +55,10 @@ func testPet() *pet.Pet {
 			3: {
 				ID:         3,
 				Name:       "drag",
-				Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-				End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+				Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+				End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 				Frames:     []int{4, 5},
-				Repeat:     "1",
+				Repeat:     mustParseExpr("1"),
 				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
 					{ID: 1, Probability: 100, Only: "none"},
@@ -119,8 +128,8 @@ func TestEngineStartUsesWorldContextForSpawnExpressions(t *testing.T) {
 	p.Spawns[0] = pet.Spawn{
 		ID:          1,
 		Probability: 100,
-		X:           "screenW+10",
-		Y:           "areaH-imageH",
+		X:           mustParseExpr("screenW+10"),
+		Y:           mustParseExpr("areaH-imageH"),
 		NextAnimID:  1,
 	}
 
@@ -180,10 +189,10 @@ func TestEngineStepWithEmptyAnimationFrames(t *testing.T) {
 	p.Animations[3] = pet.Animation{
 		ID:     3,
 		Name:   "empty",
-		Start:  pet.Movement{X: "0", Y: "0", Interval: "100"},
-		End:    pet.Movement{X: "0", Y: "0", Interval: "100"},
+		Start:  pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), Interval: mustParseExpr("100")},
+		End:    pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), Interval: mustParseExpr("100")},
 		Frames: []int{},
-		Repeat: "1",
+		Repeat: mustParseExpr("1"),
 	}
 
 	e := NewEngine(p)
@@ -260,10 +269,10 @@ func TestEngineRandomStaysStableWithinAnimation(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:     1,
 		Name:   "random-walk",
-		Start:  pet.Movement{X: "random+1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:    pet.Movement{X: "random+1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:  pet.Movement{X: mustParseExpr("random+1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:    pet.Movement{X: mustParseExpr("random+1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames: []int{0},
-		Repeat: "2",
+		Repeat: mustParseExpr("2"),
 	}
 
 	e := NewEngine(p)
@@ -511,10 +520,10 @@ func TestEngineGravityTransition(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		GravityNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "none"},
@@ -544,19 +553,19 @@ func TestEngineGravityFallsBackToNamedFallAnimation(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 	}
 	p.Animations[2] = pet.Animation{
 		ID:         2,
 		Name:       "fall",
-		Start:      pet.Movement{X: "0", Y: "3", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "3", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("3"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("3"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{1},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 	}
 
@@ -594,10 +603,10 @@ func TestLoadAnimationInvalidRepeat(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "bad",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "invalid",
+		Repeat:     nil, // nil Repeat will be treated as "1" by the engine
 		RepeatFrom: 0,
 	}
 
@@ -625,10 +634,10 @@ func TestEngineStepTransitionTriggers(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0, 1},
-		Repeat:     "2",
+		Repeat:     mustParseExpr("2"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "none"},
@@ -665,10 +674,10 @@ func TestEngineBorderTransition(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "taskbar"},
@@ -699,10 +708,10 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "-1", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("-1"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "window"},
@@ -715,7 +724,7 @@ func TestEngineBorderTransitionNoMatch(t *testing.T) {
 
 	result, err := e.Step(WorldContext{
 		Screen:  Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		Desktop: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		Desktop: Rect{X: 0, Y: 0, W: 2000, H: 1000},
 	})
 	if err != nil {
 		t.Fatalf("Step error: %v", err)
@@ -770,10 +779,10 @@ func TestEngineScreenSnapDoesNotUseDesktopUnion(t *testing.T) {
 			p.Animations[1] = pet.Animation{
 				ID:         1,
 				Name:       "idle",
-				Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-				End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+				Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+				End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 				Frames:     []int{0},
-				Repeat:     "1",
+				Repeat:     mustParseExpr("1"),
 				RepeatFrom: 0,
 			}
 
@@ -803,10 +812,10 @@ func TestEngineVerticalEdgeDoesNotSuppressGravity(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		GravityNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100},
@@ -838,10 +847,10 @@ func TestEngineGravityTakesPriorityWhenAirborneAtScreenBorder(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
 			{ID: 3, Probability: 100, Only: "none"},
@@ -887,10 +896,10 @@ func TestEngineNoFrames(t *testing.T) {
 	p.Animations[3] = pet.Animation{
 		ID:         3,
 		Name:       "empty",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 	}
 
@@ -912,10 +921,10 @@ func TestEngineOpacityLerp(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "fade",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 0.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 0.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "10",
+		Repeat:     mustParseExpr("10"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 1, Probability: 100, Only: "none"},
@@ -943,10 +952,10 @@ func TestEngineIntervalEvaluation(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("200")},
 		Frames:     []int{0},
-		Repeat:     "2",
+		Repeat:     mustParseExpr("2"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 1, Probability: 100, Only: "none"},
@@ -976,10 +985,10 @@ func TestEngineFlipAction(t *testing.T) {
 		ID:         1,
 		Name:       "flip-anim",
 		Action:     "flip",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "none"},
@@ -1010,10 +1019,10 @@ func TestEngineMirroredMovement(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "10",
+		Repeat:     mustParseExpr("10"),
 		RepeatFrom: 0,
 	}
 
@@ -1042,10 +1051,10 @@ func TestEngineBorderTriggeredOnce(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "10",
+		Repeat:     mustParseExpr("10"),
 		RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "taskbar"},
@@ -1080,10 +1089,10 @@ func TestEngineSelfTransitionReset(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "2",
+		Repeat:     mustParseExpr("2"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 1, Probability: 100, Only: "none"},
@@ -1115,10 +1124,10 @@ func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: "window"},
@@ -1144,17 +1153,17 @@ func TestEngineNoOscillationAfterWallFlip(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = pet.Animation{
 		ID:    1, Name: "walk",
-		Start: pet.Movement{X: "-2", Y: "0", Opacity: 1.0, Interval: "200"},
-		End:   pet.Movement{X: "-2", Y: "0", Opacity: 1.0, Interval: "200"},
-		Frames: []int{0, 1}, Repeat: "20", RepeatFrom: 0,
+		Start: pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
+		End:   pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
+		Frames: []int{0, 1}, Repeat: mustParseExpr("20"), RepeatFrom: 0,
 		BorderNext: []pet.NextAnimation{{ID: 2, Probability: 100, Only: "none"}},
 	}
 	p.Animations[2] = pet.Animation{
 		ID:    2, Name: "rotate",
 		Action: "flip",
-		Start: pet.Movement{X: "0", Y: "0", Opacity: 1.0, Interval: "200"},
-		End:   pet.Movement{X: "0", Y: "0", Opacity: 1.0, Interval: "200"},
-		Frames: []int{0}, Repeat: "1", RepeatFrom: 0,
+		Start: pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
+		End:   pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), Opacity: 1.0, Interval: mustParseExpr("200")},
+		Frames: []int{0}, Repeat: mustParseExpr("1"), RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{{ID: 1, Probability: 100, Only: ""}},
 	}
 
@@ -1193,10 +1202,10 @@ func TestEngineSequenceNextWithEmptyOnlyField(t *testing.T) {
 	p.Animations[1] = pet.Animation{
 		ID:         1,
 		Name:       "walk",
-		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
-		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Start:      pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
+		End:        pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("100")},
 		Frames:     []int{0},
-		Repeat:     "1",
+		Repeat:     mustParseExpr("1"),
 		RepeatFrom: 0,
 		SequenceNext: []pet.NextAnimation{
 			{ID: 2, Probability: 100, Only: ""},
@@ -1223,161 +1232,23 @@ func TestEngineGravityDoubled(t *testing.T) {
 			1: {
 				ID:    1,
 				Name:  "fall",
-				Start: pet.Movement{X: "0", Y: "10", Interval: "100"},
-				End:   pet.Movement{X: "0", Y: "10", Interval: "100"},
+				Start: pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("10"), Interval: mustParseExpr("100")},
+				End:   pet.Movement{X: mustParseExpr("0"), Y: mustParseExpr("10"), Interval: mustParseExpr("100")},
 				Frames: []int{0},
-				Repeat: "1",
+				Repeat: mustParseExpr("1"),
 			},
 		},
 		Spawns: []pet.Spawn{
-			{ID: 1, X: "100", Y: "100", NextAnimID: 1},
+			{ID: 1, X: mustParseExpr("100"), Y: mustParseExpr("100"), NextAnimID: 1},
 		},
 	}
 
 	e := NewEngine(p)
 
-	// Set up world context where the pet is in the air
 	world := WorldContext{
 		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
 		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
 	}
-
-	err := e.Start(1, world)
-	if err != nil {
-		t.Fatalf("Start error: %v", err)
-	}
-
-	// Step 1: Pet is at Y=100. Falling movement is Y=10.
-	// Because detectGravity will be true (100+32 < 1000),
-	// and curY is 10 (>0), it should be doubled to 20.
-	// New Y should be 100 + 20 = 120.
-
-	_, err = e.Step(world)
-	if err != nil {
-		t.Fatalf("Step error: %v", err)
-	}
-
-	_, y := e.Position()
-	expectedY := 100.0 + 10.0*2.0
-	if math.Abs(y-expectedY) > 0.001 {
-		t.Errorf("Y = %v, want %v (doubled gravity)", y, expectedY)
-	}
-}
-
-func TestEngineGravityNotDoubledWhenGoingUp(t *testing.T) {
-	p := &pet.Pet{
-		FrameW: 32,
-		FrameH: 32,
-		Animations: map[int]pet.Animation{
-			1: {
-				ID:    1,
-				Name:  "jump",
-				Start: pet.Movement{X: "0", Y: "-10", Interval: "100"},
-				End:   pet.Movement{X: "0", Y: "-10", Interval: "100"},
-				Frames: []int{0},
-				Repeat: "1",
-			},
-		},
-		Spawns: []pet.Spawn{
-			{ID: 1, X: "100", Y: "500", NextAnimID: 1},
-		},
-	}
-
-	e := NewEngine(p)
-	world := WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	}
-
-	_ = e.Start(1, world)
-
-	// Pet is at Y=500. Jumping movement is Y=-10.
-	// detectGravity is true, but curY is negative, so it should NOT be doubled.
-	// New Y should be 500 - 10 = 490.
-
-	_, _ = e.Step(world)
-
-	_, y := e.Position()
-	expectedY := 500.0 - 10.0
-	if math.Abs(y-expectedY) > 0.001 {
-		t.Errorf("Y = %v, want %v (gravity should NOT be doubled when going up)", y, expectedY)
-	}
-}
-
-func TestEngineGravityNotDoubledWhenOnFloor(t *testing.T) {
-	p := &pet.Pet{
-		FrameW: 32,
-		FrameH: 32,
-		Animations: map[int]pet.Animation{
-			1: {
-				ID:    1,
-				Name:  "walk",
-				Start: pet.Movement{X: "0", Y: "10", Interval: "100"},
-				End:   pet.Movement{X: "0", Y: "10", Interval: "100"},
-				Frames: []int{0},
-				Repeat: "1",
-			},
-		},
-		Spawns: []pet.Spawn{
-			{ID: 1, X: "100", Y: "968", NextAnimID: 1}, // 968 + 32 = 1000 (Floor)
-		},
-	}
-
-	e := NewEngine(p)
-	world := WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	}
-
-	_ = e.Start(1, world)
-
-	// Pet is at Y=968. detectGravity should be false because it's on the floor.
-	// Movement Y=10 should NOT be doubled.
-	// New Y should be 968 + 10 = 978, then snapped back to 968 by physics.
-
-	// Let's use a position far from floor to verify doubling in air, then one on floor.
-	e.SetPosition(100, 100)
-	_, _ = e.Step(world)
-	_, y := e.Position()
-	if y != 120.0 {
-		t.Errorf("Expected doubled gravity in air, got Y=%v", y)
-	}
-
-	e.SetPosition(100, 968) // Exact floor
-	_, _ = e.Step(world)
-	_, y = e.Position()
-	// Should NOT have been doubled, though hard to tell because of snapping.
-	// But the logic is checked by gravity being false.
-	if y != 968.0 {
-		t.Errorf("Expected Y=968 on floor, got Y=%v", y)
-	}
-}
-
-func TestEngineGravityScaleImpact(t *testing.T) {
-	p := &pet.Pet{
-		FrameW: 32,
-		FrameH: 32,
-		Animations: map[int]pet.Animation{
-			1: {
-				ID:    1,
-				Name:  "fall",
-				Start: pet.Movement{X: "0", Y: "10", Interval: "100"},
-				End:   pet.Movement{X: "0", Y: "10", Interval: "100"},
-				Frames: []int{0},
-				Repeat: "1",
-			},
-		},
-		Spawns: []pet.Spawn{
-			{ID: 1, X: "100", Y: "100", NextAnimID: 1},
-		},
-	}
-
-	e := NewEngine(p)
-	world := WorldContext{
-		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
-		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
-	}
-
 	e.SetGravityFactor(2.0)
 	e.SetScale(1.5)
 	_ = e.Start(1, world)

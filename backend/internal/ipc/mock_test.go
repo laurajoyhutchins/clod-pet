@@ -7,9 +7,18 @@ import (
 	"sync"
 
 	"clod-pet/backend/internal/engine"
+	"clod-pet/backend/internal/expression"
 	"clod-pet/backend/internal/llm"
 	"clod-pet/backend/internal/pet"
 )
+
+func mustParseExpr(s string) *expression.ParsedExpr {
+	parsed, err := expression.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}
 
 // testPetDef returns a standard test pet definition
 func testPetDef() *pet.Pet {
@@ -17,16 +26,16 @@ func testPetDef() *pet.Pet {
 		Header: pet.Header{Title: "Test", PetName: "test"},
 		Image:  pet.Image{TilesX: 4, TilesY: 4},
 		Spawns: []pet.Spawn{
-			{ID: 1, Probability: 100, X: "100", Y: "200", NextAnimID: 1},
+			{ID: 1, Probability: 100, X: mustParseExpr("100"), Y: mustParseExpr("200"), NextAnimID: 1},
 		},
 		Animations: map[int]pet.Animation{
 			1: {
 				ID:         1,
 				Name:       "walk",
-				Start:      pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
-				End:        pet.Movement{X: "-2", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "200"},
+				Start:      pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("200")},
+				End:        pet.Movement{X: mustParseExpr("-2"), Y: mustParseExpr("0"), OffsetY: 0, Opacity: 1.0, Interval: mustParseExpr("200")},
 				Frames:     []int{0, 1},
-				Repeat:     "10",
+				Repeat:     mustParseExpr("10"),
 				RepeatFrom: 0,
 				SequenceNext: []pet.NextAnimation{
 					{ID: 1, Probability: 100, Only: "none"},

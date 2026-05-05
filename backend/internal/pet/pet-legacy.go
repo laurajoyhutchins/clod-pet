@@ -188,8 +188,8 @@ func loadXMLPet(dir string) (*Pet, error) {
 		pet.Spawns = append(pet.Spawns, Spawn{
 			ID:              xs.ID,
 			Probability:     xs.Probability,
-			X:               xs.X,
-			Y:               xs.Y,
+			X:               parseExprOrNil(xs.X),
+			Y:               parseExprOrNil(xs.Y),
 			NextProbability: xs.Next.Probability,
 			NextAnimID:      xs.Next.Value,
 		})
@@ -201,7 +201,7 @@ func loadXMLPet(dir string) (*Pet, error) {
 			Name:       xa.Name,
 			Action:     xa.Sequence.Action,
 			Start:      parseMovement(xa.Start),
-			Repeat:     xa.Sequence.Repeat,
+			Repeat:     parseExprOrNil(xa.Sequence.Repeat),
 			RepeatFrom: xa.Sequence.RepeatFrom,
 		}
 
@@ -246,8 +246,8 @@ func loadXMLPet(dir string) (*Pet, error) {
 	for _, xc := range root.Children.Children {
 		pet.Children = append(pet.Children, Child{
 			AnimationID:     xc.AnimationID,
-			X:               xc.X,
-			Y:               xc.Y,
+			X:               parseExprOrNil(xc.X),
+			Y:               parseExprOrNil(xc.Y),
 			NextProbability: xc.Next.Probability,
 			NextAnimID:      xc.Next.Value,
 		})
@@ -284,11 +284,11 @@ func parseMovement(xm xmlMovement) Movement {
 		opacity = *xm.Opacity
 	}
 	return Movement{
-		X:        xm.X,
-		Y:        xm.Y,
+		X:        parseExprOrNil(xm.X),
+		Y:        parseExprOrNil(xm.Y),
 		OffsetY:  offsetY,
 		Opacity:  opacity,
-		Interval: xm.Interval,
+		Interval: parseExprOrNil(xm.Interval),
 	}
 }
 

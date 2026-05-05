@@ -10,6 +10,8 @@ import (
 	_ "image/png"
 	"os"
 	"path/filepath"
+
+	"clod-pet/backend/internal/expression"
 )
 
 type Header struct {
@@ -32,18 +34,18 @@ type Image struct {
 type Spawn struct {
 	ID              int
 	Probability     int
-	X               string
-	Y               string
+	X               *expression.ParsedExpr
+	Y               *expression.ParsedExpr
 	NextProbability int
 	NextAnimID      int
 }
 
 type Movement struct {
-	X        string
-	Y        string
+	X        *expression.ParsedExpr
+	Y        *expression.ParsedExpr
 	OffsetY  int
 	Opacity  float64
-	Interval string
+	Interval *expression.ParsedExpr
 }
 
 type Animation struct {
@@ -56,7 +58,7 @@ type Animation struct {
 	SequenceNext []NextAnimation
 	BorderNext   []NextAnimation
 	GravityNext  []NextAnimation
-	Repeat       string
+	Repeat       *expression.ParsedExpr
 	RepeatFrom   int
 }
 
@@ -67,9 +69,9 @@ type NextAnimation struct {
 }
 
 type Child struct {
-	AnimationID     int
-	X               string
-	Y               string
+	AnimationID int
+	X           *expression.ParsedExpr
+	Y           *expression.ParsedExpr
 	NextProbability int
 	NextAnimID      int
 }
@@ -252,8 +254,8 @@ func loadModernPet(dir, jsonPath string) (*Pet, error) {
 		pet.Spawns = append(pet.Spawns, Spawn{
 			ID:              xs.ID,
 			Probability:     xs.Probability,
-			X:               xs.X,
-			Y:               xs.Y,
+			X:               parseExprOrNil(xs.X),
+			Y:               parseExprOrNil(xs.Y),
 			NextProbability: xs.Next.Probability,
 			NextAnimID:      xs.Next.Value,
 		})
@@ -265,7 +267,7 @@ func loadModernPet(dir, jsonPath string) (*Pet, error) {
 			Name:       xa.Name,
 			Action:     xa.Sequence.Action,
 			Start:      parseModernMovement(xa.Start),
-			Repeat:     xa.Sequence.Repeat,
+			Repeat:     parseExprOrNil(xa.Sequence.Repeat),
 			RepeatFrom: xa.Sequence.RepeatFrom,
 		}
 
@@ -306,8 +308,8 @@ func loadModernPet(dir, jsonPath string) (*Pet, error) {
 	for _, xc := range root.Children {
 		pet.Children = append(pet.Children, Child{
 			AnimationID:     xc.AnimationID,
-			X:               xc.X,
-			Y:               xc.Y,
+			X:               parseExprOrNil(xc.X),
+			Y:               parseExprOrNil(xc.Y),
 			NextProbability: xc.Next.Probability,
 			NextAnimID:      xc.Next.Value,
 		})
@@ -344,12 +346,25 @@ func parseModernMovement(mm modernMovement) Movement {
 		opacity = *mm.Opacity
 	}
 	return Movement{
-		X:        mm.X,
-		Y:        mm.Y,
+		X:        parseExprOrNil(mm.X),
+		Y:        parseExprOrNil(mm.Y),
 		OffsetY:  offsetY,
 		Opacity:  opacity,
-		Interval: mm.Interval,
+		Interval: parseExprOrNil(mm.Interval),
 	}
+}
+
+func parseExprOrNil(expr string) *expression.ParsedExpr {
+	if expr == "" {
+		return nil
+	}
+	parsed, err := expression.Parse(expr)
+	if err != nil {
+		// Return nil for unsupported expressions (e.g., legacy Shiori/UKADOC syntax)
+		// The Eval() method handles nil by returning 0
+		return nil
+	}
+	return parsed
 }
 
 func intPtr(v int) *int {

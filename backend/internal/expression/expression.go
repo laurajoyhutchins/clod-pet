@@ -31,119 +31,27 @@ type Env struct {
 	RandS    float64
 }
 
-func Eval(expr string, env *Env) (float64, error) {
-	expr = strings.TrimSpace(expr)
-	return evalExpr(expr, env)
+// ExprNode represents a node in the expression AST
+type ExprNode interface {
+	eval(env *Env) (float64, error)
 }
 
-func EvalInt(expr string, env *Env) (int, error) {
-	v, err := Eval(expr, env)
-	if err != nil {
-		return 0, err
-	}
-	return int(v), nil
+// NumberNode represents a numeric literal
+type NumberNode struct {
+	value float64
 }
 
-func evalExpr(expr string, env *Env) (float64, error) {
-	expr = strings.TrimSpace(expr)
-	if expr == "" {
-		return 0, nil
-	}
+func (n *NumberNode) eval(env *Env) (float64, error) {
+	return n.value, nil
+}
 
-	// Remove outermost parentheses if they wrap the entire expression
-	for len(expr) > 0 && expr[0] == '(' && expr[len(expr)-1] == ')' {
-		// Verify if these parentheses actually match each other
-		depth := 0
-		matches := true
-		for i := 0; i < len(expr)-1; i++ {
-			if expr[i] == '(' {
-				depth++
-			} else if expr[i] == ')' {
-				depth--
-			}
-			if depth == 0 {
-				matches = false
-				break
-			}
-		}
-		if matches {
-			expr = strings.TrimSpace(expr[1 : len(expr)-1])
-		} else {
-			break
-		}
-	}
+// VariableNode represents a variable reference
+type VariableNode struct {
+	name string
+}
 
-	// Find the last lowest-precedence operator (+, -) that is not inside parentheses
-	splitIdx := -1
-	op := ""
-	depth := 0
-	for i := len(expr) - 1; i >= 0; i-- {
-		c := expr[i]
-		if c == ')' {
-			depth++
-		} else if c == '(' {
-			depth--
-		} else if depth == 0 {
-			if (c == '+' || c == '-') && i > 0 { // i > 0 to avoid unary plus/minus at start
-				splitIdx = i
-				op = string(c)
-				break
-			}
-		}
-	}
-
-	// If no +, - found, look for *, /
-	if splitIdx == -1 {
-		depth = 0
-		for i := len(expr) - 1; i >= 0; i-- {
-			c := expr[i]
-			if c == ')' {
-				depth++
-			} else if c == '(' {
-				depth--
-			} else if depth == 0 {
-				if (c == '*' || c == '/') && i > 0 {
-					splitIdx = i
-					op = string(c)
-					break
-				}
-			}
-		}
-	}
-
-	if splitIdx != -1 {
-		leftStr := expr[:splitIdx]
-		rightStr := expr[splitIdx+1:]
-		left, err := evalExpr(leftStr, env)
-		if err != nil {
-			return 0, err
-		}
-		right, err := evalExpr(rightStr, env)
-		if err != nil {
-			return 0, err
-		}
-
-		switch op {
-		case "+":
-			return left + right, nil
-		case "-":
-			return left - right, nil
-		case "*":
-			return left * right, nil
-		case "/":
-			if right == 0 {
-				return 0, fmt.Errorf("division by zero in %q", expr)
-			}
-			return left / right, nil
-		}
-	}
-
-	// No operators found, handle as literal or variable
-	if val, err := strconv.ParseFloat(expr, 64); err == nil {
-		return val, nil
-	}
-
-	switch expr {
+func (n *VariableNode) eval(env *Env) (float64, error) {
+	switch n.name {
 	case "screenX":
 		return env.ScreenX, nil
 	case "screenY":
@@ -181,8 +89,226 @@ func evalExpr(expr string, env *Env) (float64, error) {
 	case "randS":
 		return env.RandS, nil
 	}
+	return 0, fmt.Errorf("unknown variable %q", n.name)
+}
 
-	return 0, fmt.Errorf("unknown expression %q", expr)
+// UnaryOpNode represents a unary operation (+, -)
+type UnaryOpNode struct {
+	op   string
+	expr ExprNode
+}
+
+func (n *UnaryOpNode) eval(env *Env) (float64, error) {
+	val, err := n.expr.eval(env)
+	if err != nil {
+		return 0, err
+	}
+	if n.op == "-" {
+		return -val, nil
+	}
+	return val, nil
+}
+
+// BinaryOpNode represents a binary operation (+, -, *, /)
+type BinaryOpNode struct {
+	left  ExprNode
+	op    string
+	right ExprNode
+}
+
+func (n *BinaryOpNode) eval(env *Env) (float64, error) {
+	left, err := n.left.eval(env)
+	if err != nil {
+		return 0, err
+	}
+	right, err := n.right.eval(env)
+	if err != nil {
+		return 0, err
+	}
+	switch n.op {
+	case "+":
+		return left + right, nil
+	case "-":
+		return left - right, nil
+	case "*":
+		return left * right, nil
+	case "/":
+		if right == 0 {
+			return 0, fmt.Errorf("division by zero")
+		}
+		return left / right, nil
+	}
+	return 0, fmt.Errorf("unknown operator %q", n.op)
+}
+
+// ParsedExpr holds a pre-parsed expression AST
+type ParsedExpr struct {
+	root    ExprNode
+	exprStr string
+}
+
+// String returns the original expression string
+func (p *ParsedExpr) String() string {
+	if p == nil {
+		return ""
+	}
+	return p.exprStr
+}
+
+// Eval evaluates a pre-parsed expression with the given environment
+func (p *ParsedExpr) Eval(env *Env) (float64, error) {
+	if p == nil || p.root == nil {
+		return 0, nil
+	}
+	return p.root.eval(env)
+}
+
+// EvalInt evaluates a pre-parsed expression and returns an integer
+func (p *ParsedExpr) EvalInt(env *Env) (int, error) {
+	v, err := p.Eval(env)
+	if err != nil {
+		return 0, err
+	}
+	return int(v), nil
+}
+
+// Parse parses an expression string into a ParsedExpr (cached AST)
+func Parse(expr string) (*ParsedExpr, error) {
+	original := strings.TrimSpace(expr)
+	if original == "" {
+		return &ParsedExpr{root: &NumberNode{value: 0}, exprStr: ""}, nil
+	}
+	node, err := parseExpr(original)
+	if err != nil {
+		return nil, err
+	}
+	return &ParsedExpr{root: node, exprStr: original}, nil
+}
+
+// parseExpr parses an expression string into an AST node
+func parseExpr(expr string) (ExprNode, error) {
+	expr = strings.TrimSpace(expr)
+
+	// Handle unary operators at the start
+	if len(expr) > 0 && (expr[0] == '+' || expr[0] == '-') {
+		op := string(expr[0])
+		rest := strings.TrimSpace(expr[1:])
+		inner, err := parseExpr(rest)
+		if err != nil {
+			return nil, err
+		}
+		return &UnaryOpNode{op: op, expr: inner}, nil
+	}
+
+	// Remove outermost parentheses if they wrap the entire expression
+	for len(expr) > 0 && expr[0] == '(' && expr[len(expr)-1] == ')' {
+		depth := 0
+		matches := true
+		for i := 0; i < len(expr)-1; i++ {
+			if expr[i] == '(' {
+				depth++
+			} else if expr[i] == ')' {
+				depth--
+			}
+			if depth == 0 {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			expr = strings.TrimSpace(expr[1 : len(expr)-1])
+		} else {
+			break
+		}
+	}
+
+	// Find the last lowest-precedence operator (+, -) that is not inside parentheses
+	splitIdx := -1
+	op := ""
+	depth := 0
+	for i := len(expr) - 1; i >= 0; i-- {
+		c := expr[i]
+		if c == ')' {
+			depth++
+		} else if c == '(' {
+			depth--
+		} else if depth == 0 {
+			if (c == '+' || c == '-') && i > 0 {
+				splitIdx = i
+				op = string(c)
+				break
+			}
+		}
+	}
+
+	// If no +, - found, look for *, /
+	if splitIdx == -1 {
+		depth = 0
+		for i := len(expr) - 1; i >= 0; i-- {
+			c := expr[i]
+			if c == ')' {
+				depth++
+			} else if c == '(' {
+				depth--
+			} else if depth == 0 {
+				if (c == '*' || c == '/') && i > 0 {
+					splitIdx = i
+					op = string(c)
+					break
+				}
+			}
+		}
+	}
+
+	if splitIdx != -1 {
+		leftStr := strings.TrimSpace(expr[:splitIdx])
+		rightStr := strings.TrimSpace(expr[splitIdx+1:])
+		left, err := parseExpr(leftStr)
+		if err != nil {
+			return nil, err
+		}
+		right, err := parseExpr(rightStr)
+		if err != nil {
+			return nil, err
+		}
+		return &BinaryOpNode{left: left, op: op, right: right}, nil
+	}
+
+	// No operators found, handle as literal or variable
+	if val, err := strconv.ParseFloat(expr, 64); err == nil {
+		return &NumberNode{value: val}, nil
+	}
+
+	// Check if it's a variable
+	switch expr {
+	case "screenX", "screenY", "screenW", "screenH",
+		"areaX", "areaY", "areaW", "areaH",
+		"desktopX", "desktopY", "desktopW", "desktopH",
+		"imageW", "imageH", "imageX", "imageY",
+		"random", "randS":
+		return &VariableNode{name: expr}, nil
+	}
+
+	return nil, fmt.Errorf("unknown expression %q", expr)
+}
+
+// Deprecated: Use ParsedExpr.Eval() on pre-parsed expressions instead.
+// This function parses the expression on every call, defeating the purpose of caching.
+func Eval(expr string, env *Env) (float64, error) {
+	parsed, err := Parse(expr)
+	if err != nil {
+		return 0, err
+	}
+	return parsed.Eval(env)
+}
+
+// Deprecated: Use ParsedExpr.EvalInt() on pre-parsed expressions instead.
+func EvalInt(expr string, env *Env) (int, error) {
+	parsed, err := Parse(expr)
+	if err != nil {
+		return 0, err
+	}
+	return parsed.EvalInt(env)
 }
 
 func NewEnv() *Env {
