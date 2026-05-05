@@ -2,7 +2,7 @@ package settings
 
 import (
 	"clod-pet/backend/internal/llm"
-	"encoding/json"
+	"github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 )
