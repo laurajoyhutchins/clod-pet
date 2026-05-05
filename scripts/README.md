@@ -10,9 +10,13 @@ The app shell is organized under `app/src/main`, `app/src/preload`, `app/src/ren
 - `build.ps1` / `build.sh` - quick build flow.
 - `run.ps1` / `run.sh` - run from source.
 - `test.ps1` / `test.sh` - test entry points.
+- `test-scripts.ps1` - Pester test runner for PowerShell scripts.
 - `uninstall.ps1` / `uninstall.sh` - cleanup and removal.
 - `run-benchmarks.ps1` / `run-benchmarks.sh` - benchmark helpers.
 - `utils.ps1` / `utils.sh` - shared script helpers.
+- `script-options.ps1` - shared PowerShell argument parsing helpers.
+- `script-paths.ps1` - shared PowerShell path and command helpers.
+- `tests/` - Pester specs for PowerShell script helpers.
 
 ## Usage
 

@@ -1,21 +1,23 @@
-# ClodPet Uninstall Script
+﻿# ClodPet Uninstall Script
 # Run with: powershell -ExecutionPolicy Bypass -File uninstall.ps1
 
 $ErrorActionPreference = "Continue"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
+. (Join-Path $PSScriptRoot "script-paths.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
-$backendDir = Join-Path $repoRoot "backend"
-$backendBinDir = Join-Path $backendDir "bin"
-$backendOutput = if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }
+$uninstallPaths = Get-ClodPetUninstallPaths -RepoRoot $repoRoot -AppData $env:APPDATA -BackendOutput ($(if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }))
+$backendDir = $uninstallPaths.BackendDir
+$backendBinDir = $uninstallPaths.BackendBinDir
+$backendOutput = $uninstallPaths.BackendOutput
 
 Write-Header "Uninstalling ClodPet"
 
 # Remove Start Menu shortcut
 Write-Info "Removing Start Menu shortcut..."
-$shortcutPath = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\ClodPet.lnk"
+$shortcutPath = $uninstallPaths.ShortcutPath
 if (Test-Path $shortcutPath) {
     Remove-Item $shortcutPath -Force
     Write-Success "Removed: Start Menu shortcut"
@@ -25,7 +27,7 @@ if (Test-Path $shortcutPath) {
 
 # Remove settings file
 Write-Info "Removing settings..."
-$settingsPath = Join-Path $env:APPDATA "clod-pet-settings.json"
+$settingsPath = $uninstallPaths.SettingsPath
 if (Test-Path $settingsPath) {
     Remove-Item $settingsPath -Force
     Write-Success "Removed: $settingsPath"
@@ -35,7 +37,7 @@ if (Test-Path $settingsPath) {
 
 # Remove wrapper script
 Write-Info "Removing wrapper script..."
-$wrapperPath = Join-Path $repoRoot "clod-pet.cmd"
+$wrapperPath = $uninstallPaths.WrapperPath
 if (Test-Path $wrapperPath) {
     Remove-Item $wrapperPath -Force
     Write-Success "Removed: $wrapperPath"
@@ -46,8 +48,8 @@ if (Test-Path $wrapperPath) {
 # Remove backend executables
 Write-Info "Removing backend executables..."
 $backendExecutables = @(
-    (Join-Path $backendBinDir "$backendOutput.exe"),
-    (Join-Path $backendDir "$backendOutput.exe")
+    $uninstallPaths.BackendExeBinPath,
+    $uninstallPaths.BackendExeRepoPath
 )
 foreach ($backendExe in $backendExecutables) {
     if (Test-Path $backendExe) {
@@ -81,12 +83,9 @@ if ($cert) {
 }
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  ClodPet uninstall complete!            ║" -ForegroundColor Green
-Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "===============================" -ForegroundColor Green
+Write-Host "  ClodPet uninstall complete!   " -ForegroundColor Green
+Write-Host "===============================" -ForegroundColor Green
 Write-Host ""
 Write-Warn "Note: Node modules and pets folder were not removed."
 Write-Warn "To fully clean up, delete: $repoRoot"
-
-Show-SuccessSheep "uninstall complete!"
-

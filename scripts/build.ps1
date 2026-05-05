@@ -4,13 +4,15 @@
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
+. (Join-Path $PSScriptRoot "script-paths.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
-$backendDir = Join-Path $repoRoot "backend"
-$backendBuildScript = Join-Path $backendDir "build.ps1"
-$appDir = Join-Path $repoRoot "app"
-$backendOutput = if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }
+$buildPaths = Get-ClodPetBuildPaths -RepoRoot $repoRoot -BackendOutput ($(if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }))
+$backendDir = $buildPaths.BackendDir
+$backendBuildScript = $buildPaths.BackendBuildScript
+$appDir = $buildPaths.AppDir
+$backendOutput = $buildPaths.BackendOutput
 
 Write-Header "Building ClodPet"
 
@@ -55,7 +57,8 @@ Push-Location $appDir
 try {
     if (-not (Test-Path "node_modules")) {
         Write-Info "Installing app dependencies..."
-        if (Test-Path "package-lock.json") {
+        $installCommand = Get-ClodPetNpmInstallCommand -HasPackageLock (Test-Path "package-lock.json")
+        if ($installCommand[0] -eq "ci") {
             npm ci --loglevel=error
         } else {
             npm install --loglevel=error

@@ -9,7 +9,9 @@ Clod Pet provides PowerShell scripts for Windows and shell scripts for Linux/mac
 | `install.ps1` | Full installation with code signing, Defender exclusions, and shortcuts |
 | `build.ps1` | Quick rebuild of backend and app dependencies |
 | `test.ps1` | Run test suites (backend, app, E2E) |
+| `test-scripts.ps1` | Run Pester specs for the PowerShell script helpers |
 | `uninstall.ps1` | Clean removal of installed components |
+| `script-options.ps1` / `script-paths.ps1` | Shared PowerShell helper modules |
 | `build.sh` | Linux/macOS build for the Go backend and TypeScript app |
 | `test.sh` | Linux/macOS test runner for backend, app, and optional E2E tests |
 
@@ -90,6 +92,19 @@ powershell -ExecutionPolicy Bypass -File scripts/test.ps1 all
 ```
 
 **Output:** Log file saved to `%TEMP%\clodpet-test.log`
+
+---
+
+## test-scripts.ps1
+
+Runs the Pester specs for `scripts/`, covering shared helper functions and script option parsing.
+
+**Usage:**
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test-scripts.ps1
+```
+
+The runner expects the Pester PowerShell module to be installed in the current environment.
 
 ---
 

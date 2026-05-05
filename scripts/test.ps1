@@ -5,6 +5,7 @@
 $ErrorActionPreference = "Continue"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
+. (Join-Path $PSScriptRoot "script-options.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
@@ -121,29 +122,10 @@ function Test-AppE2E {
     }
 }
 
-# Parse arguments
-$runBackend = $true
-$runApp = $true
-$runE2E = $false
-
-if ($args.Count -gt 0) {
-    $runBackend = $false
-    $runApp = $false
-    $runE2E = $false
-
-    foreach ($arg in $args) {
-        switch ($arg.ToLower()) {
-            "backend" { $runBackend = $true }
-            "app" { $runApp = $true }
-            "e2e" { $runE2E = $true }
-            "all" {
-                $runBackend = $true
-                $runApp = $true
-                $runE2E = $true
-            }
-        }
-    }
-}
+$testTargets = Get-ClodPetTestTargets -Arguments $args
+$runBackend = $testTargets.RunBackend
+$runApp = $testTargets.RunApp
+$runE2E = $testTargets.RunE2E
 
 # Run tests
 $backendResult = $null

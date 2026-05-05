@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
+. (Join-Path $PSScriptRoot "script-options.ps1")
 
 function Show-Usage {
     Write-Host "Usage: powershell -ExecutionPolicy Bypass -File scripts/run.ps1 [options] [-- npm-args]"
@@ -27,26 +28,15 @@ $repoRoot = Split-Path -Parent $scriptDir
 $appDir = Join-Path $repoRoot "app"
 $settingsPath = Join-Path $env:APPDATA "clod-pet-settings.json"
 
-$build = $false
-$debug = $false
-$passthroughArgs = @()
-$stopParsing = $false
+$runOptions = Get-ClodPetRunOptions -Arguments $Arguments
+$build = $runOptions.Build
+$debug = $runOptions.Debug
+$passthroughArgs = $runOptions.PassthroughArgs
 
 foreach ($arg in $Arguments) {
-    if ($stopParsing) {
-        $passthroughArgs += $arg
-        continue
-    }
-
     switch ($arg) {
-        "-b" { $build = $true }
-        "--build" { $build = $true }
-        "-d" { $debug = $true }
-        "--debug" { $debug = $true }
         "-h" { Show-Usage; exit 0 }
         "--help" { Show-Usage; exit 0 }
-        "--" { $stopParsing = $true }
-        default { $passthroughArgs += $arg }
     }
 }
 
@@ -123,12 +113,12 @@ try {
         Write-Warn "Skipping dependency install (node_modules exists)"
     }
 
-    if (-not $env:PETS_DIR) {
-        $env:PETS_DIR = Join-Path $repoRoot "pets"
-    }
-
     if (-not $env:SETTINGS_PATH) {
         $env:SETTINGS_PATH = $settingsPath
+    }
+
+    if (-not $env:CLOD_PET_INSTALL_ROOT) {
+        $env:CLOD_PET_INSTALL_ROOT = Join-Path $appDir "dist"
     }
 
     Write-Info "Starting Electron app..."

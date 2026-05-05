@@ -1,20 +1,23 @@
-# ClodPet Install Script
+﻿# ClodPet Install Script
 # Run with: powershell -ExecutionPolicy Bypass -File install.ps1
 
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
+. (Join-Path $PSScriptRoot "script-paths.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
-$backendDir = Join-Path $repoRoot "backend"
-$backendBuildScript = Join-Path $backendDir "build.ps1"
-$backendBinDir = Join-Path $backendDir "bin"
-$appDir = Join-Path $repoRoot "app"
-$distDir = Join-Path $repoRoot "dist"
-$logFile = Join-Path $env:TEMP "clodpet-install.log"
-$backendOutput = if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }
-$binaryPath = Join-Path $backendBinDir "$backendOutput.exe"
+$installPaths = Get-ClodPetInstallPaths -RepoRoot $repoRoot -AppData $env:APPDATA -Temp $env:TEMP -BackendOutput ($(if ($env:CLOD_PET_BACKEND_OUTPUT) { $env:CLOD_PET_BACKEND_OUTPUT } else { "clod-pet-backend" }))
+$backendDir = $installPaths.BackendDir
+$backendBuildScript = $installPaths.BackendBuildScript
+$backendBinDir = $installPaths.BackendBinDir
+$appDir = $installPaths.AppDir
+$distDir = $installPaths.DistDir
+$logFile = $installPaths.LogFile
+$backendOutput = $installPaths.BackendOutput
+$binaryPath = $installPaths.BinaryPath
+$clodpetCmd = $installPaths.WrapperPath
 
 # Initialize log
 $timestamp = Get-Date -Format "o"
@@ -147,6 +150,11 @@ if (-not (Test-Path $appDir)) {
 Push-Location $appDir
 try {
     if (Test-Path "package-lock.json") {
+        $installCommand = Get-ClodPetNpmInstallCommand -HasPackageLock $true
+    } else {
+        $installCommand = Get-ClodPetNpmInstallCommand -HasPackageLock $false
+    }
+    if ($installCommand[0] -eq "ci") {
         npm ci --loglevel=error
     } else {
         npm install --loglevel=error
@@ -214,15 +222,16 @@ $installedExe = if ($electronExe) { $electronExe.FullName } else {
     Join-Path $appDir "node_modules\.bin\electron.cmd"
 }
 
-$shortcutDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
-$lnkPath = Join-Path $shortcutDir "ClodPet.lnk"
+$shortcutDir = $installPaths.ShortcutDir
+$lnkPath = $installPaths.ShortcutPath
 
 try {
     New-Item -ItemType Directory -Force -Path $shortcutDir | Out-Null
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($lnkPath)
-    $shortcut.TargetPath = $installedExe
-    $shortcut.WorkingDirectory = Split-Path $installedExe
+    $shortcut.TargetPath = $env:ComSpec
+    $shortcut.Arguments = "/c `"$clodpetCmd`""
+    $shortcut.WorkingDirectory = $repoRoot
     $shortcut.IconLocation = Join-Path $appDir "assets\icon.png"
     $shortcut.Save()
     Write-Success "Start Menu shortcut created"
@@ -233,42 +242,31 @@ catch {
     "$timestamp WARNING: Failed to create shortcut: $_" | Out-File -FilePath $logFile -Append -Encoding utf8
 }
 
-# 10. Write default settings
-Write-Info "Writing default settings..."
-$settingsPath = Join-Path $env:APPDATA "clod-pet-settings.json"
-$settings = @{
-    PETS_DIR      = Join-Path $repoRoot "pets"
-    PORT          = 8080
-    SETTINGS_PATH = $settingsPath
-} | ConvertTo-Json -Depth 5
-
-try {
-    $settings | Out-File -FilePath $settingsPath -Encoding utf8
-    Write-Success "Settings written: $settingsPath"
-    "$timestamp Settings written: $settingsPath" | Out-File -FilePath $logFile -Append -Encoding utf8
+# 10. Ensure settings location exists
+Write-Info "Preparing settings location..."
+$settingsPath = $installPaths.SettingsPath
+if (Test-Path $settingsPath) {
+    Write-Warn "Settings already exist: $settingsPath"
+    "$timestamp Settings already exist: $settingsPath" | Out-File -FilePath $logFile -Append -Encoding utf8
 }
-catch {
-    Write-Warn "Failed to write settings: $_"
-    "$timestamp WARNING: Failed to write settings: $_" | Out-File -FilePath $logFile -Append -Encoding utf8
+else {
+    Write-Info "Settings will be created on first launch: $settingsPath"
+    "$timestamp Settings will be created on first launch: $settingsPath" | Out-File -FilePath $logFile -Append -Encoding utf8
 }
 
 # 11. Create clod-pet.cmd wrapper
-$clodpetCmd = Join-Path $repoRoot "clod-pet.cmd"
-if (-not (Test-Path $clodpetCmd)) {
-    Write-Info "Creating clod-pet.cmd wrapper..."
-    $wrapperContent = "@echo off`n`"$installedExe`" %*"
-    $wrapperContent | Out-File -FilePath $clodpetCmd -Encoding ascii
-    Write-Success "Wrapper created: $clodpetCmd"
-    "$timestamp Wrapper created: $clodpetCmd" | Out-File -FilePath $logFile -Append -Encoding utf8
-}
+Write-Info "Creating clod-pet.cmd wrapper..."
+$wrapperContent = "@echo off`r`nset `"repo_root=%~dp0`"`r`nset `"app_dir=%repo_root%app`"`r`nset `"settings_path=%APPDATA%\clod-pet-settings.json`"`r`nif not defined CLOD_PET_INSTALL_ROOT set `"CLOD_PET_INSTALL_ROOT=%app_dir%\dist`"`r`nif not defined SETTINGS_PATH set `"SETTINGS_PATH=%settings_path%`"`r`ncd /d `"%app_dir%`"`r`ncall npm start %*"
+$wrapperContent | Out-File -FilePath $clodpetCmd -Encoding ascii
+Write-Success "Wrapper created: $clodpetCmd"
+"$timestamp Wrapper created: $clodpetCmd" | Out-File -FilePath $logFile -Append -Encoding utf8
 
 # Finalize
 "$timestamp === Install complete ===" | Out-File -FilePath $logFile -Append -Encoding utf8
-
 Write-Host ""
-Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  ClodPet installation complete!       ║" -ForegroundColor Green
-Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "===============================" -ForegroundColor Green
+Write-Host "  ClodPet installation complete!  " -ForegroundColor Green
+Write-Host "===============================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Summary:" -ForegroundColor White
 Write-Warn "Start Menu: $lnkPath"
@@ -277,7 +275,4 @@ Write-Warn "Settings:   $settingsPath"
 Write-Warn "Log:        $logFile"
 Write-Host ""
 Write-Host "To start ClodPet, use the Start Menu shortcut or run:" -ForegroundColor Yellow
-Write-Host "  $installedExe" -ForegroundColor White
-
-Show-SuccessSheep "installation complete!"
-
+Write-Host "  $clodpetCmd" -ForegroundColor White
