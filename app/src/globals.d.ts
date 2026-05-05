@@ -12,6 +12,19 @@ import type {
 } from "./store";
 
 declare global {
+  type PanelStyle =
+    | "windows-95"
+    | "windows-98"
+    | "windows-2000"
+    | "windows-xp"
+    | "windows-vista"
+    | "windows-7"
+    | "windows-10"
+    | "windows-11"
+    | "mac-platinum"
+    | "mac-aqua"
+    | "mac-graphite";
+
   type AppSettings = _AppSettings;
   type PetInfo = _PetInfo;
   type PetData = _PetData;
@@ -22,6 +35,13 @@ declare global {
   type ChatMessage = _ChatMessage;
   type ChatStreamEvent = _ChatStreamEvent;
   type WorldState = _WorldState;
+
+  interface ControlPanelThemes {
+    panelStyles: readonly PanelStyle[];
+    windowsPanelStyles: readonly PanelStyle[];
+    macPanelStyles: readonly PanelStyle[];
+    roundedPanelStyles: readonly PanelStyle[];
+  }
 
   interface Window {
     clodPet: {
@@ -52,6 +72,7 @@ declare global {
         minimizeWindow(): Promise<void>;
       };
     };
+    clodPetControlPanelThemes: ControlPanelThemes;
   }
 }
 

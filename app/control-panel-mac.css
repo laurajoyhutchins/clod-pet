@@ -1,0 +1,266 @@
+body.theme-mac {
+  --win98-face: #e4e4e2;
+  --win98-face-light: #f8f8f6;
+  --win98-face-dark: #a7a7a1;
+  --win98-shadow: #6d6d67;
+  --win98-highlight: #ffffff;
+  --win98-title-start: #efefec;
+  --win98-title-end: #c3c3be;
+  --win98-desktop: #9ca3ad;
+  --win98-text: #111111;
+  --win98-title-text: #111111;
+  --win98-accent: #0096a6;
+  --win98-slider-thumb: #d8d8d5;
+  --win98-input: #fafaf8;
+  --win98-radius: 12px;
+  --win98-control-radius: 10px;
+  --win98-title-height: 28px;
+}
+
+body.theme-mac-platinum {
+  --win98-title-start: #f5f5f2;
+  --win98-title-end: #c9c9c4;
+  --win98-desktop:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.04)),
+    #a7a7a1;
+}
+
+body.theme-mac-aqua {
+  --win98-face: #dcecf8;
+  --win98-face-light: #f7fbff;
+  --win98-face-dark: #8ea8bd;
+  --win98-shadow: #5b7489;
+  --win98-highlight: #ffffff;
+  --win98-title-start: #cfe6fb;
+  --win98-title-end: #6eb4f0;
+  --win98-desktop:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.4), transparent 35%),
+    linear-gradient(180deg, #d6eefe 0%, #b5d7f4 52%, #93bfe6 100%);
+  --win98-accent: #0078d7;
+  --win98-slider-thumb: #8cd6ff;
+  --win98-input: #f9fcff;
+  --win98-title-text: #0f2438;
+}
+
+body.theme-mac-graphite {
+  --win98-face: #d6d7dc;
+  --win98-face-light: #f5f6fa;
+  --win98-face-dark: #9aa0aa;
+  --win98-shadow: #545962;
+  --win98-highlight: #ffffff;
+  --win98-title-start: #dfe1e8;
+  --win98-title-end: #aeb4c0;
+  --win98-desktop:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03)),
+    #8f96a3;
+  --win98-accent: #6d7c95;
+  --win98-slider-thumb: #c1c7d2;
+  --win98-input: #f5f6f9;
+  --win98-title-text: #1a1e27;
+}
+
+body.theme-mac {
+  background: transparent;
+  font-family: "Chicago", "Geneva", "Lucida Grande", "Segoe UI", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.1px;
+  color: var(--win98-text);
+}
+
+body.theme-mac .window {
+  border: 1px solid rgba(63, 63, 68, 0.88);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)), var(--win98-face);
+}
+
+body.theme-mac .titlebar {
+  position: relative;
+  justify-content: center;
+  gap: 0;
+  padding: 4px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.08)),
+    linear-gradient(180deg, var(--win98-title-start), var(--win98-title-end));
+  border-bottom: 1px solid rgba(86, 86, 90, 0.65);
+  border-radius: 0;
+  text-shadow: none;
+  overflow: hidden;
+}
+
+body.theme-mac-platinum .titlebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.12)),
+    linear-gradient(180deg, #f7f7f4, #cacac4);
+}
+
+body.theme-mac-aqua .titlebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2)),
+    linear-gradient(180deg, #d7ecfb, #86bdf0);
+  border-bottom-color: rgba(58, 104, 152, 0.7);
+}
+
+body.theme-mac-graphite .titlebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1)),
+    linear-gradient(180deg, #e6e8ee, #b8bec9);
+  border-bottom-color: rgba(77, 82, 93, 0.7);
+}
+
+body.theme-mac .titlebar-icon {
+  display: none;
+}
+
+body.theme-mac .titlebar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 96px);
+  text-align: center;
+  pointer-events: none;
+}
+
+body.theme-mac .titlebar-controls {
+  position: absolute;
+  left: 8px;
+  margin-left: 0;
+  gap: 6px;
+}
+
+body.theme-mac .titlebar button {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(61, 61, 61, 0.8);
+  background: linear-gradient(180deg, #fdfdfb, #d9d9d4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 0 rgba(0, 0, 0, 0.08);
+  font-family: "Chicago", "Geneva", sans-serif;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 11px;
+  color: #3a3a3a;
+}
+
+body.theme-mac .titlebar-minimize {
+  background: linear-gradient(180deg, #f9f9f1, #dedecf);
+}
+
+body.theme-mac .titlebar-close {
+  background: linear-gradient(180deg, #ffd8d3, #ef8a7d);
+  color: #6b0b05;
+}
+
+body.theme-mac .titlebar button:active {
+  transform: translateY(1px);
+  padding: 0;
+  border-color: rgba(47, 47, 47, 0.9);
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.2),
+    0 0 0 rgba(0, 0, 0, 0);
+}
+
+body.theme-mac .titlebar-minimize::before {
+  left: 3px;
+  right: 3px;
+  bottom: 5px;
+  height: 1px;
+  background: #404040;
+}
+
+body.theme-mac .groupbox {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.08)),
+    var(--win98-face);
+  border: 1px solid rgba(100, 100, 104, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 1px 0 rgba(0, 0, 0, 0.06);
+  padding-top: 10px;
+}
+
+body.theme-mac .groupbox-title {
+  position: static;
+  display: block;
+  margin: 0 0 6px;
+  padding: 0;
+  background: transparent;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #1a1a1a;
+}
+
+body.theme-mac .btn {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.18)),
+    var(--win98-face);
+  border: 1px solid rgba(96, 96, 96, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 0 rgba(0, 0, 0, 0.05);
+  border-radius: 999px;
+  font-family: "Chicago", "Geneva", "Lucida Grande", sans-serif;
+  font-size: 11px;
+  min-height: 24px;
+}
+
+body.theme-mac .btn:active {
+  padding: 2px 10px;
+  transform: translateY(1px);
+  border-color: rgba(72, 72, 72, 0.9);
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.16),
+    0 0 0 rgba(0, 0, 0, 0);
+}
+
+body.theme-mac select,
+body.theme-mac input[type="number"] {
+  border: 1px solid rgba(97, 97, 103, 0.74);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.2)),
+    var(--win98-input);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.07);
+  padding: 3px 6px;
+}
+
+body.theme-mac .pet-item {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.1)),
+    var(--win98-face);
+  border: 1px solid rgba(110, 110, 114, 0.7);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+body.theme-mac .empty-state,
+body.theme-mac .status,
+body.theme-mac .diag-log {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.28)),
+    var(--win98-face);
+  border: 1px solid rgba(97, 97, 103, 0.74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+body.theme-mac .empty-state {
+  border-radius: 10px;
+  color: #444;
+}
+
+body.theme-mac .status {
+  min-height: 24px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+body.theme-mac .diag-log {
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.28)),
+    #fbfbfb;
+}

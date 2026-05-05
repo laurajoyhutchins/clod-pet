@@ -17,6 +17,11 @@ function copyStaticFiles() {
     cpSync(path.join(rootDir, file), path.join(distDir, file));
   }
 
+  const cssFiles = ["control-panel-windows.css", "control-panel-mac.css"];
+  for (const file of cssFiles) {
+    cpSync(path.join(rootDir, file), path.join(distDir, file));
+  }
+
   const assetsDir = path.join(rootDir, "assets");
   if (existsSync(assetsDir)) {
     cpSync(assetsDir, path.join(distDir, "assets"), { recursive: true });

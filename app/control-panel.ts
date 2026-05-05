@@ -1,24 +1,15 @@
 (function() {
 const api = window.clodPet.control;
+const {
+  panelStyles: PANEL_STYLES,
+  macPanelStyles: MAC_PANEL_STYLES,
+  roundedPanelStyles: ROUNDED_PANEL_STYLES,
+} = window.clodPetControlPanelThemes;
 
-const PANEL_STYLES = [
-  "windows-95",
-  "windows-98",
-  "windows-2000",
-  "windows-xp",
-  "windows-vista",
-  "windows-7",
-  "windows-10",
-  "windows-11",
-] as const;
 type PanelStyle = typeof PANEL_STYLES[number];
 const DEFAULT_PANEL_STYLE: PanelStyle = "windows-98";
-const ROUNDED_PANEL_STYLES = new Set<PanelStyle>([
-  "windows-xp",
-  "windows-vista",
-  "windows-7",
-  "windows-11",
-]);
+const MAC_PANEL_STYLE_SET = new Set<PanelStyle>(MAC_PANEL_STYLES);
+const ROUNDED_PANEL_STYLE_SET = new Set<PanelStyle>(ROUNDED_PANEL_STYLES);
 
 let settings: Partial<AppSettings> = {};
 let pets: string[] = [];
@@ -56,7 +47,8 @@ function getPanelStyle(value: unknown): PanelStyle {
 function applyPanelStyle(style: PanelStyle) {
   document.body.classList.remove(...PANEL_STYLES.map((panelStyle) => `theme-${panelStyle}`));
   document.body.classList.add(`theme-${style}`);
-  document.body.classList.toggle("theme-rounded", ROUNDED_PANEL_STYLES.has(style));
+  document.body.classList.toggle("theme-mac", MAC_PANEL_STYLE_SET.has(style));
+  document.body.classList.toggle("theme-rounded", ROUNDED_PANEL_STYLE_SET.has(style));
   scheduleControlPanelResize();
 }
 
