@@ -263,7 +263,7 @@ describe("PetManager", () => {
     const petId = await manager.loadAndCreatePet("../pets/sheep");
 
     expect(mockBackendClient.loadPet).toHaveBeenCalledWith("../pets/sheep");
-    expect(mockBackendClient.addPet).toHaveBeenCalledWith("../pets/sheep", 1, expect.objectContaining({
+    expect(mockBackendClient.addPet).toHaveBeenCalledWith("../pets/sheep", 0, expect.objectContaining({
       screen: expect.objectContaining({ x: 0, y: 0, w: 1920, h: 1080 }),
     }));
     expect(mockWindowManager.createPetWindow).toHaveBeenCalledWith("pet_1", expect.objectContaining({

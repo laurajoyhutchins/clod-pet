@@ -183,6 +183,8 @@ func (s *Service) AddPet(petPath string, spawnID int, world ...engine.WorldConte
 	}
 
 	e := engine.NewEngine(petDef)
+	e.SetGravityFactor(s.settings.GravityFactor)
+	e.SetScale(s.settings.Scale)
 	if err := e.Start(spawnID, world...); err != nil {
 		return nil, err
 	}
@@ -423,7 +425,13 @@ func (s *Service) UpdateVolume(volume float64) error {
 }
 
 func (s *Service) UpdateScale(scale float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.settings.Scale = scale
+	for _, e := range s.engines {
+		e.SetScale(scale)
+	}
 	if err := s.settings.Save(s.settingsPath); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
@@ -440,11 +448,15 @@ func (s *Service) Settings() map[string]interface{} {
 		"ShowAdvancedSettings": s.settings.ShowAdvancedSettings,
 		"ShowDiagnostics":      s.settings.ShowDiagnostics,
 		"MultiScreenEnabled":   s.settings.MultiScreenEnabled,
+		"GravityFactor":        s.settings.GravityFactor,
 		"CurrentPet":           s.settings.CurrentPet,
 	}
 }
 
 func (s *Service) SetSettings(settings map[string]interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if v, ok := settings["Volume"]; ok {
 		if vol, ok := v.(float64); ok {
 			s.settings.Volume = vol
@@ -453,6 +465,17 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 	if v, ok := settings["Scale"]; ok {
 		if scale, ok := v.(float64); ok {
 			s.settings.Scale = scale
+			for _, e := range s.engines {
+				e.SetScale(scale)
+			}
+		}
+	}
+	if v, ok := settings["GravityFactor"]; ok {
+		if gravity, ok := v.(float64); ok {
+			s.settings.GravityFactor = gravity
+			for _, e := range s.engines {
+				e.SetGravityFactor(gravity)
+			}
 		}
 	}
 	if v, ok := settings["ShowAdvancedSettings"]; ok {

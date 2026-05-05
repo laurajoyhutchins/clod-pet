@@ -21,6 +21,7 @@ type Config struct {
 	ShowAdvancedSettings bool               `json:"ShowAdvancedSettings"`
 	ShowDiagnostics      bool               `json:"ShowDiagnostics"`
 	MultiScreenEnabled   bool               `json:"MultiScreenEnabled"`
+	GravityFactor        float64            `json:"GravityFactor"`
 	CurrentPet           string             `json:"CurrentPet"`
 	LLM                  llm.ProviderConfig `json:"LLM"`
 	LastUpdate           []LastUpdate       `json:"LastUpdate"`
@@ -33,6 +34,7 @@ func DefaultConfig() *Config {
 		ShowAdvancedSettings: false,
 		ShowDiagnostics:      false,
 		MultiScreenEnabled:   true,
+		GravityFactor:        2.0,
 		AutostartPets:        1,
 		CurrentPet:           "eSheep-modern",
 		LLM: llm.ProviderConfig{

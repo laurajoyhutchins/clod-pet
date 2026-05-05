@@ -15,15 +15,20 @@ const diagnostics = {
   rendererErrors: [],
 };
 
-let backendManager: any = null;
-let petManager: any = null;
-let trayManager: any = null;
-let chatManager: ChatManager;
-let controlPanelWindow: any = null;
+let backendManager: InstanceType<typeof BackendManager> | null = null;
+let petManager: InstanceType<typeof PetManager> | null = null;
+let trayManager: InstanceType<typeof TrayManager> | null = null;
+let chatManager: InstanceType<typeof ChatManager>;
+let controlPanelWindow: BrowserWindow | null = null;
 let controlPanelHandlersRegistered = false;
 let shutdownStarted = false;
 
-async function createPet(petPath = "../pets/eSheep-modern", opts: { throwOnError?: boolean } = {}) {
+async function createPet(petPath?: string, opts: { throwOnError?: boolean } = {}) {
+  if (!petPath) {
+    const settings = await petManager.backendClient.getSettings().catch(() => ({}) as Record<string, unknown>);
+    const defaultPet = (settings as Record<string, unknown>)?.CurrentPet as string || "eSheep-modern";
+    petPath = `../pets/${defaultPet}`;
+  }
   try {
     return await petManager.loadAndCreatePet(petPath);
   } catch (err) {
@@ -66,11 +71,14 @@ function showControlPanel() {
   }
 
   controlPanelWindow = new BrowserWindow({
-    width: 360,
-    height: 500,
-    resizable: false,
+    width: 400,
+    height: 600,
+    minWidth: 350,
+    minHeight: 400,
+    resizable: true,
     minimizable: false,
     maximizable: false,
+    frame: false,
     icon: path.join(__dirname, "assets", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "src", "preload.js"),
@@ -126,6 +134,9 @@ function setupControlPanelHandlers() {
     await petManager.backendClient.setScale(scale);
     petManager.setScale(scale);
   });
+  ipcMain.handle("control:set-gravity-factor", async (_event, gravity) => {
+    await petManager.backendClient.setGravityFactor(gravity);
+  });
   ipcMain.handle("control:add-pet", async (_event, petName) => {
     if (!petName || typeof petName !== "string") {
       throw new Error("pet name is required");
@@ -140,6 +151,13 @@ function setupControlPanelHandlers() {
     diagnostics.rendererErrors = diagnostics.rendererErrors.slice(0, 20);
     diagnostics.lastError = `${entry.source}: ${entry.message}`;
     log.error("renderer error", entry);
+    return true;
+  });
+
+  ipcMain.handle("control:close-window", () => {
+    if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+      controlPanelWindow.close();
+    }
     return true;
   });
 

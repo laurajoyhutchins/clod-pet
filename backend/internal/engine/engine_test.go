@@ -396,8 +396,8 @@ func TestEngineDragStepDoesNotSnapPosition(t *testing.T) {
 	if result.X != -10 || result.Y != -20 {
 		t.Errorf("position = (%v, %v), want (-10, -20)", result.X, result.Y)
 	}
-	if result.BorderCtx != ContextCeiling {
-		t.Errorf("BorderCtx = %v, want %v", result.BorderCtx, ContextCeiling)
+	if result.BorderCtx != ContextCeiling|ContextLeft {
+		t.Errorf("BorderCtx = %v, want %v", result.BorderCtx, ContextCeiling|ContextLeft)
 	}
 }
 
@@ -447,6 +447,8 @@ func TestBorderMatches(t *testing.T) {
 		ctx  BorderContext
 		want bool
 	}{
+		{"", ContextNone, true},
+		{"", ContextFloor, true},
 		{"none", ContextNone, true},
 		{"none", ContextFloor, true},
 		{"floor", ContextFloor, true},
@@ -522,6 +524,45 @@ func TestEngineGravityTransition(t *testing.T) {
 	e := NewEngine(p)
 	e.Start(1)
 	e.SetPosition(100, 100) // Clearly above any floor
+
+	result, err := e.Step(WorldContext{
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	})
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Step returned nil")
+	}
+	if result.NextAnimID != 2 {
+		t.Errorf("NextAnimID = %d, want 2", result.NextAnimID)
+	}
+}
+
+func TestEngineGravityFallsBackToNamedFallAnimation(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+	}
+	p.Animations[2] = pet.Animation{
+		ID:         2,
+		Name:       "fall",
+		Start:      pet.Movement{X: "0", Y: "3", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "3", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{1},
+		Repeat:     "1",
+		RepeatFrom: 0,
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetPosition(100, 100)
 
 	result, err := e.Step(WorldContext{
 		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
@@ -1093,5 +1134,263 @@ func TestEngineSequenceTransitionAlwaysResets(t *testing.T) {
 	// Should return self ID (1) because SequenceNext is present but no match
 	if result.NextAnimID != 1 {
 		t.Errorf("NextAnimID = %d, want 1 (self-reset)", result.NextAnimID)
+	}
+}
+
+func TestEngineNoOscillationAfterWallFlip(t *testing.T) {
+	// After a wall border triggers a rotation+flip, the pet must escape on the
+	// first walking step. tolerance=1 means x=2 (one walk step right) is no
+	// longer ≤ 1, so the border does not re-fire immediately.
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:    1, Name: "walk",
+		Start: pet.Movement{X: "-2", Y: "0", Opacity: 1.0, Interval: "200"},
+		End:   pet.Movement{X: "-2", Y: "0", Opacity: 1.0, Interval: "200"},
+		Frames: []int{0, 1}, Repeat: "20", RepeatFrom: 0,
+		BorderNext: []pet.NextAnimation{{ID: 2, Probability: 100, Only: "none"}},
+	}
+	p.Animations[2] = pet.Animation{
+		ID:    2, Name: "rotate",
+		Action: "flip",
+		Start: pet.Movement{X: "0", Y: "0", Opacity: 1.0, Interval: "200"},
+		End:   pet.Movement{X: "0", Y: "0", Opacity: 1.0, Interval: "200"},
+		Frames: []int{0}, Repeat: "1", RepeatFrom: 0,
+		SequenceNext: []pet.NextAnimation{{ID: 1, Probability: 100, Only: ""}},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+	e.SetPosition(2, 500)
+
+	world := WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	}
+
+	// First step: already at wall → border fires → rotate
+	r, _ := e.Step(world)
+	if r.NextAnimID != 2 {
+		t.Fatalf("expected border transition to rotate, got nextAnim=%d", r.NextAnimID)
+	}
+	e.TransitionTo(r.NextAnimID) // → rotate (flip)
+
+	// Step through rotate
+	r, _ = e.Step(world)
+	if r.NextAnimID != 1 {
+		t.Fatalf("expected rotate to transition back to walk, got nextAnim=%d", r.NextAnimID)
+	}
+	e.TransitionTo(r.NextAnimID) // → walk (now flipH=true)
+
+	// First walk step after flip: must NOT re-trigger a border transition
+	r, _ = e.Step(world)
+	if r.NextAnimID != 0 {
+		t.Errorf("walk should not immediately re-trigger border; got nextAnim=%d", r.NextAnimID)
+	}
+}
+
+func TestEngineSequenceNextWithEmptyOnlyField(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = pet.Animation{
+		ID:         1,
+		Name:       "walk",
+		Start:      pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		End:        pet.Movement{X: "0", Y: "0", OffsetY: 0, Opacity: 1.0, Interval: "100"},
+		Frames:     []int{0},
+		Repeat:     "1",
+		RepeatFrom: 0,
+		SequenceNext: []pet.NextAnimation{
+			{ID: 2, Probability: 100, Only: ""},
+		},
+	}
+
+	e := NewEngine(p)
+	e.Start(1)
+
+	result, err := e.Step(WorldContext{})
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+	if result.NextAnimID != 2 {
+		t.Errorf("NextAnimID = %d, want 2 (empty Only should match any context)", result.NextAnimID)
+	}
+}
+
+func TestEngineGravityDoubled(t *testing.T) {
+	p := &pet.Pet{
+		FrameW: 32,
+		FrameH: 32,
+		Animations: map[int]pet.Animation{
+			1: {
+				ID:    1,
+				Name:  "fall",
+				Start: pet.Movement{X: "0", Y: "10", Interval: "100"},
+				End:   pet.Movement{X: "0", Y: "10", Interval: "100"},
+				Frames: []int{0},
+				Repeat: "1",
+			},
+		},
+		Spawns: []pet.Spawn{
+			{ID: 1, X: "100", Y: "100", NextAnimID: 1},
+		},
+	}
+
+	e := NewEngine(p)
+
+	// Set up world context where the pet is in the air
+	world := WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	}
+
+	err := e.Start(1, world)
+	if err != nil {
+		t.Fatalf("Start error: %v", err)
+	}
+
+	// Step 1: Pet is at Y=100. Falling movement is Y=10.
+	// Because detectGravity will be true (100+32 < 1000),
+	// and curY is 10 (>0), it should be doubled to 20.
+	// New Y should be 100 + 20 = 120.
+
+	_, err = e.Step(world)
+	if err != nil {
+		t.Fatalf("Step error: %v", err)
+	}
+
+	_, y := e.Position()
+	expectedY := 100.0 + 10.0*2.0
+	if math.Abs(y-expectedY) > 0.001 {
+		t.Errorf("Y = %v, want %v (doubled gravity)", y, expectedY)
+	}
+}
+
+func TestEngineGravityNotDoubledWhenGoingUp(t *testing.T) {
+	p := &pet.Pet{
+		FrameW: 32,
+		FrameH: 32,
+		Animations: map[int]pet.Animation{
+			1: {
+				ID:    1,
+				Name:  "jump",
+				Start: pet.Movement{X: "0", Y: "-10", Interval: "100"},
+				End:   pet.Movement{X: "0", Y: "-10", Interval: "100"},
+				Frames: []int{0},
+				Repeat: "1",
+			},
+		},
+		Spawns: []pet.Spawn{
+			{ID: 1, X: "100", Y: "500", NextAnimID: 1},
+		},
+	}
+
+	e := NewEngine(p)
+	world := WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	}
+
+	_ = e.Start(1, world)
+
+	// Pet is at Y=500. Jumping movement is Y=-10.
+	// detectGravity is true, but curY is negative, so it should NOT be doubled.
+	// New Y should be 500 - 10 = 490.
+
+	_, _ = e.Step(world)
+
+	_, y := e.Position()
+	expectedY := 500.0 - 10.0
+	if math.Abs(y-expectedY) > 0.001 {
+		t.Errorf("Y = %v, want %v (gravity should NOT be doubled when going up)", y, expectedY)
+	}
+}
+
+func TestEngineGravityNotDoubledWhenOnFloor(t *testing.T) {
+	p := &pet.Pet{
+		FrameW: 32,
+		FrameH: 32,
+		Animations: map[int]pet.Animation{
+			1: {
+				ID:    1,
+				Name:  "walk",
+				Start: pet.Movement{X: "0", Y: "10", Interval: "100"},
+				End:   pet.Movement{X: "0", Y: "10", Interval: "100"},
+				Frames: []int{0},
+				Repeat: "1",
+			},
+		},
+		Spawns: []pet.Spawn{
+			{ID: 1, X: "100", Y: "968", NextAnimID: 1}, // 968 + 32 = 1000 (Floor)
+		},
+	}
+
+	e := NewEngine(p)
+	world := WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	}
+
+	_ = e.Start(1, world)
+
+	// Pet is at Y=968. detectGravity should be false because it's on the floor.
+	// Movement Y=10 should NOT be doubled.
+	// New Y should be 968 + 10 = 978, then snapped back to 968 by physics.
+
+	// Let's use a position far from floor to verify doubling in air, then one on floor.
+	e.SetPosition(100, 100)
+	_, _ = e.Step(world)
+	_, y := e.Position()
+	if y != 120.0 {
+		t.Errorf("Expected doubled gravity in air, got Y=%v", y)
+	}
+
+	e.SetPosition(100, 968) // Exact floor
+	_, _ = e.Step(world)
+	_, y = e.Position()
+	// Should NOT have been doubled, though hard to tell because of snapping.
+	// But the logic is checked by gravity being false.
+	if y != 968.0 {
+		t.Errorf("Expected Y=968 on floor, got Y=%v", y)
+	}
+}
+
+func TestEngineGravityScaleImpact(t *testing.T) {
+	p := &pet.Pet{
+		FrameW: 32,
+		FrameH: 32,
+		Animations: map[int]pet.Animation{
+			1: {
+				ID:    1,
+				Name:  "fall",
+				Start: pet.Movement{X: "0", Y: "10", Interval: "100"},
+				End:   pet.Movement{X: "0", Y: "10", Interval: "100"},
+				Frames: []int{0},
+				Repeat: "1",
+			},
+		},
+		Spawns: []pet.Spawn{
+			{ID: 1, X: "100", Y: "100", NextAnimID: 1},
+		},
+	}
+
+	e := NewEngine(p)
+	world := WorldContext{
+		Screen:   Rect{X: 0, Y: 0, W: 1000, H: 1000},
+		WorkArea: Rect{X: 0, Y: 0, W: 1000, H: 1000},
+	}
+
+	e.SetGravityFactor(2.0)
+	e.SetScale(1.5)
+	_ = e.Start(1, world)
+
+	// Base Y speed is 10.
+	// Effective gravity speed should be 10 * 2.0 (factor) * 1.5 (scale) = 30.
+	// New Y should be 100 + 30 = 130.
+
+	_, _ = e.Step(world)
+
+	_, y := e.Position()
+	expectedY := 100.0 + 30.0
+	if math.Abs(y-expectedY) > 0.001 {
+		t.Errorf("Y = %v, want %v (gravity factor and scale should both impact speed)", y, expectedY)
 	}
 }

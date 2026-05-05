@@ -1,13 +1,13 @@
-import { Tray, Menu, nativeImage } from "electron";
+import { app as electronApp, Tray, Menu, nativeImage, MenuItemConstructorOptions } from "electron";
 import path = require("path");
 import fs = require("fs");
 
 class TrayManager {
-  app: any;
+  app: Electron.App;
   onCommand: (command: string) => void;
-  tray: any;
+  tray: Tray | null;
 
-  constructor(app: any, onCommand: (command: string) => void) {
+  constructor(app: Electron.App, onCommand: (command: string) => void) {
     this.app = app;
     this.onCommand = onCommand;
     this.tray = null;
@@ -21,7 +21,7 @@ class TrayManager {
   }
 
   _buildMenu() {
-    return Menu.buildFromTemplate([
+    const menuTemplate: MenuItemConstructorOptions[] = [
       {
         label: "Add Pet",
         click: () => this.onCommand("add_pet"),
@@ -39,7 +39,8 @@ class TrayManager {
         label: "Quit",
         click: () => this.onCommand("quit"),
       },
-    ]);
+    ];
+    return Menu.buildFromTemplate(menuTemplate);
   }
 
   destroy() {

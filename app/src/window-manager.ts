@@ -1,8 +1,14 @@
 import { BrowserWindow } from "electron";
 import { WorldStore } from "./store";
+import type { PetWindowOptions, PetData } from "./types";
+
+interface WindowEntry {
+  win: BrowserWindow;
+  opts: PetWindowOptions;
+}
 
 class WindowManager {
-  windows: Map<string, any>;
+  windows: Map<string, WindowEntry>;
   store: WorldStore | null;
 
   constructor(store?: WorldStore) {
@@ -36,14 +42,14 @@ class WindowManager {
         }
       }
 
-      // NOTE: Window creation is still handled by PetManager.loadAndCreatePet 
+      // NOTE: Window creation is still handled by PetManager.loadAndCreatePet
       // for now, as it involves complex async initialization and query params.
-      // In a full redesign, loadAndCreatePet would just update the store, 
+      // In a full redesign, loadAndCreatePet would just update the store,
       // and this subscriber would handle the creation.
     });
   }
 
-  createPetWindow(petId: string, opts: { x?: number; y?: number; width?: number; height?: number; preload?: string; petData?: any } = {}) {
+  createPetWindow(petId: string, opts: PetWindowOptions = {}): BrowserWindow {
     const existing = this.windows.get(petId);
     if (existing && !existing.win.isDestroyed()) {
       existing.win.destroy();
@@ -75,7 +81,7 @@ class WindowManager {
     return win;
   }
 
-  getPetWindow(petId: string) {
+  getPetWindow(petId: string): BrowserWindow | null {
     return this.windows.get(petId)?.win || null;
   }
 

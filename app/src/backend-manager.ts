@@ -1,10 +1,11 @@
-import { spawn, spawnSync } from "child_process";
+import { spawn, spawnSync, ChildProcess } from "child_process";
 import http = require("http");
 import path = require("path");
 import fs = require("fs");
 import logger = require("./logger");
 import { getBackendDir, getPetsDir } from "./project-paths";
 import { WorldStore } from "./store";
+import type { LaunchInfo } from "./types";
 
 const log = logger.createLogger("backend-manager");
 const DEFAULT_READY_RETRIES_SOURCE = 60;
@@ -15,7 +16,7 @@ const DEFAULT_RESTART_MAX_DELAY_MS = 15000;
 const DEFAULT_RESTART_MAX_ATTEMPTS = 3;
 
 class BackendManager {
-  process: any;
+  process: ChildProcess | null;
   url: string | null;
   port: number | null;
   petsDir: string;
@@ -24,9 +25,9 @@ class BackendManager {
   lastStderr: string;
   lastError: string | null;
   exitCode: number | null;
-  launch: any;
-  readyTimer: any;
-  restartTimer: any;
+  launch: LaunchInfo | null;
+  readyTimer: NodeJS.Timeout | null;
+  restartTimer: NodeJS.Timeout | null;
   state: string;
   ready: boolean;
   available: boolean;
@@ -111,17 +112,6 @@ class BackendManager {
 
     if (!port) throw new Error("unable to find a free backend port");
     this.port = port;
-
-    // Double check if port is actually free (sometimes _findFreePort races)
-    let isTaken = await this._isPortTaken(port);
-    if (isTaken) {
-      log.warn(`Port ${port} still appears taken, trying next...`);
-      if (typeof portOverride === "number") {
-        throw new Error(`backend port ${port} is still in use`);
-      }
-      port = await this._findFreePort(port + 1);
-      this.port = port;
-    }
     const backendPath = getBackendDir();
     const backendExe = this._resolveBackendBinary(backendPath);
 
@@ -321,7 +311,7 @@ class BackendManager {
           const result = spawnSync("taskkill", ["/F", "/T", "/PID", this.process.pid.toString()], { stdio: "pipe" });
           if (result.error) {
             log.error("taskkill failed, falling back to kill()", { pid, reason, error: result.error.message });
-            try { this.process.kill(); } catch { /* already gone */ }
+            try { this.process.kill(); } catch (err) { log.debug("Process already gone:", err.message); }
           } else if (typeof result.status === "number" && result.status !== 0) {
             log.error("taskkill exited nonzero, falling back to kill()", {
               pid,
@@ -330,13 +320,13 @@ class BackendManager {
               signal: result.signal,
               stderr: result.stderr ? result.stderr.toString().trim() : "",
             });
-            try { this.process.kill(); } catch { /* already gone */ }
+            try { this.process.kill(); } catch (err) { log.debug("Process already gone:", err.message); }
           } else {
             log.info("taskkill completed", { pid, reason });
           }
         } catch (err) {
           log.error("taskkill error, falling back to kill():", err);
-          try { this.process.kill(); } catch { /* already gone */ }
+          try { this.process.kill(); } catch (err2) { log.debug("Process already gone:", err2.message); }
         }
       } else {
         this.process.kill("SIGTERM");
@@ -401,22 +391,6 @@ class BackendManager {
     });
   }
 
-  _isPortTaken(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = require("net").createServer();
-      server.once("error", (err: any) => {
-        if (err.code === "EADDRINUSE") resolve(true);
-        else resolve(false);
-      });
-      server.once("listening", () => {
-        server.close();
-        resolve(false);
-      });
-      // Don't specify host to check availability on all interfaces
-      server.listen(port);
-    });
-  }
-
   _waitForReady(maxRetries = 20, interval = 500) {
     return new Promise((resolve, reject) => {
       let retries = 0;
@@ -434,7 +408,7 @@ class BackendManager {
         }
       };
 
-      const finishResolve = (value: any) => {
+      const finishResolve = (value: unknown) => {
         if (settled) return;
         settled = true;
         cleanup();
@@ -535,13 +509,14 @@ class BackendManager {
         this.restartAttempt = 0;
         this.fatalError = null;
         this._syncStore();
-      } catch (err: any) {
-        this.lastError = err.message;
-        this.fatalError = err.message;
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        this.lastError = error.message;
+        this.fatalError = error.message;
         this.available = false;
         this.state = "fatal";
         this._syncStore();
-        log.error("backend restart failed", { pid: this.process?.pid ?? this.launch?.pid ?? null, err });
+        log.error("backend restart failed", { pid: this.process?.pid ?? this.launch?.pid ?? null, error });
       }
     }, delay);
   }

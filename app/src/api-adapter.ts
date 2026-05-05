@@ -1,8 +1,15 @@
 import BackendClient = require("./backend-client");
+import type {
+  PetData,
+  WorldContext,
+  BackendResponse,
+  ChatMessage,
+  AppSettings,
+} from "./types";
 
 class ApiAdapter {
-  client: any;
-  apiDescription: any;
+  client: InstanceType<typeof BackendClient>;
+  apiDescription: Record<string, unknown> | null;
   discoveryError: string | null;
 
   constructor(baseUrl: string) {
@@ -14,34 +21,34 @@ class ApiAdapter {
   async discover() {
     try {
       const resp = await this.client.requestRaw("/api/describe", "GET");
-      this.apiDescription = resp;
+      this.apiDescription = resp as Record<string, unknown>;
       this.discoveryError = null;
       return resp;
-    } catch (err) {
-      this.discoveryError = err.message;
-      console.warn("API discovery failed:", err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.discoveryError = error.message;
       return null;
     }
   }
 
-  async getSettings() {
-    const resp = await this.client.getSettings();
-    return resp.payload;
+  async getSettings(): Promise<AppSettings> {
+    const resp = await this.client.getSettings() as Record<string, unknown>;
+    return (resp as Record<string, unknown>)?.payload as AppSettings || {} as AppSettings;
   }
 
-  async setSettings(settings: Record<string, unknown>) {
-    const resp = await this.client.setSettings(settings);
-    return resp.payload;
+  async setSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
+    const resp = await this.client.setSettings(settings) as Record<string, unknown>;
+    return (resp as Record<string, unknown>)?.payload as AppSettings || {} as AppSettings;
   }
 
-  async listPets() {
-    const resp = await this.client.listPets();
-    return resp.payload;
+  async listPets(): Promise<string[]> {
+    const resp = await this.client.listPets() as Record<string, unknown>;
+    return ((resp as Record<string, unknown>)?.payload as string[]) || [];
   }
 
-  async listActive() {
-    const resp = await this.client.listActive();
-    return resp.payload;
+  async listActive(): Promise<Record<string, unknown>[]> {
+    const resp = await this.client.listActive() as Record<string, unknown>;
+    return ((resp as Record<string, unknown>)?.payload as Record<string, unknown>[]) || [];
   }
 
   async health() {
@@ -52,41 +59,45 @@ class ApiAdapter {
     return this.client.version();
   }
 
-  async addPet(petPath: string, spawnId = 0, world?: Record<string, unknown>) {
-    const resp = await this.client.addPet(petPath, spawnId, world);
-    return resp.payload;
+  async addPet(petPath: string, spawnId = 0, world?: WorldContext) {
+    const resp = await this.client.addPet(petPath, spawnId, world as unknown as Record<string, unknown>);
+    return (resp as Record<string, unknown>)?.payload;
   }
 
-  async chat(messages: { role: string; content: string }[]) {
+  async chat(messages: ChatMessage[]) {
     const resp = await this.client.chat(messages);
-    return resp.payload;
+    return (resp as Record<string, unknown>)?.payload;
   }
 
-  async streamChat(messages: { role: string; content: string }[], onEvent: (event: any) => void) {
+  async streamChat(messages: ChatMessage[], onEvent: (event: Record<string, unknown>) => void) {
     return this.client.streamChat(messages, onEvent);
   }
 
-  async removePet(petId: string) {
-    const resp = await this.client.removePet(petId);
-    return resp.ok;
+  async removePet(petId: string): Promise<boolean> {
+    const resp = await this.client.removePet(petId) as Record<string, unknown>;
+    return resp?.ok as boolean || false;
   }
 
-  async setVolume(volume: number) {
-    const resp = await this.client.setVolume(volume);
-    return resp.payload;
+  async setVolume(volume: number): Promise<AppSettings> {
+    const resp = await this.client.setVolume(volume) as Record<string, unknown>;
+    return ((resp as Record<string, unknown>)?.payload as AppSettings) || {} as AppSettings;
   }
 
-  async setScale(scale: number) {
-    const resp = await this.client.setScale(scale);
-    return resp.payload;
+  async setScale(scale: number): Promise<AppSettings> {
+    const resp = await this.client.setScale(scale) as Record<string, unknown>;
+    return ((resp as Record<string, unknown>)?.payload as AppSettings) || {} as AppSettings;
   }
 
-  async stepPet(petId: string, world: any) {
+  async setGravityFactor(gravity: number) {
+    return this.setSettings({ GravityFactor: gravity });
+  }
+
+  async stepPet(petId: string, world: WorldContext) {
     const resp = await this.client.request("step_pet", {
       pet_id: petId,
-      world,
+      world: world as unknown as Record<string, unknown>,
     });
-    return resp.payload;
+    return (resp as Record<string, unknown>)?.payload;
   }
 
   async setPosition(petId: string, x: number, y: number) {
@@ -97,9 +108,9 @@ class ApiAdapter {
     });
   }
 
-  async loadPet(petPath: string) {
-    const resp = await this.client.loadPet(petPath);
-    return resp.payload;
+  async loadPet(petPath: string): Promise<PetData> {
+    const resp = await this.client.loadPet(petPath) as Record<string, unknown>;
+    return ((resp as Record<string, unknown>)?.payload as PetData) || {} as PetData;
   }
 
   async dragPet(petId: string, x: number, y: number) {

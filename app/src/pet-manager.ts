@@ -5,20 +5,27 @@ import WindowManager = require("./window-manager");
 import * as BorderDetector from "./border-detector";
 import logger = require("./logger");
 import { WorldStore } from "./store";
+import type {
+  PetState,
+  PetData,
+  WorldStoreState,
+  WorldContext,
+  PetWindowOptions,
+} from "./types";
 
 const log = logger.createLogger("pet-manager");
 const isDebug = process.env.NODE_ENV === "development" || process.env.VERBOSE === "true";
 
 class PetManager {
-  backendClient: any;
-  windowManager: any;
-  petTimers: Map<string, any>;
-  windowToPetId: WeakMap<any, string>;
+  backendClient: InstanceType<typeof ApiAdapter>;
+  windowManager: InstanceType<typeof WindowManager>;
+  petTimers: Map<string, NodeJS.Timeout>;
+  windowToPetId: WeakMap<BrowserWindow, string>;
   draggingPets: Set<string>;
   ipcHandlersRegistered: boolean;
   appIsQuitting: boolean;
   lastError: string | null;
-  lastPetLoad: any;
+  lastPetLoad: Record<string, unknown> | null;
   scale: number;
   volume: number;
   store: WorldStore | null;
@@ -42,7 +49,7 @@ class PetManager {
     return this.store?.getState().pets[petId] || null;
   }
 
-  private _setPet(petId: string, pet: any) {
+  private _setPet(petId: string, pet: PetState) {
     if (!this.store) return;
     if (typeof this.store.setPet === "function") {
       this.store.setPet(petId, pet);
@@ -56,7 +63,7 @@ class PetManager {
     this.store.setState({ pets: nextPets });
   }
 
-  private _updatePet(petId: string, updates: any) {
+  private _updatePet(petId: string, updates: Partial<PetState>) {
     if (!this.store) return;
     if (typeof this.store.updatePet === "function") {
       this.store.updatePet(petId, updates);
@@ -112,7 +119,7 @@ class PetManager {
         this.volume = settings.Volume;
       }
     } catch (err) {
-      log.warn("Failed to load initial scale:", err.message);
+      log.warn("Failed to load initial settings:", err.message);
     }
 
     this._syncEnvironment();
@@ -156,10 +163,10 @@ class PetManager {
     // Renderer now subscribes to store:volume
   }
 
-  async loadAndCreatePet(petPath: string, spawnId = 1) {
+  async loadAndCreatePet(petPath: string, spawnId = 0) {
     log.info("Loading pet:", petPath);
     this.lastPetLoad = { petPath, startedAt: new Date().toISOString() };
-    const petData = await this.backendClient.loadPet(petPath);
+    const petData = await this.backendClient.loadPet(petPath) as PetData;
     log.info("Pet data loaded:", petData ? "success" : "failed");
 
     if (!petData || !petData.png_base64 || !petData.tiles_x || !petData.tiles_y) {
@@ -173,7 +180,7 @@ class PetManager {
       workArea.y + Math.floor(workArea.height / 2),
       64, 64
     ) || this._buildWorldContext();
-    const addResult = await this.backendClient.addPet(petPath, spawnId, world);
+    const addResult = await this.backendClient.addPet(petPath, spawnId, world) as any;
     const backendPetId = addResult && addResult.pet_id;
     if (!backendPetId) {
       this.lastError = "backend did not return a pet id";
@@ -268,8 +275,8 @@ class PetManager {
       setTimeout(showPetWindow, 50);
     });
 
-    win.webContents.on("crashed", () => {
-      log.error("Pet window crashed");
+    win.webContents.on("render-process-gone", (_event: Electron.Event, details: Electron.RenderProcessGoneDetails) => {
+      log.error("Pet window crashed:", details);
     });
 
     win.on("closed", () => {
@@ -370,7 +377,7 @@ class PetManager {
           return;
         }
 
-        const result = await this.backendClient.stepPet(petId, world);
+        const result = await this.backendClient.stepPet(petId, world) as any;
         const borderCtx = typeof result.border_ctx === "number" ? result.border_ctx : 0;
         const borderLabel = this._borderCtxLabel(borderCtx);
         if (isDebug && borderLabel && lastBorderCtx !== borderCtx) {
@@ -505,15 +512,16 @@ class PetManager {
     });
   }
 
-  _safeWindowPosition(win: any): [number, number] {
+  _safeWindowPosition(win: BrowserWindow): [number, number] {
     try {
-      return win.getPosition();
+      const pos = win.getPosition();
+      return [pos[0] ?? 0, pos[1] ?? 0];
     } catch {
       return [0, 0];
     }
   }
 
-  _getPetIdByWindow(win: any) {
+  _getPetIdByWindow(win: BrowserWindow | null) {
     return win ? this.windowToPetId.get(win) || null : null;
   }
 

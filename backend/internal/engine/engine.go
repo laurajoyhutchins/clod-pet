@@ -18,11 +18,13 @@ var ErrStepAnimationEmpty = errors.New("engine step skipped: animation has no fr
 type BorderContext int
 
 const (
-	ContextNone BorderContext = iota
-	ContextFloor
-	ContextCeiling
-	ContextWalls
-	ContextObstacle
+	ContextNone     BorderContext = 0
+	ContextFloor    BorderContext = 1 << 0
+	ContextCeiling  BorderContext = 1 << 1
+	ContextLeft     BorderContext = 1 << 2
+	ContextRight    BorderContext = 1 << 3
+	ContextWalls    BorderContext = ContextLeft | ContextRight
+	ContextObstacle BorderContext = 1 << 4
 )
 
 type PetState int
@@ -78,6 +80,8 @@ type Engine struct {
 	borderTriggered  bool
 	gravityTriggered bool
 	tolerance        float64
+	gravityFactor    float64
+	scale            float64
 }
 
 func (e *Engine) CurrentAnim() int {
@@ -101,7 +105,9 @@ func NewEngine(p *pet.Pet) *Engine {
 		animationIDs: animationIDs,
 		state:        StateIdle,
 		env:          expression.NewEnv(),
-		tolerance:    2.0,
+		tolerance:    1.0,
+		gravityFactor: 2.0,
+		scale:         1.0,
 	}
 	engine.env.ImageW = float64(p.FrameW)
 	engine.env.ImageH = float64(p.FrameH)
@@ -109,18 +115,9 @@ func NewEngine(p *pet.Pet) *Engine {
 }
 
 func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
-	var spawn *pet.Spawn
-	for i := range e.petDef.Spawns {
-		if e.petDef.Spawns[i].ID == spawnID {
-			spawn = &e.petDef.Spawns[i]
-			break
-		}
-	}
+	spawn := e.pickSpawn(spawnID)
 	if spawn == nil {
-		if len(e.petDef.Spawns) == 0 {
-			return nil
-		}
-		spawn = &e.petDef.Spawns[0]
+		return nil
 	}
 
 	world := WorldContext{}
@@ -151,6 +148,40 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	return nil
 }
 
+func (e *Engine) pickSpawn(spawnID int) *pet.Spawn {
+	if spawnID > 0 {
+		for i := range e.petDef.Spawns {
+			if e.petDef.Spawns[i].ID == spawnID {
+				return &e.petDef.Spawns[i]
+			}
+		}
+	}
+
+	if len(e.petDef.Spawns) == 0 {
+		return nil
+	}
+
+	total := 0
+	for _, s := range e.petDef.Spawns {
+		total += s.Probability
+	}
+
+	if total == 0 {
+		return &e.petDef.Spawns[0]
+	}
+
+	r := rand.Intn(total)
+	cumulative := 0
+	for i := range e.petDef.Spawns {
+		cumulative += e.petDef.Spawns[i].Probability
+		if r < cumulative {
+			return &e.petDef.Spawns[i]
+		}
+	}
+
+	return &e.petDef.Spawns[len(e.petDef.Spawns)-1]
+}
+
 func (e *Engine) setWorldContext(world WorldContext) {
 	e.env.ScreenX = world.Screen.X
 	e.env.ScreenY = world.Screen.Y
@@ -171,8 +202,8 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 		return nil, ErrStepIdle
 	}
 
-	petW := float64(e.petDef.FrameW)
-	petH := float64(e.petDef.FrameH)
+	petW := float64(e.petDef.FrameW) * e.scale
+	petH := float64(e.petDef.FrameH) * e.scale
 
 	if world.Screen.W > 0 {
 		e.setWorldContext(world)
@@ -223,17 +254,22 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 		log.Debug("eval end.Interval", "anim", e.currentAnim, "error", err)
 	}
 
-	curX := expression.Lerp(startX, endX, progress)
-	curY := expression.Lerp(startY, endY, progress)
+	curX := expression.Lerp(startX, endX, progress) * e.scale
+	curY := expression.Lerp(startY, endY, progress) * e.scale
 	curInterval := int(expression.Lerp(float64(startInterval), float64(endInterval), progress))
 
 	startOpacity := anim.Start.Opacity
 	endOpacity := anim.End.Opacity
 	curOpacity := expression.Lerp(startOpacity, endOpacity, progress)
 
-	startOffsetY := float64(anim.Start.OffsetY)
-	endOffsetY := float64(anim.End.OffsetY)
+	startOffsetY := float64(anim.Start.OffsetY) * e.scale
+	endOffsetY := float64(anim.End.OffsetY) * e.scale
 	curOffsetY := expression.Lerp(startOffsetY, endOffsetY, progress)
+
+	gravity := e.detectGravity(world, petW, petH)
+	if gravity && curY > 0 {
+		curY *= e.gravityFactor
+	}
 
 	if e.flipH {
 		e.parentX -= curX
@@ -258,8 +294,6 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 		return e.stepResult(frame, curOffsetY, curOpacity, curInterval, 0, borderCtx), nil
 	}
 
-	gravity := e.detectGravity(world, petW, petH)
-
 	// Physics Snapping
 	e.applyPhysics(world, petW, petH, borderCtx)
 
@@ -268,10 +302,15 @@ func (e *Engine) Step(world WorldContext) (*StepResult, error) {
 			e.gravityTriggered = true
 			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID, borderCtx), nil
 		}
+
+		if nextID := e.findAnimationByName("fall"); nextID > 0 {
+			e.gravityTriggered = true
+			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID, borderCtx), nil
+		}
 	}
 
 	if borderCtx != ContextNone && !e.borderTriggered {
-		if nextID := e.pickBorderTransition(borderCtx); nextID > 0 {
+		if nextID := e.pickBorderTransition(borderCtx, curX, curY); nextID > 0 {
 			e.borderTriggered = true
 			return e.stepResult(frame, curOffsetY, curOpacity, curInterval, nextID, borderCtx), nil
 		}
@@ -319,22 +358,21 @@ func (e *Engine) detectBorder(world WorldContext, width, height float64) BorderC
 	x, y := e.parentX, e.parentY
 	t := e.tolerance
 
-	onFloor := y+height >= floor.Y+floor.H-t
-	onCeiling := y <= screen.Y+t
-	onLeft := x <= screen.X+t
-	onRight := x+width >= screen.X+screen.W-t
+	var ctx BorderContext
+	if y+height >= floor.Y+floor.H-t {
+		ctx |= ContextFloor
+	}
+	if y <= screen.Y+t {
+		ctx |= ContextCeiling
+	}
+	if x <= screen.X+t {
+		ctx |= ContextLeft
+	}
+	if x+width >= screen.X+screen.W-t {
+		ctx |= ContextRight
+	}
 
-	if onFloor {
-		return ContextFloor
-	}
-	if onCeiling {
-		return ContextCeiling
-	}
-	if onLeft || onRight {
-		return ContextWalls
-	}
-
-	return ContextNone
+	return ctx
 }
 
 func (e *Engine) detectGravity(world WorldContext, width, height float64) bool {
@@ -362,20 +400,24 @@ func (e *Engine) applyPhysics(world WorldContext, width, height float64, ctx Bor
 		floor = screen
 	}
 
-	switch ctx {
-	case ContextFloor:
+	if (ctx & ContextFloor) != 0 {
 		if e.parentY+height >= floor.Y+floor.H-e.tolerance {
 			e.parentY = floor.Y + floor.H - height
 		}
-	case ContextCeiling:
+	}
+	if (ctx & ContextCeiling) != 0 {
 		if e.parentY <= screen.Y+e.tolerance {
 			e.parentY = screen.Y
 		}
-	case ContextWalls:
+	}
+	if (ctx & ContextLeft) != 0 {
+		if e.parentX <= screen.X+e.tolerance {
+			e.parentX = screen.X
+		}
+	}
+	if (ctx & ContextRight) != 0 {
 		if e.parentX+width >= screen.X+screen.W-e.tolerance {
 			e.parentX = screen.X + screen.W - width
-		} else if e.parentX <= screen.X+e.tolerance {
-			e.parentX = screen.X
 		}
 	}
 }
@@ -418,6 +460,18 @@ func (e *Engine) SetPosition(x, y float64) {
 
 func (e *Engine) Position() (float64, float64) {
 	return e.parentX, e.parentY
+}
+
+func (e *Engine) SetGravityFactor(factor float64) {
+	e.gravityFactor = factor
+}
+
+func (e *Engine) SetScale(scale float64) {
+	e.scale = scale
+	if e.petDef != nil {
+		e.env.ImageW = float64(e.petDef.FrameW) * scale
+		e.env.ImageH = float64(e.petDef.FrameH) * scale
+	}
 }
 
 func (e *Engine) Reset() {
@@ -464,7 +518,7 @@ func (e *Engine) loadAnimation() {
 	}
 }
 
-func (e *Engine) pickBorderTransition(ctx BorderContext) int {
+func (e *Engine) pickBorderTransition(ctx BorderContext, curX, curY float64) int {
 	anim, ok := e.petDef.Animations[e.currentAnim]
 	if !ok {
 		return 0
@@ -472,12 +526,45 @@ func (e *Engine) pickBorderTransition(ctx BorderContext) int {
 
 	var candidates []pet.NextAnimation
 	for _, n := range anim.BorderNext {
-		if n.Only == "none" || borderMatches(n.Only, ctx) {
-			candidates = append(candidates, n)
+		if !borderMatches(n.Only, ctx) {
+			continue
 		}
+
+		// For catch-all transitions, we only trigger if moving INTO the border.
+		if n.Only == "none" || n.Only == "" {
+			if !e.isMovingIntoBorder(ctx, curX, curY) {
+				continue
+			}
+		}
+
+		candidates = append(candidates, n)
 	}
 
 	return weightedPick(candidates)
+}
+
+func (e *Engine) isMovingIntoBorder(ctx BorderContext, curX, curY float64) bool {
+	effX := curX
+	if e.flipH {
+		effX = -curX
+	}
+
+	if (ctx&ContextFloor) != 0 && curY > 0 {
+		return true
+	}
+	if (ctx&ContextCeiling) != 0 && curY < 0 {
+		return true
+	}
+	if (ctx&ContextLeft) != 0 && effX < 0 {
+		return true
+	}
+	if (ctx&ContextRight) != 0 && effX > 0 {
+		return true
+	}
+	if (ctx & ContextObstacle) != 0 {
+		return true
+	}
+	return false
 }
 
 func (e *Engine) pickSequenceTransition(ctx BorderContext) int {
@@ -529,18 +616,18 @@ func (e *Engine) stepResult(frame int, offsetY, opacity float64, intervalMs, nex
 
 func borderMatches(only string, ctx BorderContext) bool {
 	switch only {
-	case "none":
+	case "", "none":
 		return true
 	case "floor", "taskbar":
-		return ctx == ContextFloor
+		return (ctx & ContextFloor) != 0
 	case "ceiling", "horizontal":
-		return ctx == ContextCeiling
+		return (ctx & ContextCeiling) != 0
 	case "walls", "vertical":
-		return ctx == ContextWalls
+		return (ctx & ContextWalls) != 0
 	case "obstacle", "window":
-		return ctx == ContextObstacle
+		return (ctx & ContextObstacle) != 0
 	case "horizontal+":
-		return ctx == ContextCeiling || ctx == ContextFloor
+		return (ctx & (ContextCeiling | ContextFloor)) != 0
 	}
 	return false
 }

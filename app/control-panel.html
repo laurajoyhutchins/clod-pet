@@ -7,157 +7,166 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #eee;
-      padding: 20px;
+      font-family: 'MS Sans Serif', 'Tahoma', sans-serif;
+      font-size: 11px;
+      background: #008080;
+      color: #000;
+      padding: 0;
       min-width: 350px;
-      max-height: 600px;
-      overflow-y: auto;
     }
-
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #e94560; border-radius: 3px; }
 
     h1 {
-      font-size: 22px;
-      margin-bottom: 5px;
-      color: #e94560;
+      font-size: 12px;
+      font-weight: bold;
+      margin: 0;
+      padding: 2px 4px;
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 4px;
+      border: 1px solid;
+      border-color: #c0c0c0 #404040 #404040 #c0c0c0;
+      -webkit-app-region: drag;
     }
-    h1::before {
-      content: "🐾";
-      font-size: 24px;
+    h1 button {
+      -webkit-app-region: no-drag;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #c0c0c0 #404040 #404040 #c0c0c0;
+      font-size: 10px;
+      padding: 0px 4px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    h1 button:active {
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
+      padding: 1px 3px 0px 5px;
     }
 
-    .subtitle {
-      font-size: 12px;
-      opacity: 0.6;
-      margin-bottom: 20px;
+    .window {
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #c0c0c0 #404040 #404040 #c0c0c0;
+      margin: 4px;
     }
 
-    .card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
+    fieldset.card {
+      border: 2px solid;
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
+      padding: 8px;
+      margin: 8px;
+      background: #c0c0c0;
     }
 
-    .card-title {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      opacity: 0.7;
-      margin-bottom: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    legend {
+      font-weight: bold;
+      font-size: 11px;
+      padding: 0 4px;
     }
 
     .btn {
-      background: #e94560;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
+      background: #c0c0c0;
+      color: #000;
+      border: 2px solid;
+      border-color: #c0c0c0 #404040 #404040 #c0c0c0;
+      padding: 2px 10px;
       cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.2s;
+      font-size: 11px;
+      font-family: 'MS Sans Serif', 'Tahoma', sans-serif;
     }
-    .btn:hover { background: #c73e54; transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
-    .btn-secondary { background: #533483; }
-    .btn-secondary:hover { background: #6a42a1; }
-    .btn-small { padding: 4px 10px; font-size: 11px; }
+    .btn:active {
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
+      padding: 3px 9px 1px 11px;
+    }
+    .btn-small { padding: 1px 6px; font-size: 11px; }
 
     label {
       display: block;
-      margin-bottom: 6px;
-      font-size: 13px;
-      opacity: 0.9;
+      margin-bottom: 4px;
+      font-size: 11px;
     }
 
     input[type="range"] {
       width: 100%;
-      accent-color: #e94560;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
     .range-label {
       display: flex;
       justify-content: space-between;
-      font-size: 12px;
-      opacity: 0.7;
+      font-size: 11px;
     }
 
     select, input[type="number"] {
       width: 100%;
-      background: rgba(255, 255, 255, 0.1);
-      color: #eee;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      margin-bottom: 10px;
+      background: #fff;
+      color: #000;
+      border: 2px solid;
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
+      padding: 1px 3px;
+      font-size: 11px;
+      font-family: 'MS Sans Serif', 'Tahoma', sans-serif;
+      margin-bottom: 8px;
     }
 
     .checkbox-label {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
       cursor: pointer;
-      padding: 6px 0;
-      font-size: 13px;
+      padding: 2px 0;
+      font-size: 11px;
     }
 
     input[type="checkbox"] {
-      accent-color: #e94560;
-      width: 16px;
-      height: 16px;
+      width: 13px;
+      height: 13px;
+      margin: 0;
     }
 
     .pet-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 4px;
+      border: 2px solid;
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
+      margin-bottom: 4px;
+      background: #c0c0c0;
+    }
+
+    #active-pets {
+      max-height: 300px;
+      overflow-y: auto;
     }
 
     .pet-info {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 1px;
     }
 
     .pet-title {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: bold;
     }
 
     .pet-id {
       font-size: 11px;
-      opacity: 0.5;
+      color: #808080;
     }
 
     .empty-state {
       text-align: center;
-      padding: 20px;
-      opacity: 0.5;
-      font-size: 13px;
+      padding: 12px;
+      font-size: 11px;
+      color: #808080;
     }
 
     .add-pet-row {
       display: flex;
-      gap: 8px;
+      gap: 4px;
       align-items: center;
     }
 
@@ -165,28 +174,24 @@
 
     .status {
       font-size: 11px;
-      opacity: 0.6;
       text-align: center;
-      margin-top: 12px;
-      padding: 8px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.05);
+      margin: 4px;
+      padding: 2px;
+      border: 2px solid;
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
+      background: #c0c0c0;
     }
-
-    .status.success { color: #4ade80; }
-    .status.error { color: #f87171; }
 
     .diagnostics-grid {
       display: grid;
       grid-template-columns: auto 1fr;
-      gap: 6px 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      margin-bottom: 10px;
+      gap: 2px 8px;
+      font-size: 11px;
+      margin-bottom: 8px;
     }
 
     .diag-label {
-      opacity: 0.55;
+      color: #808080;
     }
 
     .diag-value {
@@ -197,108 +202,116 @@
       max-height: 120px;
       overflow: auto;
       white-space: pre-wrap;
-      font-family: Consolas, 'Courier New', monospace;
+      font-family: 'Courier New', monospace;
       font-size: 11px;
-      line-height: 1.35;
-      background: rgba(0, 0, 0, 0.25);
-      padding: 8px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #fff;
+      padding: 4px;
+      border: 2px solid;
+      border-color: #404040 #c0c0c0 #c0c0c0 #404040;
     }
   </style>
 </head>
 <body>
-  <h1>Clod Pet</h1>
-  <div class="subtitle">Control Panel</div>
+  <div class="window">
+    <h1>
+      Clod Pet - Control Panel
+      <button id="close-btn" title="Close">X</button>
+    </h1>
 
-  <!-- Settings -->
-  <div class="card">
-    <div class="card-title">Settings</div>
-    <label for="volume">Volume</label>
-    <input type="range" id="volume" min="0" max="1" step="0.05" value="0.3">
-    <div class="range-label">
-      <span>0%</span>
-      <span id="volume-value">30%</span>
-      <span>100%</span>
-    </div>
-
-    <div style="margin-top: 16px;">
-      <label class="checkbox-label">
-        <input type="checkbox" id="show-advanced"> Show advanced settings
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="show-diagnostics"> Show diagnostics
-      </label>
-    </div>
-
-    <div id="advanced-settings" style="display: none; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
-      <label for="scale">Scale</label>
-      <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
+    <!-- Settings -->
+    <fieldset class="card">
+      <legend>Settings</legend>
+      <label for="volume">Volume</label>
+      <input type="range" id="volume" min="0" max="1" step="0.05" value="0.3">
       <div class="range-label">
-        <span>0.5x</span>
-        <span id="scale-value">1.0x</span>
-        <span>3.0x</span>
+        <span>0%</span>
+        <span id="volume-value">30%</span>
+        <span>100%</span>
       </div>
 
-      <div style="margin-top: 12px;">
-        <label for="autostart">Autostart pets</label>
-        <input type="number" id="autostart" min="0" max="10" value="1">
-      </div>
-
-      <div style="margin-top: 16px;">
+      <div style="margin-top: 8px;">
         <label class="checkbox-label">
-          <input type="checkbox" id="multi-screen"> Multi-screen support
+          <input type="checkbox" id="show-advanced"> Show advanced settings
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" id="win-foreground"> Keep on top
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="steal-focus"> Steal focus (drag)
+          <input type="checkbox" id="show-diagnostics"> Show diagnostics
         </label>
       </div>
-    </div>
-  </div>
 
-  <!-- Add Pet -->
-  <div class="card">
-    <div class="card-title">Add New Pet</div>
-    <div class="add-pet-row">
-      <select id="pet-select">
-        <option value="">Loading pets...</option>
-      </select>
-      <button class="btn" id="add-pet-btn">Add</button>
-    </div>
-  </div>
+      <div id="advanced-settings" style="display: none; margin-top: 8px; border-top: 2px solid #808080; padding-top: 8px;">
+        <label for="scale">Scale</label>
+        <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
+        <div class="range-label">
+          <span>0.5x</span>
+          <span id="scale-value">1.0x</span>
+          <span>3.0x</span>
+        </div>
 
-  <!-- Active Pets -->
-  <div class="card">
-    <div class="card-title">
-      <span>Active Pets</span>
-      <span id="pet-count" style="font-size: 11px; opacity: 0.7;">0 pets</span>
-    </div>
-    <div id="active-pets">
-      <div class="empty-state">No pets active</div>
-    </div>
-  </div>
+        <div style="margin-top: 8px;">
+          <label for="gravity">Gravity multiplier</label>
+          <input type="range" id="gravity" min="0" max="5" step="0.5" value="2">
+          <div class="range-label">
+            <span>0x</span>
+            <span id="gravity-value">2.0x</span>
+            <span>5x</span>
+          </div>
+        </div>
 
-  <!-- Diagnostics -->
-  <div class="card" id="diagnostics-card" style="display: none;">
-    <div class="card-title">
-      <span>Diagnostics</span>
-      <button class="btn btn-secondary btn-small" id="refresh-diagnostics-btn">Refresh</button>
-    </div>
-    <div class="diagnostics-grid" id="diagnostics-summary">
-      <span class="diag-label">Status</span>
-      <span class="diag-value">Loading...</span>
-    </div>
-    <div class="diag-log" id="diagnostics-log">No diagnostics yet.</div>
-    <div id="pet-tracker-card" style="display: none; margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
-      <div class="card-title" style="margin-bottom: 8px;">Pet Tracker</div>
-      <div id="pet-tracker-content" style="font-size: 11px; font-family: monospace;"></div>
-    </div>
-  </div>
+        <div style="margin-top: 8px;">
+          <label for="autostart">Autostart pets</label>
+          <input type="number" id="autostart" min="0" max="10" value="1">
+        </div>
 
-  <div class="status" id="status">Loading...</div>
+        <div style="margin-top: 8px;">
+          <label class="checkbox-label">
+            <input type="checkbox" id="multi-screen"> Multi-screen support
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="win-foreground"> Keep on top
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="steal-focus"> Steal focus (drag)
+          </label>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Add Pet -->
+    <fieldset class="card">
+      <legend>Add New Pet</legend>
+      <div class="add-pet-row">
+        <select id="pet-select">
+          <option value="">Loading pets...</option>
+        </select>
+        <button class="btn" id="add-pet-btn">Add</button>
+      </div>
+    </fieldset>
+
+    <!-- Active Pets -->
+    <fieldset class="card">
+      <legend>Active Pets (<span id="pet-count">0</span>)</legend>
+      <div id="active-pets">
+        <div class="empty-state">No pets active</div>
+      </div>
+    </fieldset>
+
+    <!-- Diagnostics -->
+    <fieldset class="card" id="diagnostics-card" style="display: none;">
+      <legend>Diagnostics</legend>
+      <button class="btn btn-small" id="refresh-diagnostics-btn" style="float: right;">Refresh</button>
+      <div class="diagnostics-grid" id="diagnostics-summary">
+        <span class="diag-label">Status</span>
+        <span class="diag-value">Loading...</span>
+      </div>
+      <div class="diag-log" id="diagnostics-log">No diagnostics yet.</div>
+      <fieldset id="pet-tracker-card" style="display: none; margin-top: 8px;">
+        <legend>Pet Tracker</legend>
+        <div id="pet-tracker-content" style="font-size: 11px; font-family: monospace;"></div>
+      </fieldset>
+    </fieldset>
+
+    <div class="status" id="status">Loading...</div>
+  </div>
 
   <script src="control-panel.js"></script>
 </body>

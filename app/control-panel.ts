@@ -4,7 +4,8 @@ const api = (window as any).clodPet.control;
 let settings: any = {};
 let pets: string[] = [];
 let activePets: any[] = [];
-let diagnosticsRefreshTimer: any = null;
+let diagnosticsRefreshTimer: number | null = null;
+let petTrackerTimer: number | null = null;
 
 function el(id: string) {
   return document.getElementById(id) as HTMLElement;
@@ -53,6 +54,10 @@ function renderSettings() {
   
   input("scale").value = String(scale);
   el("scale-value").textContent = scale.toFixed(1) + "x";
+
+  const gravity = settings.GravityFactor ?? 2.0;
+  input("gravity").value = String(gravity);
+  el("gravity-value").textContent = gravity.toFixed(1) + "x";
   
   input("multi-screen").checked = settings.MultiScreenEnabled !== false;
   input("win-foreground").checked = settings.WinForeGround || false;
@@ -153,7 +158,7 @@ async function renderPetTracker() {
 }
 
 // Update tracker more frequently
-setInterval(renderPetTracker, 100);
+petTrackerTimer = setInterval(renderPetTracker, 1000) as unknown as number;
 
 async function removePet(petId: string) {
   try {
@@ -268,6 +273,16 @@ el("scale").addEventListener("input", async (e: Event) => {
   }
 });
 
+el("gravity").addEventListener("input", async (e: Event) => {
+  const gravity = parseFloat((e.target as HTMLInputElement).value);
+  el("gravity-value").textContent = gravity.toFixed(1) + "x";
+  try {
+    await api.setGravityFactor(gravity);
+  } catch (err: any) {
+    updateStatus("Error: " + err.message, "error");
+  }
+});
+
 el("add-pet-btn").addEventListener("click", addPet);
 el("refresh-diagnostics-btn").addEventListener("click", refreshDiagnostics);
 
@@ -324,7 +339,7 @@ el("show-diagnostics").addEventListener("change", async (e: Event) => {
 
 initControlPanel();
 
-diagnosticsRefreshTimer = setInterval(refreshDiagnostics, 2000);
+diagnosticsRefreshTimer = setInterval(refreshDiagnostics, 2000) as unknown as number;
 
 window.addEventListener("error", (event) => {
   api.reportError("control-panel", event.message, event.error?.stack);
@@ -333,5 +348,20 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
   api.reportError("control-panel", reason.message, reason.stack);
+});
+
+window.addEventListener("beforeunload", () => {
+  if (petTrackerTimer !== null) {
+    clearInterval(petTrackerTimer);
+    petTrackerTimer = null;
+  }
+  if (diagnosticsRefreshTimer !== null) {
+    clearInterval(diagnosticsRefreshTimer);
+    diagnosticsRefreshTimer = null;
+  }
+});
+
+document.getElementById("close-btn")?.addEventListener("click", () => {
+  api.closeWindow();
 });
 })();

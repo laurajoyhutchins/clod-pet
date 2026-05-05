@@ -1,4 +1,5 @@
 import http = require("http");
+import type { ChatMessage, ChatStreamEvent } from "./types";
 
 class BackendClient {
   baseUrl: string;
@@ -40,7 +41,7 @@ class BackendClient {
       let settled = false;
       let timer: NodeJS.Timeout | undefined;
       let req: http.ClientRequest;
-      const finish = (fn: (value?: any) => void, value?: any) => {
+      const finish = (fn: (value?: unknown) => void, value?: unknown) => {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
@@ -49,8 +50,9 @@ class BackendClient {
 
       timer = setTimeout(() => {
         this.connected = false;
-        req.destroy(new Error(`backend request timed out after ${this.timeoutMs}ms`));
-        finish(reject, new Error(`backend request timed out after ${this.timeoutMs}ms`));
+        const timeoutErr = new Error(`backend request timed out after ${this.timeoutMs}ms`);
+        req.destroy(timeoutErr);
+        finish(reject, timeoutErr);
       }, this.timeoutMs);
 
       req = http.request(`${this.baseUrl}${path}`, {
@@ -75,8 +77,9 @@ class BackendClient {
             }
             this.connected = true;
             finish(resolve, result);
-          } catch {
-            finish(reject, new Error("invalid response"));
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            finish(reject, new Error(`invalid response: ${error.message}`));
           }
         });
       });
@@ -156,11 +159,11 @@ class BackendClient {
     });
   }
 
-  async chat(messages: { role: string; content: string }[], stream = false) {
+  async chat(messages: ChatMessage[], stream = false) {
     return this.request("llm_chat", { messages, stream });
   }
 
-  async streamChat(messages: { role: string; content: string }[], onEvent: (event: any) => void) {
+  async streamChat(messages: ChatMessage[], onEvent: (event: ChatStreamEvent) => void) {
     const response = await fetch(`${this.baseUrl}/api/llm/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
