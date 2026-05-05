@@ -45,12 +45,28 @@ function Show-SuccessSheep {
         [string]$Message = "Task completed successfully!"
     )
 
+    $supportsAnsi = $false
+    if (-not [Console]::IsOutputRedirected) {
+        try {
+            $supportsAnsi = [bool]$Host.UI.SupportsVirtualTerminal
+        } catch {
+            $supportsAnsi = $false
+        }
+    }
+
     Write-Host ""
-    Write-Host "  __________________________________" -ForegroundColor Yellow
-    Write-Host " /                                  \ " -ForegroundColor Yellow
-    $paddedMsg = ${Message}.PadRight(32)
-    Write-Host ("|  " + ${paddedMsg} + "|") -ForegroundColor Yellow
-    Write-Host " \__________________________________/ " -ForegroundColor Yellow
+    Write-Host "Build successful!" -ForegroundColor Yellow
+    Write-Host ""
+
+    if (-not $supportsAnsi) {
+        Write-Host "      (__)"
+        Write-Host "      (oo)"
+        Write-Host " /------\/ "
+        Write-Host "/ |    ||  "
+        Write-Host "*  /----\\  "
+        Write-Host "   ~~    ~~ "
+        return
+    }
 
     $escChar = [char]27
     $resetSeq = "$(${escChar})[0m"
@@ -80,17 +96,17 @@ function Show-SuccessSheep {
     }
 
     function Get-FgSeq($ch) {
-        $rgb = $script:colorIndex[[string]${ch}]
+        $rgb = $colorIndex[[string]${ch}]
         if ($null -eq $rgb) { return "" }
         $r = $rgb[0]; $g = $rgb[1]; $b = $rgb[2]
-        return "$(${script:escChar})[38;2;$(${r});$(${g});$(${b})m"
+        return "$(${escChar})[38;2;$(${r});$(${g});$(${b})m"
     }
 
     function Get-BgSeq($ch) {
-        $rgb = $script:colorIndex[[string]${ch}]
+        $rgb = $colorIndex[[string]${ch}]
         if ($null -eq $rgb) { return "" }
         $r = $rgb[0]; $g = $rgb[1]; $b = $rgb[2]
-        return "$(${script:escChar})[48;2;$(${r});$(${g});$(${b})m"
+        return "$(${escChar})[48;2;$(${r});$(${g});$(${b})m"
     }
 
     $sheepData = @(
