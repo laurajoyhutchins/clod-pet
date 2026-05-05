@@ -8,6 +8,7 @@ let diagnosticsRefreshTimer: number | null = null;
 let petTrackerTimer: number | null = null;
 let resizeFrameHandle: number | null = null;
 let lastRequestedSize: { width: number; height: number } | null = null;
+let resizeObserver: ResizeObserver | null = null;
 
 function el(id: string) {
   const element = document.getElementById(id);
@@ -42,11 +43,14 @@ function measureControlPanelSize(): { width: number; height: number } | null {
 
   document.body.appendChild(clone);
   const rect = clone.getBoundingClientRect();
+  const bodyStyle = getComputedStyle(document.body);
+  const horizontalPadding = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
+  const verticalPadding = parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom);
   clone.remove();
 
   return {
-    width: Math.max(190, Math.ceil(rect.width + 8)),
-    height: Math.max(180, Math.ceil(rect.height + 8)),
+    width: Math.max(320, Math.ceil(rect.width + horizontalPadding)),
+    height: Math.max(260, Math.ceil(rect.height + verticalPadding)),
   };
 }
 
@@ -80,6 +84,23 @@ function scheduleControlPanelResize() {
   });
 }
 
+function startAutoSizing() {
+  if (resizeObserver !== null || typeof ResizeObserver === "undefined") return;
+
+  const panel = document.querySelector(".window") as HTMLElement | null;
+  if (!panel) return;
+
+  resizeObserver = new ResizeObserver(() => {
+    scheduleControlPanelResize();
+  });
+  resizeObserver.observe(panel);
+
+  const fonts = (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts;
+  if (fonts?.ready) {
+    fonts.ready.then(() => scheduleControlPanelResize()).catch(() => {});
+  }
+}
+
 async function initControlPanel() {
   try {
     const [settingsRes, petsRes] = await Promise.all([
@@ -92,6 +113,7 @@ async function initControlPanel() {
 
     renderSettings();
     renderPetSelect();
+    startAutoSizing();
     await refreshActivePets();
     await refreshDiagnostics();
     scheduleControlPanelResize();
@@ -201,25 +223,27 @@ async function renderPetTracker() {
     const windows = petsDiag.windows || [];
 
     if (windows.length === 0) {
-      content.innerHTML = "No active windows tracked.";
+      content.textContent = "No active windows tracked.";
       scheduleControlPanelResize();
       return;
     }
 
-    let html = "";
+    content.replaceChildren();
     windows.forEach((win: WindowDiagnosticInfo) => {
       const b = win.bounds || { x: 0, y: 0, width: 0, height: 0 };
-      html += `<div style="margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">`;
-      html += `ID: ${win.id}<br/>`;
-      html += `Pos: ${b.x}, ${b.y}<br/>`;
-      html += `Size: ${b.width}x${b.height}<br/>`;
-      html += `Bottom: ${b.y + b.height}`;
-      html += `</div>`;
+      const item = document.createElement("div");
+      item.className = "tracker-window";
+      item.textContent = [
+        `ID: ${win.id}`,
+        `Pos: ${b.x}, ${b.y}`,
+        `Size: ${b.width}x${b.height}`,
+        `Bottom: ${b.y + b.height}`,
+      ].join("\n");
+      content.appendChild(item);
     });
-    content.innerHTML = html;
     scheduleControlPanelResize();
   } catch (err: unknown) {
-    content.innerHTML = "Error updating tracker: " + (err instanceof Error ? err.message : String(err));
+    content.textContent = "Error updating tracker: " + (err instanceof Error ? err.message : String(err));
     scheduleControlPanelResize();
   }
 }
@@ -437,6 +461,10 @@ window.addEventListener("beforeunload", () => {
     cancelAnimationFrame(resizeFrameHandle);
     resizeFrameHandle = null;
   }
+  if (resizeObserver !== null) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (diagnosticsRefreshTimer !== null) {
     clearInterval(diagnosticsRefreshTimer);
     diagnosticsRefreshTimer = null;
@@ -445,5 +473,9 @@ window.addEventListener("beforeunload", () => {
 
 document.getElementById("close-btn")?.addEventListener("click", () => {
   api.closeWindow();
+});
+
+document.getElementById("minimize-btn")?.addEventListener("click", () => {
+  api.minimizeWindow();
 });
 })();

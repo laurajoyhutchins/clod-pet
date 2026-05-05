@@ -57,5 +57,6 @@ contextBridge.exposeInMainWorld("clodPet", {
     },
 
     closeWindow: () => ipcRenderer.invoke("control:close-window"),
+    minimizeWindow: () => ipcRenderer.invoke("control:minimize-window"),
   },
 });

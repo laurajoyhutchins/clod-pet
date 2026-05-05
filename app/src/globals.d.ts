@@ -49,6 +49,7 @@ declare global {
         reportError(source: string, message: string, stack?: string): Promise<void>;
         streamChat(messages: ChatMessage[], onEvent: (event: ChatStreamEvent) => void): void;
         closeWindow(): Promise<void>;
+        minimizeWindow(): Promise<void>;
       };
     };
   }

@@ -78,13 +78,14 @@ function showControlPanel(): void {
   }
 
   controlPanelWindow = new BrowserWindow({
-    width: 400,
-    height: 600,
-    minWidth: 190,
-    minHeight: 180,
-    resizable: true,
-    minimizable: false,
+    width: 420,
+    height: 560,
+    minWidth: 320,
+    minHeight: 260,
+    resizable: false,
+    minimizable: true,
     maximizable: false,
+    show: false,
     frame: false,
     roundedCorners: false,
     hasShadow: false,
@@ -96,6 +97,12 @@ function showControlPanel(): void {
   });
 
   controlPanelWindow.loadFile(path.join(__dirname, "control-panel.html"));
+
+  controlPanelWindow.once("ready-to-show", () => {
+    if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+      controlPanelWindow.show();
+    }
+  });
 
   controlPanelWindow.on("closed", () => {
     controlPanelWindow = null;
@@ -161,8 +168,12 @@ function setupControlPanelHandlers(): void {
       return false;
     }
 
-    const width = Math.max(350, Math.ceil(size?.width || 0));
-    const height = Math.max(400, Math.ceil(size?.height || 0));
+    const display = screen.getPrimaryDisplay();
+    const workArea = display.workAreaSize;
+    const maxWidth = Math.max(320, Math.min(520, workArea.width - 48));
+    const maxHeight = Math.max(260, Math.min(760, workArea.height - 96));
+    const width = Math.min(maxWidth, Math.max(320, Math.ceil(size?.width || 0)));
+    const height = Math.min(maxHeight, Math.max(260, Math.ceil(size?.height || 0)));
     controlPanelWindow.setContentSize(width, height);
     return true;
   });
@@ -190,6 +201,13 @@ function setupControlPanelHandlers(): void {
 
   ipcMain.handle("control:close-window", () => {
     app.quit();
+    return true;
+  });
+
+  ipcMain.handle("control:minimize-window", () => {
+    if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
+      controlPanelWindow.minimize();
+    }
     return true;
   });
 

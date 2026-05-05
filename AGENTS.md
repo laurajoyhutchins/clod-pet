@@ -73,8 +73,7 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - Coverage excludes `preload.js`, `pet-renderer.js`
 - Key TypeScript modules: 
   - `backend-manager`: Spawns and monitors the Go process
-  - `api-adapter`: High-level wrapper for backend communication
-  - `backend-client`: Low-level HTTP/SSE client
+  - `backend-client`: HTTP/SSE client for backend communication (includes former api-adapter logic)
   - `chat-manager`: Manages the AI chat window and lifecycle
   - `pet-manager`: Orchestrates multiple pet instances
   - `window-manager`: Low-level Electron window control
