@@ -30,6 +30,27 @@ func TestEngineGravityTransition(t *testing.T) {
 	}
 }
 
+func TestEngineGravityTriggersOnSpawn(t *testing.T) {
+	p := testPet()
+	p.Animations[1] = walkAnim(
+		withID(1),
+		withMovement("0", "0"),
+		withFrames(0),
+		withRepeat("1"),
+		withGravityNext(pet.NextAnimation{ID: 2, Probability: 100, Only: "none"}),
+	)
+
+	e := NewEngine(p)
+	err := e.Start(1, WorldContext{
+		WorkArea: rectArea1000,
+	})
+	assertNoError(t, err)
+
+	if e.CurrentAnim() != 2 {
+		t.Errorf("CurrentAnim() = %d, want 2 after spawn gravity trigger", e.CurrentAnim())
+	}
+}
+
 func TestEngineGravityFallsBackToNamedFallAnimation(t *testing.T) {
 	p := testPet()
 	p.Animations[1] = walkAnim(

@@ -121,16 +121,23 @@ try {
         $env:CLOD_PET_INSTALL_ROOT = Join-Path $appDir "dist"
     }
 
-    Write-Info "Starting Electron app..."
-    if ($passthroughArgs.Count -gt 0) {
-        npm start -- @passthroughArgs
-    } else {
-        npm start
+    $distMain = Join-Path $appDir "dist\src\main\main.js"
+    $electronCmd = Join-Path $appDir "node_modules\.bin\electron.cmd"
+    if (-not (Test-Path $distMain)) {
+        Write-Error "Built app not found at $distMain. Run scripts/build.ps1 first."
+        Show-FailureSheep "run failed!"
+        exit 1
     }
+    if (-not (Test-Path $electronCmd)) {
+        Write-Error "Electron executable not found at $electronCmd. Reinstall app dependencies."
+        Show-FailureSheep "run failed!"
+        exit 1
+    }
+
+    Write-Info "Starting Electron app..."
+    & $electronCmd --no-sandbox "." @passthroughArgs
     $exit = $LASTEXITCODE
-    if ($exit -eq 0) {
-        Show-SuccessSheep "app exited successfully!"
-    } else {
+    if ($exit -ne 0) {
         Show-FailureSheep "app exited with errors!"
     }
     exit $exit

@@ -256,7 +256,7 @@ else {
 
 # 11. Create clod-pet.cmd wrapper
 Write-Info "Creating clod-pet.cmd wrapper..."
-$wrapperContent = "@echo off`r`nset `"repo_root=%~dp0`"`r`nset `"app_dir=%repo_root%app`"`r`nset `"settings_path=%APPDATA%\clod-pet-settings.json`"`r`nif not defined CLOD_PET_INSTALL_ROOT set `"CLOD_PET_INSTALL_ROOT=%app_dir%\dist`"`r`nif not defined SETTINGS_PATH set `"SETTINGS_PATH=%settings_path%`"`r`ncd /d `"%app_dir%`"`r`ncall npm start %*"
+$wrapperContent = "@echo off`r`nset `"repo_root=%~dp0`"`r`nset `"app_dir=%repo_root%app`"`r`nset `"settings_path=%APPDATA%\clod-pet-settings.json`"`r`nif not defined CLOD_PET_INSTALL_ROOT set `"CLOD_PET_INSTALL_ROOT=%app_dir%\dist`"`r`nif not defined SETTINGS_PATH set `"SETTINGS_PATH=%settings_path%`"`r`nif not exist `"%app_dir%\dist\src\main\main.js`" (`r`n  echo Built app not found at %app_dir%\dist\src\main\main.js. Run scripts\build.ps1 first.& exit /b 1`r`n)`r`nif not exist `"%app_dir%\node_modules\.bin\electron.cmd`" (`r`n  echo Electron executable not found at %app_dir%\node_modules\.bin\electron.cmd. Reinstall app dependencies.& exit /b 1`r`n)`r`ncd /d `"%app_dir%`"`r`ncall `"%app_dir%\node_modules\.bin\electron.cmd`" --no-sandbox . %*"
 $wrapperContent | Out-File -FilePath $clodpetCmd -Encoding ascii
 Write-Success "Wrapper created: $clodpetCmd"
 "$timestamp Wrapper created: $clodpetCmd" | Out-File -FilePath $logFile -Append -Encoding utf8

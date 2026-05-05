@@ -86,8 +86,20 @@ settings_path="\${XDG_CONFIG_HOME:-\$HOME/.config}/clod-pet/clod-pet-settings.js
 export CLOD_PET_INSTALL_ROOT="\${CLOD_PET_INSTALL_ROOT:-\$app_dir/dist}"
 export SETTINGS_PATH="\${SETTINGS_PATH:-\$settings_path}"
 
+dist_main="\$app_dir/dist/src/main/main.js"
+electron_bin="\$app_dir/node_modules/.bin/electron"
+if [[ ! -f "\$dist_main" ]]; then
+  echo "Built app not found at \$dist_main. Run scripts/build.sh first." >&2
+  exit 1
+fi
+
+if [[ ! -x "\$electron_bin" ]]; then
+  echo "Electron executable not found at \$electron_bin. Reinstall app dependencies." >&2
+  exit 1
+fi
+
 cd "\$app_dir"
-exec npm start "\$@"
+exec "\$electron_bin" --no-sandbox . "\$@"
 EOF
 chmod +x "$launcher_path"
 success "Launcher created: $launcher_path"

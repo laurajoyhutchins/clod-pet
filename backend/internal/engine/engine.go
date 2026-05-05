@@ -145,6 +145,24 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	e.flipH = false
 
 	e.loadAnimation()
+
+	petW := float64(e.petDef.FrameW) * e.scale
+	petH := float64(e.petDef.FrameH) * e.scale
+	if len(worlds) > 0 && e.detectGravity(world, petW, petH) {
+		if nextID := e.pickGravityTransition(); nextID > 0 {
+			log.Info("gravity triggered on spawn", "anim", e.currentAnim, "next_anim", nextID, "x", x, "y", y)
+			e.currentAnim = nextID
+			e.frameIdx = 0
+			e.totalStepsDone = 0
+			e.loadAnimation()
+		} else if nextID := e.findAnimationByName("fall"); nextID > 0 && nextID != e.currentAnim {
+			log.Info("gravity triggered on spawn", "anim", e.currentAnim, "next_anim", nextID, "x", x, "y", y)
+			e.currentAnim = nextID
+			e.frameIdx = 0
+			e.totalStepsDone = 0
+			e.loadAnimation()
+		}
+	}
 	return nil
 }
 
