@@ -292,25 +292,6 @@ func parseExpr(expr string) (ExprNode, error) {
 	return nil, fmt.Errorf("unknown expression %q", expr)
 }
 
-// Deprecated: Use ParsedExpr.Eval() on pre-parsed expressions instead.
-// This function parses the expression on every call, defeating the purpose of caching.
-func Eval(expr string, env *Env) (float64, error) {
-	parsed, err := Parse(expr)
-	if err != nil {
-		return 0, err
-	}
-	return parsed.Eval(env)
-}
-
-// Deprecated: Use ParsedExpr.EvalInt() on pre-parsed expressions instead.
-func EvalInt(expr string, env *Env) (int, error) {
-	parsed, err := Parse(expr)
-	if err != nil {
-		return 0, err
-	}
-	return parsed.EvalInt(env)
-}
-
 func NewEnv() *Env {
 	return &Env{
 		Random: float64(rand.Intn(RandomMax)),

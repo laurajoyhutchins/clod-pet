@@ -5,6 +5,16 @@ import (
 	"testing"
 )
 
+// testEval is a test helper that parses and evaluates an expression string.
+func testEval(t *testing.T, expr string, env *Env) (float64, error) {
+	t.Helper()
+	parsed, err := Parse(expr)
+	if err != nil {
+		return 0, err
+	}
+	return parsed.Eval(env)
+}
+
 func TestEvalLiteral(t *testing.T) {
 	tests := []struct {
 		expr string
@@ -19,7 +29,7 @@ func TestEvalLiteral(t *testing.T) {
 
 	env := &Env{}
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -61,7 +71,7 @@ func TestEvalVariables(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -84,7 +94,7 @@ func TestEvalAddition(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -107,7 +117,7 @@ func TestEvalSubtraction(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -129,7 +139,7 @@ func TestEvalMultiplication(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -151,7 +161,7 @@ func TestEvalDivision(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -163,7 +173,7 @@ func TestEvalDivision(t *testing.T) {
 }
 
 func TestEvalDivisionByZero(t *testing.T) {
-	_, err := Eval("10/0", &Env{})
+	_, err := testEval(t, "10/0", &Env{})
 	if err == nil {
 		t.Error("Eval(10/0) expected error, got nil")
 	}
@@ -186,7 +196,7 @@ func TestEvalPrecedence(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -216,7 +226,7 @@ func TestEvalWithVariables(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, err := Eval(tc.expr, env)
+		got, err := testEval(t, tc.expr, env)
 		if err != nil {
 			t.Errorf("Eval(%q) error: %v", tc.expr, err)
 			continue
@@ -233,7 +243,7 @@ func TestEvalComplexExpression(t *testing.T) {
 		ImageW:  64,
 	}
 
-	got, err := Eval("screenW-imageW-50", env)
+	got, err := testEval(t, "screenW-imageW-50", env)
 	if err != nil {
 		t.Fatalf("Eval error: %v", err)
 	}
@@ -246,7 +256,11 @@ func TestEvalComplexExpression(t *testing.T) {
 
 func TestEvalInt(t *testing.T) {
 	env := &Env{}
-	got, err := EvalInt("42", env)
+	parsed, err := Parse("42")
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	got, err := parsed.EvalInt(env)
 	if err != nil {
 		t.Fatalf("EvalInt error: %v", err)
 	}
@@ -320,7 +334,7 @@ func TestRegenerateRandom(t *testing.T) {
 }
 
 func TestEvalUnknownVariable(t *testing.T) {
-	_, err := Eval("unknownVar", &Env{})
+	_, err := testEval(t, "unknownVar", &Env{})
 	if err == nil {
 		t.Error("Eval(unknownVar) expected error, got nil")
 	}
@@ -329,7 +343,7 @@ func TestEvalUnknownVariable(t *testing.T) {
 func TestEvalMixedOps(t *testing.T) {
 	env := &Env{ScreenW: 1920, ImageW: 64}
 
-	got, err := Eval("screenW/2-imageW/2", env)
+	got, err := testEval(t, "screenW/2-imageW/2", env)
 	if err != nil {
 		t.Fatalf("Eval error: %v", err)
 	}
@@ -341,9 +355,9 @@ func TestEvalMixedOps(t *testing.T) {
 }
 
 func TestEvalIntError(t *testing.T) {
-	_, err := EvalInt("unknown", &Env{})
+	_, err := Parse("unknown")
 	if err == nil {
-		t.Error("EvalInt(unknown) expected error, got nil")
+		t.Error("Parse(unknown) expected error, got nil")
 	}
 }
 
@@ -360,7 +374,7 @@ func TestEvalOperatorErrors(t *testing.T) {
 		"unknown/1",
 	}
 	for _, expr := range badExprs {
-		_, err := Eval(expr, env)
+		_, err := testEval(t, expr, env)
 		if err == nil {
 			t.Errorf("Eval(%q) expected error, got nil", expr)
 		}
@@ -368,7 +382,7 @@ func TestEvalOperatorErrors(t *testing.T) {
 }
 
 func TestEvalFloatLiteral(t *testing.T) {
-	got, err := Eval("3.14", &Env{})
+	got, err := testEval(t, "3.14", &Env{})
 	if err != nil {
 		t.Fatalf("Eval error: %v", err)
 	}
