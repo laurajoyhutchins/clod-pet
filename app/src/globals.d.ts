@@ -9,7 +9,7 @@ import type {
   ChatMessage as _ChatMessage,
   ChatStreamEvent as _ChatStreamEvent,
   WorldState as _WorldState,
-} from "./store";
+} from "./shared/store";
 
 declare global {
   type PanelStyle =

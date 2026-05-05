@@ -1,5 +1,6 @@
 # ClodPet Test Script
 # Run with: powershell -ExecutionPolicy Bypass -File scripts/test.ps1 [backend|app|e2e|all]
+# App tests live in app/tests/unit and app/tests/e2e.
 
 $ErrorActionPreference = "Continue"
 

@@ -4,11 +4,14 @@ Electron shell and TypeScript UI for Clod Pet.
 
 ## Layout
 
-- `main.ts` - Electron main process entry point.
-- `chat.ts` - chat window renderer.
-- `control-panel.ts` - settings window renderer.
-- `src/` - shared app logic, backend client, window orchestration, and store code.
-- `e2e/` - end-to-end tests.
+- `src/main/` - Electron main process code and window orchestration.
+- `src/preload/` - preload bridge exposed to renderer windows.
+- `src/renderer/` - browser-side entrypoints and renderer helpers.
+- `src/editor/` - standalone editor subsystem.
+- `src/shared/` - shared state and types used across app processes.
+- `tests/unit/` - Jest unit tests.
+- `tests/e2e/` - end-to-end backend API tests.
+- `public/` - static HTML and CSS entrypoints.
 - `assets/` - packaged app assets.
 - `dist/` - generated JavaScript output from the TypeScript build.
 

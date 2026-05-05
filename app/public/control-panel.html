@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clod Pet - Control Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
+
+    :root {
+      --win98-face: #c0c0c0;
+      --win98-face-light: #dfdfdf;
+      --win98-face-dark: #808080;
+      --win98-shadow: #404040;
+      --win98-highlight: #ffffff;
+      --win98-title-start: #000080;
+      --win98-title-end: #1084d0;
+      --win98-desktop: #008080;
+      --win98-text: #000000;
+      --win98-muted: #808080;
+      --win98-input: #ffffff;
+      --win98-radius: 0;
+      --win98-control-radius: 0;
+      --win98-title-height: 22px;
+      --win98-title-text: #ffffff;
+      --win98-accent: #000080;
+      --win98-slider-thumb: var(--win98-face);
+      --win98-slider-track: #ffffff;
+    }
+
+    body.theme-rounded {
+      background: transparent;
+    }
+
+    body {
+      font-family: "MS Sans Serif", "Tahoma", sans-serif;
+      font-size: 11px;
+      color: var(--win98-text);
+      padding: 8px;
+      overflow: hidden;
+      background: var(--win98-desktop);
+    }
+
+    .window {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      color: #000;
+      background: var(--win98-face);
+      border: 2px solid;
+      border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+      box-shadow:
+        inset 1px 1px 0 var(--win98-face-light),
+        inset -1px -1px 0 var(--win98-face-dark);
+      padding: 3px;
+      border-radius: var(--win98-radius);
+    }
+
+    .titlebar {
+      font-size: 12px;
+      font-weight: bold;
+      padding: 3px 3px 3px 6px;
+      background: linear-gradient(90deg, var(--win98-title-start), var(--win98-title-end));
+      color: var(--win98-title-text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: drag;
+      min-height: var(--win98-title-height);
+      line-height: 1;
+      user-select: none;
+      border-radius: calc(var(--win98-radius) / 2);
+    }
+
+    .titlebar-icon {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+      background:
+        linear-gradient(90deg, #ff0 0 25%, transparent 25% 100%),
+        linear-gradient(#000 0 0) 3px 3px / 8px 8px no-repeat,
+        #fff;
+      border: 1px solid #000;
+      box-shadow: inset -1px -1px 0 #808080;
+    }
+
+    .titlebar-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .titlebar-controls {
+      display: flex;
+      gap: 2px;
+      margin-left: auto;
+      -webkit-app-region: no-drag;
+    }
+
+    .titlebar button {
+      -webkit-app-region: no-drag;
+      background: var(--win98-face);
+      border: 2px solid;
+      border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+      font-size: 10px;
+      width: 20px;
+      height: 18px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+      position: relative;
+      border-radius: var(--win98-control-radius);
+    }
+
+    .titlebar button:active {
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      padding: 1px 0 0 1px;
+    }
+
+    .titlebar-minimize::before {
+      content: "";
+      position: absolute;
+      left: 5px;
+      right: 5px;
+      bottom: 4px;
+      height: 2px;
+      background: #000;
+    }
+
+    .titlebar-close {
+      font-weight: bold;
+    }
+
+    .panel-scroll {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      flex: 1;
+      overflow: auto;
+      min-height: 0;
+      margin-top: 8px;
+      padding: 9px 4px 2px 2px;
+    }
+
+    .groupbox {
+      position: relative;
+      border: 2px solid;
+      border-color: var(--win98-face-dark) var(--win98-highlight) var(--win98-highlight) var(--win98-face-dark);
+      padding: 15px 10px 10px;
+      margin: 0;
+      background: var(--win98-face);
+      min-width: 0;
+      border-radius: var(--win98-control-radius);
+    }
+
+    .groupbox-title {
+      position: absolute;
+      top: -8px;
+      left: 8px;
+      padding: 0 4px;
+      font-weight: bold;
+      font-size: 11px;
+      line-height: 1;
+      background: var(--win98-face);
+    }
+
+    .btn {
+      background: var(--win98-face);
+      color: #000;
+      border: 2px solid;
+      border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+      padding: 2px 10px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: "MS Sans Serif", "Tahoma", sans-serif;
+      min-height: 23px;
+      box-shadow: inset 1px 1px 0 var(--win98-face-light), inset -1px -1px 0 var(--win98-face-dark);
+      border-radius: var(--win98-control-radius);
+    }
+
+    .btn:active {
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      padding: 3px 9px 1px 11px;
+      box-shadow: none;
+    }
+
+    .btn:focus,
+    select:focus,
+    input:focus {
+      outline: 1px dotted #000;
+      outline-offset: -4px;
+    }
+
+    .btn-small {
+      padding: 1px 6px;
+      font-size: 11px;
+    }
+
+    .refresh-diagnostics-btn {
+      margin-bottom: 8px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      height: 18px;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: var(--win98-slider-track);
+      border: 1px solid;
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 18px;
+      margin-top: -8px;
+      background: var(--win98-slider-thumb);
+      border: 2px solid;
+      border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+      border-radius: var(--win98-control-radius);
+      box-shadow: inset 1px 1px 0 var(--win98-face-light), inset -1px -1px 0 var(--win98-face-dark);
+    }
+
+    .range-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      gap: 8px;
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      background: var(--win98-input);
+      color: #000;
+      border: 2px solid;
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      padding: 1px 3px;
+      font-size: 11px;
+      font-family: "MS Sans Serif", "Tahoma", sans-serif;
+      margin-bottom: 0;
+      border-radius: var(--win98-control-radius);
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 2px 0;
+      font-size: 11px;
+    }
+
+    input[type="checkbox"] {
+      width: 13px;
+      height: 13px;
+      margin: 0;
+      accent-color: var(--win98-accent);
+    }
+
+    input[type="range"] {
+      accent-color: var(--win98-accent);
+    }
+
+    .pet-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 4px;
+      border: 2px solid;
+      border-color: var(--win98-highlight) var(--win98-face-dark) var(--win98-face-dark) var(--win98-highlight);
+      margin-bottom: 4px;
+      background: var(--win98-face);
+    }
+
+    #active-pets {
+      max-height: 190px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 2px;
+    }
+
+    .pet-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .pet-title {
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .pet-id {
+      font-size: 11px;
+      color: var(--win98-muted);
+      overflow-wrap: anywhere;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--win98-muted);
+      border: 2px solid;
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      background: #fff;
+      border-radius: var(--win98-control-radius);
+    }
+
+    .add-pet-row {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .add-pet-row select {
+      flex: 1;
+    }
+
+    .status {
+      font-size: 11px;
+      text-align: left;
+      padding: 4px 6px;
+      border: 2px solid;
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      background: var(--win98-face);
+      min-height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      overflow-wrap: anywhere;
+      margin-top: 8px;
+      border-radius: var(--win98-control-radius);
+    }
+
+    .status.success::before {
+      content: "OK";
+      color: #008000;
+      font-weight: bold;
+      margin-right: 6px;
+    }
+
+    .status.error::before {
+      content: "!";
+      color: #800000;
+      font-weight: bold;
+      margin-right: 6px;
+    }
+
+    .diagnostics-grid {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 4px 8px;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .diag-label {
+      color: var(--win98-muted);
+    }
+
+    .diag-value {
+      overflow-wrap: anywhere;
+    }
+
+    .diag-log {
+      max-height: 160px;
+      overflow: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      background: #fff;
+      padding: 4px;
+      border: 2px solid;
+      border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+      border-radius: var(--win98-control-radius);
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .setting-block {
+      display: grid;
+      gap: 4px;
+    }
+
+    .checkbox-stack {
+      display: grid;
+      gap: 2px;
+    }
+
+    .advanced-settings {
+      display: none;
+      border-top: 2px solid;
+      border-color: var(--win98-face-dark) var(--win98-highlight) var(--win98-highlight) var(--win98-face-dark);
+      padding-top: 8px;
+    }
+
+    .diagnostics-card {
+      display: none;
+    }
+
+    .pet-tracker-card {
+      display: none;
+      margin-top: 8px;
+    }
+
+    .pet-tracker-content {
+      font-size: 11px;
+      font-family: "Courier New", monospace;
+      white-space: pre-line;
+    }
+
+    .tracker-window {
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--win98-face-dark);
+      padding-bottom: 4px;
+    }
+
+    @media (max-width: 360px) {
+      body {
+        padding: 4px;
+      }
+
+      .add-pet-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="control-panel-windows.css">
+  <link rel="stylesheet" href="control-panel-mac.css">
+</head>
+<body>
+  <div class="window">
+    <h1 class="titlebar">
+      <span class="titlebar-icon" aria-hidden="true"></span>
+      <span class="titlebar-title">Clod Pet - Control Panel</span>
+      <div class="titlebar-controls">
+        <button class="titlebar-close" id="close-btn" title="Close" aria-label="Close"></button>
+        <button class="titlebar-minimize" id="minimize-btn" title="Minimize" aria-label="Minimize"></button>
+        <button class="titlebar-zoom" id="zoom-btn" title="Zoom" aria-label="Zoom"></button>
+      </div>
+    </h1>
+
+    <div class="panel-scroll">
+      <div class="groupbox">
+        <div class="groupbox-title">Add New Pet</div>
+        <div class="add-pet-row">
+          <select id="pet-select">
+            <option value="">Loading pets...</option>
+          </select>
+          <button class="btn" id="add-pet-btn">Add</button>
+        </div>
+      </div>
+
+      <div class="groupbox">
+        <div class="groupbox-title">Tools</div>
+        <div class="add-pet-row">
+          <button class="btn" id="open-editor-btn">Animation Editor</button>
+        </div>
+      </div>
+
+      <div class="groupbox">
+        <div class="groupbox-title">Settings</div>
+        <div class="settings-grid">
+          <div class="setting-block">
+            <label for="volume">Volume</label>
+            <input type="range" id="volume" min="0" max="1" step="0.05" value="0.3">
+            <div class="range-label">
+              <span>0%</span>
+              <span id="volume-value">30%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="setting-block">
+            <label for="panel-style">Panel style</label>
+            <select id="panel-style">
+              <optgroup label="Windows">
+                <option value="windows-95">Windows 95</option>
+                <option value="windows-98">Windows 98</option>
+                <option value="windows-2000">Windows 2000</option>
+                <option value="windows-xp">Windows XP</option>
+                <option value="windows-vista">Windows Vista</option>
+                <option value="windows-7">Windows 7</option>
+                <option value="windows-10">Windows 10</option>
+                <option value="windows-11">Windows 11</option>
+              </optgroup>
+              <optgroup label="Mac">
+                <option value="mac-platinum">Mac OS 8 Platinum</option>
+                <option value="mac-aqua">Mac OS X Aqua</option>
+                <option value="mac-graphite">Mac OS X Graphite</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="checkbox-stack">
+            <label class="checkbox-label">
+              <input type="checkbox" id="show-advanced"> Show advanced settings
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="show-diagnostics"> Show diagnostics
+            </label>
+          </div>
+
+          <div id="advanced-settings" class="advanced-settings">
+            <div class="settings-grid">
+              <div class="setting-block">
+                <label for="scale">Scale</label>
+                <input type="range" id="scale" min="0.5" max="3" step="0.1" value="1">
+                <div class="range-label">
+                  <span>0.5x</span>
+                  <span id="scale-value">1.0x</span>
+                  <span>3.0x</span>
+                </div>
+              </div>
+
+              <div class="setting-block">
+                <label for="gravity">Gravity multiplier</label>
+                <input type="range" id="gravity" min="0" max="5" step="0.5" value="2">
+                <div class="range-label">
+                  <span>0x</span>
+                  <span id="gravity-value">2.0x</span>
+                  <span>5x</span>
+                </div>
+              </div>
+
+              <div class="setting-block">
+                <label for="autostart">Autostart pets</label>
+                <input type="number" id="autostart" min="0" max="10" value="1">
+              </div>
+
+              <div class="checkbox-stack">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="multi-screen"> Multi-screen support
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="win-foreground"> Keep on top
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="steal-focus"> Steal focus (drag)
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="groupbox">
+        <div class="groupbox-title">Active Pets (<span id="pet-count">0</span>)</div>
+        <div id="active-pets">
+          <div class="empty-state">No pets active</div>
+        </div>
+      </div>
+
+      <div class="groupbox diagnostics-card" id="diagnostics-card">
+        <div class="groupbox-title">Diagnostics</div>
+        <div class="diagnostics-grid" id="diagnostics-summary">
+          <span class="diag-label">Status</span>
+          <span class="diag-value">Loading...</span>
+        </div>
+        <button class="btn btn-small refresh-diagnostics-btn" id="refresh-diagnostics-btn">Refresh</button>
+        <div class="diag-log" id="diagnostics-log">No diagnostics yet.</div>
+        <div class="groupbox pet-tracker-card" id="pet-tracker-card">
+          <div class="groupbox-title">Pet Tracker</div>
+          <div id="pet-tracker-content" class="pet-tracker-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Loading...</div>
+  </div>
+
+  <script src="src/renderer/ui/themes.js"></script>
+  <script src="src/renderer/control-panel-themes.js"></script>
+  <script src="src/renderer/control-panel.js"></script>
+</body>
+</html>

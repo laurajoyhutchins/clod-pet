@@ -131,7 +131,7 @@ Sprite rendering:
 - Load the pet spritesheet from the selected pet directory.
 - Compute sprite dimensions as `spritesheet.width / tiles_x` and `spritesheet.height / tiles_y`.
 - Render frame index previews using CSS background-position or an offscreen canvas crop.
-- Treat frame indices as zero-based, matching `app/src/pet-renderer.ts`, where `col = frameIndex % tilesX` and `row = Math.floor(frameIndex / tilesX)`.
+- Treat frame indices as zero-based, matching `app/src/renderer/pet-renderer.ts`, where `col = frameIndex % tilesX` and `row = Math.floor(frameIndex / tilesX)`.
 - Display a warning if an index falls outside the sprite grid.
 - Respect `image.transparency: "Magenta"` in previews by optionally masking magenta pixels on a canvas. Initial implementation can show raw sprites if masking is costly, but the node metadata must still display the transparency mode.
 

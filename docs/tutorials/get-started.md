@@ -72,12 +72,12 @@ Select `Quit` from the tray menu. The main process shuts down the pets, closes t
 
 ## What happens under the hood
 
-1. `app/main.ts` compiles to `app/dist/main.js`, which Electron runs
+1. `app/src/main/main.ts` compiles to `app/dist/src/main/main.js`, which Electron runs
 2. The main process starts the Go backend, loads settings, and spawns the default pet
-3. `app/src/backend-client.ts` loads `pets/eSheep-modern/animations.json` data and creates a transparent `BrowserWindow`
-4. `pet-manager.ts` polls `/api` every 200 ms with the current world geometry
+3. `app/src/main/backend-client.ts` loads `pets/eSheep-modern/animations.json` data and creates a transparent `BrowserWindow`
+4. `app/src/main/pet-manager.ts` polls `/api` every 200 ms with the current world geometry
 5. Each step returns the next frame state, including position, opacity, and optional sound metadata
-6. `pet-renderer.ts` draws the correct tile from the sprite sheet
+6. `app/src/renderer/pet-renderer.ts` draws the correct tile from the sprite sheet
 
 ## Next steps
 

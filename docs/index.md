@@ -15,7 +15,7 @@ A desktop pet application with AI chat capabilities. A Go backend handles animat
 cd app && npm install && npm start
 ```
 
-`npm start` compiles the app TypeScript before launching Electron. The main process starts the Go backend, opens the control panel, and spawns the default pet. Edit the `.ts` sources; generated files live under `dist/` for Electron and browser script loading.
+`npm start` compiles the app TypeScript before launching Electron. The main process starts the Go backend, opens the control panel, and spawns the default pet. Edit the `.ts` sources; generated files live under `app/dist/src/...` for Electron and browser script loading.
 
 ## Project structure
 
@@ -23,31 +23,19 @@ cd app && npm install && npm start
 clod-pet/
 |-- backend/                  # Go animation engine, HTTP API, and AI providers
 |-- app/                      # TypeScript + Electron desktop shell
-|   |-- main.ts               # Electron main process entry point
-|   |-- control-panel.ts      # Control panel renderer script
-|   |-- chat.ts               # Chat window renderer script
-|   |-- index.html            # Pet window shell
-|   |-- control-panel.html    # Control panel UI
-|   |-- chat.html             # Chat UI
-|   |-- pet.html              # Pet renderer UI
+|   |-- public/               # Static HTML/CSS entrypoints
+|   |-- src/
+|   |   |-- main/             # Electron main-process code
+|   |   |-- preload/          # Context bridge for renderer windows
+|   |   |-- renderer/         # Chat/control-panel/pet entrypoints
+|   |   |-- editor/           # Standalone editor subsystem
+|   |   `-- shared/           # Shared store and types
+|   |-- tests/
+|   |   |-- unit/             # Jest unit tests
+|   |   `-- e2e/              # Backend API end-to-end tests
 |   |-- tsconfig.json         # Main/preload TypeScript build
-|   |-- tsconfig.browser.json # Browser-script TypeScript build
-|   `-- src/
-|       |-- backend-client.ts # HTTP client for backend API
-|       |-- backend-manager.ts # Backend process lifecycle
-|       |-- border-detector.ts # Screen/work-area geometry helpers
-|       |-- chat-manager.ts    # AI chat window management
-|       |-- logger.ts          # Logging utility
-|       |-- pet-manager.ts     # Pet creation and animation loop
-|       |-- pet-renderer.ts    # Canvas sprite renderer
-|       |-- preload.ts         # Context bridge for renderer windows
-|       |-- project-paths.ts   # Repository path helpers
-|       |-- store-bridge.ts    # Broadcasts store updates to renderers
-|       |-- tray-manager.ts    # System tray menu
-|       |-- window-manager.ts  # BrowserWindow management
-|       `-- store/
-|           |-- index.ts
-|           `-- state.ts
+|   |-- tsconfig.browser.json # Renderer TypeScript build
+|   `-- tsconfig.editor.json  # Editor TypeScript build
 |-- pets/                     # Pet data directories
 `-- docs/                     # Documentation
 ```
