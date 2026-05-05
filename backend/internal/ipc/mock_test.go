@@ -2,7 +2,7 @@ package ipc
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/goccy/go-json"
 	"errors"
 	"sync"
 
@@ -135,6 +135,27 @@ func (m *commonMockService) StepPet(petID string, world engine.WorldContext) (*P
 		NextAnimID:      step.NextAnimID,
 		BorderCtx:       step.BorderCtx,
 	}, nil
+}
+
+func (m *commonMockService) StepPets(petIDs []string, world engine.WorldContext) ([]*PetState, error) {
+	results := make([]*PetState, len(petIDs))
+	var wg sync.WaitGroup
+
+	for i, petID := range petIDs {
+		wg.Add(1)
+		go func(idx int, id string) {
+			defer wg.Done()
+			state, err := m.StepPet(id, world)
+			if err != nil {
+				results[idx] = nil
+			} else {
+				results[idx] = state
+			}
+		}(i, petID)
+	}
+
+	wg.Wait()
+	return results, nil
 }
 
 func (m *commonMockService) SetPosition(petID string, x, y float64) error {

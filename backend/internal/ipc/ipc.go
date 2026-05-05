@@ -4,7 +4,7 @@ import (
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/llm"
 	"context"
-	"encoding/json"
+	"github.com/goccy/go-json"
 )
 
 type Command string
@@ -18,6 +18,7 @@ const (
 	CmdSetVolume   Command = "set_volume"
 	CmdSetScale    Command = "set_scale"
 	CmdStepPet     Command = "step_pet"
+	CmdStepPets    Command = "step_pets"
 	CmdBorderPet   Command = "border_pet"
 	CmdGetPet      Command = "get_pet"
 	CmdGetSettings Command = "get_settings"
@@ -62,6 +63,11 @@ type DropPetPayload struct {
 type StepPetPayload struct {
 	PetID string              `json:"pet_id"`
 	World engine.WorldContext `json:"world"`
+}
+
+type StepPetsPayload struct {
+	PetIDs []string             `json:"pet_ids"`
+	World  engine.WorldContext `json:"world"`
 }
 
 type SetPositionPayload struct {
@@ -126,6 +132,7 @@ type Service interface {
 	AddPet(petPath string, spawnID int, world ...engine.WorldContext) (*PetState, error)
 	RemovePet(petID string)
 	StepPet(petID string, world engine.WorldContext) (*PetState, error)
+	StepPets(petIDs []string, world engine.WorldContext) ([]*PetState, error)
 	SetPosition(petID string, x, y float64) error
 	DragPet(petID string, x, y float64) error
 	DropPet(petID string) error
@@ -170,6 +177,8 @@ func (h *Handler) Handle(req *Request) *Response {
 		return h.handleGetStatus()
 	case CmdStepPet:
 		return h.handleStepPet(req.Payload)
+	case CmdStepPets:
+		return h.handleStepPets(req.Payload)
 	case CmdBorderPet:
 		return h.handleBorderPet(req.Payload)
 	case CmdGetPet:
@@ -278,6 +287,20 @@ func (h *Handler) handleStepPet(payload json.RawMessage) *Response {
 	}
 
 	return marshalSuccess(state)
+}
+
+func (h *Handler) handleStepPets(payload json.RawMessage) *Response {
+	var p StepPetsPayload
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return errorResponse("invalid payload: " + err.Error())
+	}
+
+	states, err := h.svc.StepPets(p.PetIDs, p.World)
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+
+	return marshalSuccess(states)
 }
 
 func (h *Handler) handleBorderPet(payload json.RawMessage) *Response {

@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"github.com/goccy/go-json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -31,9 +32,13 @@ type Service struct {
 	pendingSounds map[string]*ipc.SoundPayload
 	mu            sync.RWMutex
 	idCounter     int
+	workerPool    chan struct{}
+	workerWg      sync.WaitGroup
+	shutdown      chan struct{}
 }
 
 func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
+	poolSize := runtime.NumCPU()
 	svc := &Service{
 		petsDir:       petsDir,
 		settings:      cfg,
@@ -43,6 +48,8 @@ func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
 		petLocks:      make(map[string]*sync.Mutex),
 		petPaths:      make(map[string]string),
 		pendingSounds: make(map[string]*ipc.SoundPayload),
+		workerPool:    make(chan struct{}, poolSize),
+		shutdown:      make(chan struct{}),
 	}
 
 	return svc
@@ -343,6 +350,29 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 	}, nil
 }
 
+func (s *Service) StepPets(petIDs []string, world engine.WorldContext) ([]*ipc.PetState, error) {
+	results := make([]*ipc.PetState, len(petIDs))
+	var wg sync.WaitGroup
+
+	for i, petID := range petIDs {
+		s.submitWork()
+		wg.Add(1)
+		go func(idx int, id string) {
+			defer s.completeWork()
+			defer wg.Done()
+			state, err := s.StepPet(id, world)
+			if err != nil {
+				results[idx] = nil
+			} else {
+				results[idx] = state
+			}
+		}(i, petID)
+	}
+
+	wg.Wait()
+	return results, nil
+}
+
 func (s *Service) SetPosition(petID string, x, y float64) error {
 	e, unlock, err := s.lockPet(petID)
 	if err != nil {
@@ -528,6 +558,21 @@ func (s *Service) ListPets() ([]string, error) {
 		}
 	}
 	return pets, nil
+}
+
+func (s *Service) Shutdown() {
+	close(s.shutdown)
+	s.workerWg.Wait()
+}
+
+func (s *Service) submitWork() {
+	s.workerPool <- struct{}{}
+	s.workerWg.Add(1)
+}
+
+func (s *Service) completeWork() {
+	<-s.workerPool
+	s.workerWg.Done()
 }
 
 func (s *Service) ListActive() ([]map[string]interface{}, error) {

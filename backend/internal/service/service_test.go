@@ -238,6 +238,84 @@ func TestStepPetConcurrentCalls(t *testing.T) {
 	}
 }
 
+func TestStepPetsConcurrent(t *testing.T) {
+	cfg := settings.DefaultConfig()
+	svc := New("../../../pets", "test-settings.json", cfg)
+
+	const numPets = 5
+	petIDs := make([]string, 0, numPets)
+	for i := 0; i < numPets; i++ {
+		state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
+		if err != nil {
+			t.Fatalf("AddPet failed: %v", err)
+		}
+		petIDs = append(petIDs, state.PetID)
+	}
+
+	world := engine.WorldContext{
+		Screen: engine.Rect{W: 1920, H: 1080},
+	}
+
+	states, err := svc.StepPets(petIDs, world)
+	if err != nil {
+		t.Fatalf("StepPets failed: %v", err)
+	}
+
+	if len(states) != numPets {
+		t.Fatalf("expected %d states, got %d", numPets, len(states))
+	}
+
+	for i, state := range states {
+		if state == nil {
+			t.Fatalf("pet %d returned nil state", i)
+		}
+		if state.PetID != petIDs[i] {
+			t.Errorf("expected pet ID %s, got %s", petIDs[i], state.PetID)
+		}
+	}
+}
+
+func TestStepPetsEmpty(t *testing.T) {
+	cfg := settings.DefaultConfig()
+	svc := New("../../../pets", "test-settings.json", cfg)
+
+	states, err := svc.StepPets([]string{}, engine.WorldContext{})
+	if err != nil {
+		t.Fatalf("StepPets failed: %v", err)
+	}
+
+	if len(states) != 0 {
+		t.Errorf("expected 0 states, got %d", len(states))
+	}
+}
+
+func TestStepPetsWithNonExistent(t *testing.T) {
+	cfg := settings.DefaultConfig()
+	svc := New("../../../pets", "test-settings.json", cfg)
+
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 0)
+	if err != nil {
+		t.Fatalf("AddPet failed: %v", err)
+	}
+
+	petIDs := []string{state.PetID, "non-existent"}
+	states, err := svc.StepPets(petIDs, engine.WorldContext{})
+	if err != nil {
+		t.Fatalf("StepPets failed: %v", err)
+	}
+
+	if len(states) != 2 {
+		t.Fatalf("expected 2 states, got %d", len(states))
+	}
+
+	if states[0] == nil {
+		t.Error("expected valid state for existing pet")
+	}
+	if states[1] != nil {
+		t.Error("expected nil state for non-existent pet")
+	}
+}
+
 func TestStepPetNonExistent(t *testing.T) {
 	cfg := settings.DefaultConfig()
 	svc := New("../../../pets", "test-settings.json", cfg)
