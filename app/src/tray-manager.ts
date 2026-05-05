@@ -27,6 +27,10 @@ class TrayManager {
         click: () => this.onCommand("add_pet"),
       },
       {
+        label: "Animation Editor",
+        click: () => this.onCommand("editor"),
+      },
+      {
         label: "Options",
         click: () => this.onCommand("options"),
       },

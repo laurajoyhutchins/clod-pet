@@ -16,5 +16,15 @@
     "noEmitOnError": true
   },
   "include": ["main.ts", "src/**/*.ts"],
-  "exclude": ["src/**/__tests__/**", "src/pet-renderer.ts", "node_modules"]
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/pet-renderer.ts",
+    "src/editor/EditorApp.ts",
+    "src/editor/main.ts",
+    "src/editor/ipc.ts",
+    "src/editor/theme.ts",
+    "src/editor/sprite.ts",
+    "src/editor/globals.d.ts",
+    "node_modules"
+  ]
 }

@@ -58,5 +58,20 @@ contextBridge.exposeInMainWorld("clodPet", {
 
     closeWindow: () => ipcRenderer.invoke("control:close-window"),
     minimizeWindow: () => ipcRenderer.invoke("control:minimize-window"),
+    zoomWindow: () => ipcRenderer.invoke("control:zoom-window"),
+  },
+
+  editor: {
+    show: (initialPath?: string) => ipcRenderer.invoke("editor:show", initialPath),
+    openPetDirectory: () => ipcRenderer.invoke("editor:open-pet-directory"),
+    openAnimationFile: () => ipcRenderer.invoke("editor:open-animation-file"),
+    readDocument: (input: { path: string }) => ipcRenderer.invoke("editor:read-document", input),
+    saveDocument: (input: Record<string, unknown>) => ipcRenderer.invoke("editor:save-document", input),
+    saveDocumentAs: (input: Record<string, unknown>) => ipcRenderer.invoke("editor:save-document-as", input),
+    showItemInFolder: (targetPath: string) => ipcRenderer.invoke("editor:show-item-in-folder", targetPath),
+    getRecentDocuments: () => ipcRenderer.invoke("editor:get-recent-documents"),
+    closeWindow: () => ipcRenderer.invoke("editor:close-window"),
+    minimizeWindow: () => ipcRenderer.invoke("editor:minimize-window"),
+    zoomWindow: () => ipcRenderer.invoke("editor:zoom-window"),
   },
 });

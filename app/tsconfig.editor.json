@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "Node",
+    "ignoreDeprecations": "6.0",
+    "outDir": "dist/editor",
+    "rootDir": "src/editor",
+    "lib": ["ES2020", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "useUnknownInCatchVariables": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true
+  },
+  "include": ["src/editor/**/*.ts", "src/editor/**/*.d.ts"],
+  "exclude": ["src/editor/**/*.test.ts", "src/editor/**/__tests__/**", "node_modules"]
+}

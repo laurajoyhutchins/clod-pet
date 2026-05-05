@@ -464,8 +464,9 @@
       <span class="titlebar-icon" aria-hidden="true"></span>
       <span class="titlebar-title">Clod Pet - Control Panel</span>
       <div class="titlebar-controls">
+        <button class="titlebar-close" id="close-btn" title="Close" aria-label="Close"></button>
         <button class="titlebar-minimize" id="minimize-btn" title="Minimize" aria-label="Minimize"></button>
-        <button class="titlebar-close" id="close-btn" title="Close" aria-label="Close">X</button>
+        <button class="titlebar-zoom" id="zoom-btn" title="Zoom" aria-label="Zoom"></button>
       </div>
     </h1>
 
@@ -477,6 +478,13 @@
             <option value="">Loading pets...</option>
           </select>
           <button class="btn" id="add-pet-btn">Add</button>
+        </div>
+      </div>
+
+      <div class="groupbox">
+        <div class="groupbox-title">Tools</div>
+        <div class="add-pet-row">
+          <button class="btn" id="open-editor-btn">Animation Editor</button>
         </div>
       </div>
 
@@ -591,6 +599,7 @@
     <div class="status" id="status">Loading...</div>
   </div>
 
+  <script src="src/ui/themes.js"></script>
   <script src="control-panel-themes.js"></script>
   <script src="control-panel.js"></script>
 </body>

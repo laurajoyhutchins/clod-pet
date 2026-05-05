@@ -12,12 +12,12 @@ function run(command) {
 }
 
 function copyStaticFiles() {
-  const htmlFiles = ["index.html", "chat.html", "control-panel.html", "pet.html"];
+  const htmlFiles = ["index.html", "chat.html", "control-panel.html", "pet.html", "editor.html"];
   for (const file of htmlFiles) {
     cpSync(path.join(rootDir, file), path.join(distDir, file));
   }
 
-  const cssFiles = ["control-panel-windows.css", "control-panel-mac.css"];
+  const cssFiles = ["control-panel-windows.css", "control-panel-mac.css", "editor.css"];
   for (const file of cssFiles) {
     cpSync(path.join(rootDir, file), path.join(distDir, file));
   }
@@ -31,6 +31,7 @@ function copyStaticFiles() {
 function main() {
   rmSync(distDir, { recursive: true, force: true });
   run("tsc -p tsconfig.json");
+  run("tsc -p tsconfig.editor.json");
   run("tsc -p tsconfig.browser.json");
   copyStaticFiles();
 }

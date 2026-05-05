@@ -43,6 +43,78 @@ declare global {
     roundedPanelStyles: readonly PanelStyle[];
   }
 
+  interface SharedThemes {
+    panelStyles: readonly PanelStyle[];
+    windowsPanelStyles: readonly PanelStyle[];
+    macPanelStyles: readonly PanelStyle[];
+    roundedPanelStyles: readonly PanelStyle[];
+  }
+
+  interface EditorRecentDocument {
+    path: string;
+    title: string;
+    petName: string;
+    openedAt: string;
+  }
+
+  interface EditorLayoutNode {
+    x: number;
+    y: number;
+  }
+
+  interface EditorLayoutState {
+    nodes: Record<string, EditorLayoutNode>;
+    viewport: {
+      x: number;
+      y: number;
+      zoom: number;
+    };
+  }
+
+  interface EditorPreviewState {
+    spritesheetDataUrl: string | null;
+    iconDataUrl: string | null;
+    spritesheetError: string | null;
+    iconError: string | null;
+  }
+
+  interface EditorReadResult {
+    documentPath: string;
+    petDir: string;
+    document: Record<string, unknown>;
+    layout: EditorLayoutState;
+    previews: EditorPreviewState;
+    recentDocuments: EditorRecentDocument[];
+  }
+
+  interface EditorSaveResult {
+    documentPath: string;
+    petDir: string;
+    recentDocuments: EditorRecentDocument[];
+  }
+
+  interface EditorApi {
+    show(initialPath?: string): Promise<boolean>;
+    openPetDirectory(): Promise<string | null>;
+    openAnimationFile(): Promise<string | null>;
+    readDocument(input: { path: string }): Promise<EditorReadResult>;
+    saveDocument(input: {
+      documentPath: string;
+      document: Record<string, unknown>;
+      layout?: EditorLayoutState;
+    }): Promise<EditorSaveResult>;
+    saveDocumentAs(input: {
+      documentPath: string;
+      document: Record<string, unknown>;
+      layout?: EditorLayoutState;
+    }): Promise<EditorSaveResult>;
+    showItemInFolder(path: string): Promise<boolean>;
+    getRecentDocuments(): Promise<EditorRecentDocument[]>;
+    closeWindow(): Promise<boolean>;
+    minimizeWindow(): Promise<boolean>;
+    zoomWindow(): Promise<boolean>;
+  }
+
   interface Window {
     clodPet: {
       send(channel: string, data?: unknown): void;
@@ -70,8 +142,11 @@ declare global {
         streamChat(messages: ChatMessage[], onEvent: (event: ChatStreamEvent) => void): void;
         closeWindow(): Promise<void>;
         minimizeWindow(): Promise<void>;
+        zoomWindow(): Promise<boolean>;
       };
+      editor: EditorApi;
     };
+    clodPetSharedThemes: SharedThemes;
     clodPetControlPanelThemes: ControlPanelThemes;
   }
 }

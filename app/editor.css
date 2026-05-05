@@ -1,0 +1,468 @@
+:root {
+  --win98-face: #c0c0c0;
+  --win98-face-light: #dfdfdf;
+  --win98-face-dark: #808080;
+  --win98-shadow: #404040;
+  --win98-highlight: #ffffff;
+  --win98-title-start: #000080;
+  --win98-title-end: #1084d0;
+  --win98-desktop: #008080;
+  --win98-text: #000000;
+  --win98-muted: #808080;
+  --win98-input: #ffffff;
+  --win98-radius: 0;
+  --win98-control-radius: 0;
+  --win98-title-height: 22px;
+  --win98-title-text: #ffffff;
+  --win98-accent: #000080;
+  --win98-slider-thumb: var(--win98-face);
+  --win98-slider-track: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 8px;
+  overflow: hidden;
+  background: var(--win98-desktop);
+  color: var(--win98-text);
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+  font-size: 11px;
+}
+
+body.theme-rounded {
+  background: transparent;
+}
+
+.editor-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-search {
+  min-width: 240px;
+  flex: 1 1 240px;
+}
+
+.toolbar-search input {
+  width: 100%;
+  margin: 0;
+}
+
+.toolbar-theme select {
+  min-width: 170px;
+  margin: 0;
+}
+
+.toolbar-status {
+  margin-left: auto;
+  min-width: 240px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.editor-workspace {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+  padding: 0 8px 8px;
+}
+
+.editor-sidebar,
+.editor-inspector {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-sidebar {
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.editor-inspector {
+  overflow-y: auto;
+  padding-left: 2px;
+}
+
+.sidebar-list,
+.validation-list {
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.sidebar-item,
+.validation-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border: 2px solid;
+  border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+  background: var(--win98-face);
+  cursor: pointer;
+}
+
+.sidebar-item.active {
+  outline: 1px dotted var(--win98-accent);
+  outline-offset: -3px;
+}
+
+.sidebar-item .meta,
+.validation-item .meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sidebar-item .title {
+  font-weight: bold;
+}
+
+.sidebar-item .subtitle,
+.validation-item .subtitle {
+  color: var(--win98-muted);
+  overflow-wrap: anywhere;
+}
+
+.graph-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 8px;
+  min-height: 24px;
+}
+
+.graph-title {
+  font-weight: bold;
+}
+
+.graph-hint {
+  color: var(--win98-muted);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.editor-canvas-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.graph-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+  border: 2px solid;
+  border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+}
+
+.graph-viewport {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.graph-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.graph-edges .edge-path {
+  fill: none;
+  stroke: #4a7bb7;
+  stroke-width: 2;
+}
+
+.graph-edges .edge-path.border {
+  stroke: #c49b2f;
+}
+
+.graph-edges .edge-path.gravity {
+  stroke: #c25d1b;
+}
+
+.graph-edges .edge-path.spawn,
+.graph-edges .edge-path.child {
+  stroke: #777;
+  stroke-dasharray: 6 4;
+}
+
+.graph-nodes,
+.graph-labels {
+  position: absolute;
+  inset: 0;
+}
+
+.graph-node {
+  position: absolute;
+  width: 240px;
+  min-height: 160px;
+  background: var(--win98-face);
+  border: 2px solid;
+  border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+  box-shadow:
+    inset 1px 1px 0 var(--win98-face-light),
+    inset -1px -1px 0 var(--win98-face-dark);
+  padding: 6px;
+  cursor: default;
+  user-select: none;
+}
+
+.graph-node.spawn,
+.graph-node.child {
+  width: 180px;
+  min-height: 90px;
+}
+
+.graph-node.active {
+  outline: 2px solid var(--win98-accent);
+  outline-offset: 1px;
+}
+
+.graph-node-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+  cursor: move;
+}
+
+.graph-node-title {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-node-subtitle {
+  color: var(--win98-muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.graph-node-body {
+  display: grid;
+  gap: 6px;
+}
+
+.sprite-preview {
+  display: block;
+  width: 100%;
+  height: 96px;
+  background: var(--win98-input);
+  border: 1px solid var(--win98-shadow);
+}
+
+.graph-node-summary {
+  overflow-wrap: anywhere;
+  color: var(--win98-muted);
+}
+
+.graph-node-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border: 1px solid var(--win98-shadow);
+  background: var(--win98-input);
+  color: var(--win98-text);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.edge-label {
+  position: absolute;
+  min-width: 160px;
+  max-width: 240px;
+  padding: 4px 6px;
+  border: 1px solid var(--win98-shadow);
+  background: var(--win98-input);
+  color: var(--win98-text);
+  font-size: 10px;
+  line-height: 1.3;
+  cursor: pointer;
+  pointer-events: auto;
+  overflow-wrap: anywhere;
+}
+
+.edge-label.active {
+  outline: 1px solid var(--win98-accent);
+  outline-offset: 1px;
+}
+
+.edge-label.sequence {
+  border-color: #4a7bb7;
+}
+
+.edge-label.border {
+  border-color: #c49b2f;
+}
+
+.edge-label.gravity {
+  border-color: #c25d1b;
+}
+
+.edge-label.spawn,
+.edge-label.child {
+  border-style: dashed;
+  border-color: #777;
+}
+
+.minimap {
+  height: 86px;
+  border: 2px solid;
+  border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+  background: var(--win98-face);
+  overflow: hidden;
+  position: relative;
+}
+
+.minimap::before {
+  content: "Minimap";
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 10px;
+  color: var(--win98-muted);
+}
+
+.editor-statusbar {
+  margin: 0 8px 8px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 2px solid;
+  border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+  background: var(--win98-face);
+  overflow-wrap: anywhere;
+}
+
+.field-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.field-row {
+  display: grid;
+  gap: 4px;
+}
+
+.field-row.inline {
+  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
+  align-items: center;
+}
+
+.field-row.inline label {
+  margin-bottom: 0;
+}
+
+.field-row input,
+.field-row textarea,
+.field-row select {
+  width: 100%;
+  margin: 0;
+}
+
+.field-row textarea {
+  min-height: 72px;
+  resize: vertical;
+  background: var(--win98-input);
+  color: var(--win98-text);
+  border: 2px solid;
+  border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+  padding: 3px 4px;
+  font: inherit;
+}
+
+.field-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.validation-list {
+  max-height: 260px;
+}
+
+.validation-item.error {
+  border-color: #b14b4b;
+}
+
+.validation-item.warning {
+  border-color: #d5a01b;
+}
+
+.selection-empty {
+  color: var(--win98-muted);
+  padding: 4px 0;
+}
+
+.frame-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(24px, 1fr));
+  gap: 4px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.frame-picker button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}

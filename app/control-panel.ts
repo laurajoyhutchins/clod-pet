@@ -440,6 +440,9 @@ el("gravity").addEventListener("input", async (e: Event) => {
 
 el("add-pet-btn").addEventListener("click", addPet);
 el("refresh-diagnostics-btn").addEventListener("click", refreshDiagnostics);
+el("open-editor-btn").addEventListener("click", () => {
+  void window.clodPet.editor.show();
+});
 
 el("pet-select").addEventListener("change", async (e: Event) => {
   try {
@@ -545,5 +548,9 @@ document.getElementById("close-btn")?.addEventListener("click", () => {
 
 document.getElementById("minimize-btn")?.addEventListener("click", () => {
   api.minimizeWindow();
+});
+
+document.getElementById("zoom-btn")?.addEventListener("click", () => {
+  api.zoomWindow();
 });
 })();

@@ -1,10 +1,4 @@
 (() => {
-  const shared = window.clodPetSharedThemes;
-  if (shared) {
-    window.clodPetControlPanelThemes = shared;
-    return;
-  }
-
   const windowsPanelStyles = [
     "windows-95",
     "windows-98",
@@ -29,10 +23,16 @@
     "windows-11",
   ] as const;
 
-  window.clodPetControlPanelThemes = {
+  const sharedThemes = {
     panelStyles: [...windowsPanelStyles, ...macPanelStyles],
     windowsPanelStyles,
     macPanelStyles,
     roundedPanelStyles,
+  } as const;
+
+  const root = window as unknown as Window & {
+    clodPetSharedThemes?: typeof sharedThemes;
   };
+
+  root.clodPetSharedThemes = sharedThemes;
 })();

@@ -4,6 +4,7 @@ import BackendManager = require("./src/backend-manager");
 import PetManager = require("./src/pet-manager");
 import TrayManager = require("./src/tray-manager");
 import ChatManager = require("./src/chat-manager");
+import EditorWindowManager = require("./src/editor-window");
 import globalStore, { standardizeError } from "./src/store";
 import { StoreBridge } from "./src/store-bridge";
 import path = require("path");
@@ -24,6 +25,7 @@ let backendManager: InstanceType<typeof BackendManager> | null = null;
 let petManager: InstanceType<typeof PetManager> | null = null;
 let trayManager: InstanceType<typeof TrayManager> | null = null;
 let chatManager: InstanceType<typeof ChatManager> | null = null;
+let editorWindowManager: InstanceType<typeof EditorWindowManager> | null = null;
 let controlPanelWindow: BrowserWindow | null = null;
 let controlPanelHandlersRegistered = false;
 let shutdownStarted = false;
@@ -82,9 +84,9 @@ function showControlPanel(): void {
     height: 560,
     minWidth: 320,
     minHeight: 260,
-    resizable: false,
+    resizable: true,
     minimizable: true,
-    maximizable: false,
+    maximizable: true,
     show: false,
     frame: false,
     roundedCorners: true,
@@ -108,6 +110,11 @@ function showControlPanel(): void {
   controlPanelWindow.on("closed", () => {
     controlPanelWindow = null;
   });
+}
+
+async function showEditor(initialPath?: string): Promise<void> {
+  if (!editorWindowManager) return;
+  await editorWindowManager.show(initialPath);
 }
 
 function shutdown(): void {
@@ -177,6 +184,9 @@ function setupControlPanelHandlers(): void {
     if (!controlPanelWindow || controlPanelWindow.isDestroyed()) {
       return false;
     }
+    if (controlPanelWindow.isMaximized()) {
+      return true;
+    }
 
     const display = screen.getPrimaryDisplay();
     const workArea = display.workAreaSize;
@@ -221,6 +231,19 @@ function setupControlPanelHandlers(): void {
     return true;
   });
 
+  ipcMain.handle("control:zoom-window", () => {
+    if (!controlPanelWindow || controlPanelWindow.isDestroyed()) {
+      return false;
+    }
+
+    if (controlPanelWindow.isMaximized()) {
+      controlPanelWindow.unmaximize();
+    } else {
+      controlPanelWindow.maximize();
+    }
+    return true;
+  });
+
   ipcMain.on("llm-stream-start", async (event, { messages, channel }) => {
     try {
       await petManager?.backendClient.streamChat(messages, (streamEvent: any) => {
@@ -251,9 +274,12 @@ app.whenReady().then(async () => {
 
   const preloadPath = path.join(__dirname, "src", "preload.js");
   chatManager = new ChatManager(preloadPath);
+  editorWindowManager = new EditorWindowManager(preloadPath);
+  editorWindowManager.init();
 
   trayManager = new TrayManager(app, (command) => {
     if (command === "add_pet") createPet();
+    else if (command === "editor") void showEditor();
     else if (command === "options") showControlPanel();
     else if (command === "chat") chatManager?.showChat();
     else if (command === "quit") app.quit();
