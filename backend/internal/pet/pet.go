@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"clod-pet/backend/internal/expression"
+	"clod-pet/backend/internal/sound"
 )
 
 type Header struct {
@@ -81,6 +82,21 @@ type Sound struct {
 	Probability int
 	Loop        int
 	Data        []byte
+	MIMEType    string
+	DataBase64  string
+}
+
+func (s *Sound) Prepare() {
+	payload := sound.PayloadFor(&sound.SoundEntry{
+		AnimationID: s.AnimationID,
+		Probability: s.Probability,
+		Loop:        s.Loop,
+		Data:        s.Data,
+	})
+	if payload != nil {
+		s.MIMEType = payload.MIMEType
+		s.DataBase64 = base64.StdEncoding.EncodeToString(payload.Data)
+	}
 }
 
 type Pet struct {
@@ -330,6 +346,7 @@ func loadModernPet(dir, jsonPath string) (*Pet, error) {
 			Loop:        loop,
 			Data:        audioData,
 		}
+		sound.Prepare()
 		pet.Sounds[xs.AnimationID] = append(pet.Sounds[xs.AnimationID], sound)
 	}
 

@@ -634,27 +634,14 @@ func (s *Service) soundForPet(petDef *pet.Pet, animID int) *ipc.SoundPayload {
 		return nil
 	}
 
-	var soundEntries []sound.SoundEntry
-	for _, s := range sounds {
-		soundEntries = append(soundEntries, sound.SoundEntry{
-			AnimationID: s.AnimationID,
-			Probability: s.Probability,
-			Loop:        s.Loop,
-			Data:        s.Data,
-		})
+	selected := sound.Pick(sounds, func(s pet.Sound) int { return s.Probability })
+	if selected == nil || selected.DataBase64 == "" {
+		return nil
 	}
 
-	soundEntry := sound.PickSound(soundEntries)
-	if soundEntry == nil {
-		return nil
-	}
-	payload := sound.PayloadFor(soundEntry)
-	if payload == nil {
-		return nil
-	}
 	return &ipc.SoundPayload{
-		MIMEType:   payload.MIMEType,
-		DataBase64: base64.StdEncoding.EncodeToString(payload.Data),
-		Loop:       payload.Loop,
+		MIMEType:   selected.MIMEType,
+		DataBase64: selected.DataBase64,
+		Loop:       selected.Loop,
 	}
 }

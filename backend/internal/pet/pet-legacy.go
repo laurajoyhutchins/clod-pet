@@ -268,6 +268,7 @@ func loadXMLPet(dir string) (*Pet, error) {
 			Loop:        loop,
 			Data:        audioData,
 		}
+		sound.Prepare()
 		pet.Sounds[xs.AnimationID] = append(pet.Sounds[xs.AnimationID], sound)
 	}
 

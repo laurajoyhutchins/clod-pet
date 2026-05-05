@@ -6,14 +6,14 @@ import (
 	"math/rand"
 )
 
-func PickSound(sounds []SoundEntry) *SoundEntry {
-	if len(sounds) == 0 {
+func Pick[T any](items []T, getProbability func(T) int) *T {
+	if len(items) == 0 {
 		return nil
 	}
 
 	total := 0
-	for _, s := range sounds {
-		total += s.Probability
+	for _, item := range items {
+		total += getProbability(item)
 	}
 	if total == 0 {
 		return nil
@@ -21,13 +21,17 @@ func PickSound(sounds []SoundEntry) *SoundEntry {
 
 	r := rand.Intn(total)
 	cumulative := 0
-	for i := range sounds {
-		cumulative += sounds[i].Probability
+	for i := range items {
+		cumulative += getProbability(items[i])
 		if r < cumulative {
-			return &sounds[i]
+			return &items[i]
 		}
 	}
-	return &sounds[len(sounds)-1]
+	return &items[len(items)-1]
+}
+
+func PickSound(sounds []SoundEntry) *SoundEntry {
+	return Pick(sounds, func(s SoundEntry) int { return s.Probability })
 }
 
 type SoundEntry struct {
