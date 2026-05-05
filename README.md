@@ -1,79 +1,35 @@
 # Clod Pet
 
-A desktop pet application. Go backend handles animation logic; the TypeScript/Electron app renders transparent sprite windows.
+Clod Pet is a desktop pet app with a Go backend and a TypeScript/Electron frontend.
 
-## Documentation (Diataxis)
-
-|                | **Tutorials** (learning) | **How-to guides** (goals) | **Reference** (information) | **Explanation** (understanding) |
-|----------------|--------------------------|---------------------------|-----------------------------|----------------------------------|
-| **Purpose**    | Get started              | Solve real problems       | Look up facts               | Understand concepts             |
-| **Where**      | [tutorials/](docs/tutorials/) | [howto/](docs/howto/)   | [reference/](docs/reference/) | [explanation/](docs/explanation/) |
-
-### Quick start
+## Quick Start
 
 ```bash
-# Windows full install (recommended on Windows)
-powershell -ExecutionPolicy Bypass -File scripts/install.ps1
-
-# Linux/macOS build and run from source
-scripts/build.sh
 cd app && npm install && npm start
 ```
 
-`npm start` compiles the app TypeScript first, then launches Electron. The emitted files live under `dist/` and are runtime artifacts used by Electron and browser windows; edit the `.ts` files.
+On Windows, the full install script is:
 
-Sound playback runs in Electron/Chromium, so Linux builds do not need native ALSA development headers.
-
-### Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/install.ps1` | Full install: builds backend, creates cert, adds Defender exclusion, creates shortcuts |
-| `scripts/build.ps1` | Quick rebuild of backend and app dependencies |
-| `scripts/test.ps1` | Run tests (backend Go tests, app Jest, E2E) |
-| `scripts/uninstall.ps1` | Clean removal of shortcuts, settings, and generated files |
-| `scripts/install.sh` | Linux/macOS install: builds backend, installs deps, writes launcher and settings |
-| `scripts/build.sh` | Linux/macOS build: builds the Go backend and TypeScript app |
-| `scripts/uninstall.sh` | Linux/macOS uninstall: removes launcher, backend binary, settings, and generated dist files |
-| `scripts/test.sh` | Linux/macOS tests: backend Go tests, app Jest, optional E2E |
-
-### MCP Server Stub
-
-A minimal MCP (Model Context Protocol) server implementation is available in `../mcp-server-stub/`. Currently provides basic tool stubs (`hello`, `calculate`) using [mcp-go](https://github.com/mark3labs/mcp-go). Additional functionality will be expanded at a later time.
-
-### Project structure
-
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install.ps1
 ```
-clod-pet/
-|-- backend/                  # Go animation engine
-|   |-- main.go               # HTTP server + API routes
-|   `-- internal/
-|       |-- pet/              # XML parser (animations.xml)
-|       |-- engine/           # Animation state machine
-|       |-- expression/       # Expression evaluator (screenW, random, etc.)
-|       |-- ipc/              # HTTP JSON protocol types & handlers
-|       |-- settings/         # JSON config persistence
-|       `-- sound/            # Sound selection and browser-playable audio encoding
-|-- app/                      # TypeScript + Electron desktop shell
-|   |-- public/               # Static HTML/CSS entrypoints
-|   |-- src/
-|   |   |-- main/             # Electron main-process code
-|   |   |-- preload/          # Context bridge exposed to renderers
-|   |   |-- renderer/         # Chat/control-panel/pet renderer entrypoints
-|   |   |-- editor/           # Standalone editor subsystem
-|   |   `-- shared/           # Shared store and types
-|   |-- tests/
-|   |   |-- unit/             # Jest unit tests
-|   |   `-- e2e/              # Backend API end-to-end tests
-|   |-- tsconfig.json         # Main/preload TypeScript build
-|   |-- tsconfig.browser.json # Renderer TypeScript build
-|   `-- tsconfig.editor.json  # Editor TypeScript build
-|-- pets/                     # Pet data directories
-|   `-- eSheep-modern/
-|       |-- animations.json   # Modern pet definition
-|       |-- spritesheet.png   # Sprite sheet image
-|       `-- icon.png          # Optional pet icon
-|-- dist/                     # Built Electron executables
-|-- scripts/                  # PowerShell automation scripts
-`-- docs/                     # This documentation
-```
+
+## Common Commands
+
+- `cd app && npm run dev` - frontend development
+- `cd app && npm test` - frontend unit tests
+- `cd backend && go run .` - run the backend directly
+- `powershell -ExecutionPolicy Bypass -File scripts/test.ps1` - run all tests on Windows
+
+## Project Layout
+
+- `backend/` - Go animation engine, IPC handlers, and LLM providers
+- `app/` - Electron shell and chat UI
+- `pets/` - pet definitions and sprite assets
+- `docs/` - documentation
+- `scripts/` - build, install, and test scripts
+
+## Notes
+
+- The repo-wide instructions live in [AGENTS.md](AGENTS.md).
+- `GEMINI.md` and `CLAUDE.md` mirror the same agent instructions for other tools.
