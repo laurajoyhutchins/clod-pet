@@ -3,31 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 
-# Helper functions for consistent output
-function Write-Info($msg) {
-    Write-Host "→ $msg" -ForegroundColor Cyan
-}
-
-function Write-Success($msg) {
-    Write-Host "✓ $msg" -ForegroundColor Green
-}
-
-function Write-Warn($msg) {
-    Write-Host "  • $msg" -ForegroundColor Yellow
-}
-
-function Write-Error($msg) {
-    Write-Host "✗ $msg" -ForegroundColor Red
-}
-
-function Write-Header($title) {
-    Write-Host ""
-    Write-Host "══ $title ══" -ForegroundColor Blue
-}
-
-function Test-CommandExists($cmd) {
-    return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
-}
+. (Join-Path $PSScriptRoot "utils.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
@@ -295,3 +271,6 @@ Write-Warn "Log:        $logFile"
 Write-Host ""
 Write-Host "To start ClodPet, use the Start Menu shortcut or run:" -ForegroundColor Yellow
 Write-Host "  $installedExe" -ForegroundColor White
+
+Show-SuccessSheep "installation complete!"
+

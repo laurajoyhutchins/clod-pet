@@ -1,35 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Color and style configuration
-if [[ -t 1 ]]; then
-  BOLD='\033[1m'
-  DIM='\033[2m'
-  RED='\033[0;31m'
-  GREEN='\033[0;32m'
-  YELLOW='\033[0;33m'
-  BLUE='\033[0;34m'
-  CYAN='\033[0;36m'
-  RESET='\033[0m'
-else
-  BOLD='' DIM='' RED='' GREEN='' YELLOW='' BLUE='' CYAN='' RESET=''
-fi
-
-# Visual elements
-ARROW="→"
-CHECK="✓"
-CROSS="✗"
-BULLET="•"
-
-# Print functions
-info()    { printf "${CYAN}${ARROW} %s${RESET}\n" "$*"; }
-success() { printf "${GREEN}${CHECK} %s${RESET}\n" "$*"; }
-warn()    { printf "${YELLOW}  ${BULLET} %s${RESET}\n" "$*"; }
-error()   { printf "${RED}${CROSS} %s${RESET}\n" "$*" >&2; }
-header() {
-  echo ""
-  printf "${BOLD}${BLUE}══ $* ══${RESET}\n"
-}
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
@@ -74,3 +46,6 @@ echo ""
 printf "${BOLD}${GREEN}╔══════════════════════════════════════╗${RESET}\n"
 printf "${BOLD}${GREEN}║  Build complete!                       ║${RESET}\n"
 printf "${BOLD}${GREEN}╚══════════════════════════════════════╝${RESET}\n"
+
+show_success_sheep "build completed successfully!"
+

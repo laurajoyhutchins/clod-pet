@@ -1,25 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -t 1 ]]; then
-  BOLD='\033[1m'
-  RED='\033[0;31m'
-  GREEN='\033[0;32m'
-  YELLOW='\033[0;33m'
-  CYAN='\033[0;36m'
-  RESET='\033[0m'
-else
-  BOLD='' RED='' GREEN='' YELLOW='' CYAN='' RESET=''
-fi
-
-info()    { printf "${CYAN}-> %s${RESET}\n" "$*"; }
-success() { printf "${GREEN}OK %s${RESET}\n" "$*"; }
-warn()    { printf "${YELLOW}!! %s${RESET}\n" "$*"; }
-error()   { printf "${RED}ERROR %s${RESET}\n" "$*" >&2; }
-header() {
-  echo ""
-  printf "${BOLD}== %s ==${RESET}\n" "$*"
-}
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -106,4 +88,6 @@ export PETS_DIR="${PETS_DIR:-$repo_root/pets}"
 export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 
 info "Starting Electron app..."
-(cd "$app_dir" && exec npm start "${PASSTHROUGH_ARGS[@]}")
+if (cd "$app_dir" && npm start "${PASSTHROUGH_ARGS[@]}"); then
+  show_success_sheep "app exited successfully!"
+fi

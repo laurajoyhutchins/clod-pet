@@ -3,27 +3,7 @@
 
 $ErrorActionPreference = "Continue"
 
-# Helper functions for consistent output
-function Write-Info($msg) {
-    Write-Host "→ $msg" -ForegroundColor Cyan
-}
-
-function Write-Success($msg) {
-    Write-Host "✓ $msg" -ForegroundColor Green
-}
-
-function Write-Warn($msg) {
-    Write-Host "  • $msg" -ForegroundColor Yellow
-}
-
-function Write-Error($msg) {
-    Write-Host "✗ $msg" -ForegroundColor Red
-}
-
-function Write-Header($title) {
-    Write-Host ""
-    Write-Host "══ $title ══" -ForegroundColor Blue
-}
+. (Join-Path $PSScriptRoot "utils.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
@@ -107,3 +87,6 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 Write-Warn "Note: Node modules and pets folder were not removed."
 Write-Warn "To fully clean up, delete: $repoRoot"
+
+Show-SuccessSheep "uninstall complete!"
+

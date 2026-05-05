@@ -1,8 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Run all backend benchmarks and generate a summary report
 
-echo "Running all backend benchmarks..."
-echo "=========================================="
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
+
+header "Running all backend benchmarks"
+
 
 # Create output directory
 mkdir -p bench-results
@@ -33,5 +35,6 @@ cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/llm/... > ../benc
 cat ../bench-results/llm.txt | grep -E "^(Benchmark|ns/op)"
 
 echo -e "\n=========================================="
-echo "Benchmark results saved to bench-results/"
-echo "Done!"
+info "Benchmark results saved to bench-results/"
+show_success_sheep "benchmarks completed!"
+

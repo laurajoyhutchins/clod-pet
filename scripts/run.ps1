@@ -8,30 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Write-Info($msg) {
-    Write-Host "-> $msg" -ForegroundColor Cyan
-}
-
-function Write-Success($msg) {
-    Write-Host "OK $msg" -ForegroundColor Green
-}
-
-function Write-Warn($msg) {
-    Write-Host "!! $msg" -ForegroundColor Yellow
-}
-
-function Write-Error($msg) {
-    Write-Host "ERROR $msg" -ForegroundColor Red
-}
-
-function Write-Header($title) {
-    Write-Host ""
-    Write-Host "== $title ==" -ForegroundColor Blue
-}
-
-function Test-CommandExists($cmd) {
-    return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
-}
+. (Join-Path $PSScriptRoot "utils.ps1")
 
 function Show-Usage {
     Write-Host "Usage: powershell -ExecutionPolicy Bypass -File scripts/run.ps1 [options] [-- npm-args]"
@@ -153,7 +130,11 @@ try {
     } else {
         npm start
     }
-    exit $LASTEXITCODE
+    $exit = $LASTEXITCODE
+    if ($exit -eq 0) {
+        Show-SuccessSheep "app exited successfully!"
+    }
+    exit $exit
 }
 finally {
     Pop-Location

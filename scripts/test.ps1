@@ -3,34 +3,7 @@
 
 $ErrorActionPreference = "Continue"
 
-# Helper functions for consistent output
-function Write-Info($msg) {
-    Write-Host "→ $msg" -ForegroundColor Cyan
-}
-
-function Write-Success($msg) {
-    Write-Host "✓ $msg" -ForegroundColor Green
-}
-
-function Write-Warn($msg) {
-    Write-Host "  • $msg" -ForegroundColor Yellow
-}
-
-function Write-Error($msg) {
-    Write-Host "✗ $msg" -ForegroundColor Red
-}
-
-function Write-Header($title) {
-    Write-Host ""
-    Write-Host "══ $title ══" -ForegroundColor Blue
-}
-
-function Write-Section($title) {
-    Write-Host ""
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $title -ForegroundColor Cyan
-    Write-Host ("=" * 60) -ForegroundColor Cyan
-}
+. (Join-Path $PSScriptRoot "utils.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
@@ -226,5 +199,6 @@ $anyFailed = ($backendResult -and $backendResult.ExitCode -ne 0) -or
 if ($anyFailed) {
     exit 1
 } else {
+    Show-SuccessSheep "all tests passed!"
     exit 0
 }
