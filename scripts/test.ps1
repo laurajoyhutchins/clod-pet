@@ -34,8 +34,8 @@ function Test-Backend {
     # Filter and display test output
     $output | Where-Object { $_ -match "^(=== RUN|--- PASS|--- FAIL|PASS|FAIL|ok|coverage:)" } | ForEach-Object { Write-Host $_ }
 
-    $passed = ($output | Select-String "PASS:" | Measure-Object).Count
-    $failed = ($output | Select-String "FAIL:" | Measure-Object).Count
+    $passed = ($output | Select-String "^--- PASS:" | Measure-Object).Count
+    $failed = ($output | Select-String "^--- FAIL:" | Measure-Object).Count
 
     if ($exitCode -eq 0) {
         Write-Success "All backend tests passed!"

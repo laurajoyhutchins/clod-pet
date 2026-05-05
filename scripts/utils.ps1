@@ -5,35 +5,39 @@
 $ErrorActionPreference = "Stop"
 
 function Write-Info($msg) {
-    Write-Host "→ $msg" -ForegroundColor Cyan
+    Write-Host ("INFO: " + ${msg}) -ForegroundColor Cyan
 }
 
 function Write-Success($msg) {
-    Write-Host "✓ $msg" -ForegroundColor Green
+    Write-Host ("SUCCESS: " + ${msg}) -ForegroundColor Green
 }
 
 function Write-Warn($msg) {
-    Write-Host "  • $msg" -ForegroundColor Yellow
+    Write-Host ("WARN: " + ${msg}) -ForegroundColor Yellow
 }
 
 function Write-Error($msg) {
-    Write-Host "✗ $msg" -ForegroundColor Red
+    Write-Host ("ERROR: " + ${msg}) -ForegroundColor Red
+}
+
+function Write-Fail($msg) {
+    Write-Error ${msg}
 }
 
 function Write-Header($title) {
     Write-Host ""
-    Write-Host "══ $title ══" -ForegroundColor Blue
+    Write-Host ("== " + ${title} + " ==") -ForegroundColor Blue
 }
 
 function Write-Section($title) {
     Write-Host ""
     Write-Host ("=" * 60) -ForegroundColor Cyan
-    Write-Host $title -ForegroundColor Cyan
+    Write-Host ${title} -ForegroundColor Cyan
     Write-Host ("=" * 60) -ForegroundColor Cyan
 }
 
 function Test-CommandExists($cmd) {
-    return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
+    return [bool](Get-Command ${cmd} -ErrorAction SilentlyContinue)
 }
 
 function Show-SuccessSheep {
@@ -43,15 +47,16 @@ function Show-SuccessSheep {
 
     Write-Host ""
     Write-Host "  __________________________________" -ForegroundColor Yellow
-    Write-Host " /                                  \" -ForegroundColor Yellow
-    Write-Host ("|  {0,-32}|" -f $Message) -ForegroundColor Yellow
-    Write-Host " \__________________________________/" -ForegroundColor Yellow
+    Write-Host " /                                  \ " -ForegroundColor Yellow
+    $paddedMsg = ${Message}.PadRight(32)
+    Write-Host ("|  " + ${paddedMsg} + "|") -ForegroundColor Yellow
+    Write-Host " \__________________________________/ " -ForegroundColor Yellow
 
-    $esc   = [char]27
-    $reset = "$esc[0m"
-    $NB    = [char]0x00A0
-    $Upper = [char]0x2580   # upper half block
-    $Lower = [char]0x2584   # lower half block
+    $escChar = [char]27
+    $resetSeq = "$(${escChar})[0m"
+    $NBChar = " "
+    $UpperChar = [char]0x2580   # upper half block
+    $LowerChar = [char]0x2584   # lower half block
 
     $colorIndex = @{
         '.' = $null                # transparent (no pixel)
@@ -74,92 +79,92 @@ function Show-SuccessSheep {
         'B' = @(192,192,255)      # leg midtone
     }
 
-    function Get-Fg($ch) {
-        $rgb = $colorIndex[[string]$ch]
+    function Get-FgSeq($ch) {
+        $rgb = $script:colorIndex[[string]${ch}]
         if ($null -eq $rgb) { return "" }
-        return "$esc[38;2;$($rgb[0]);$($rgb[1]);$($rgb[2])m"
+        $r = $rgb[0]; $g = $rgb[1]; $b = $rgb[2]
+        return "$(${script:escChar})[38;2;$(${r});$(${g});$(${b})m"
     }
 
-    function Get-Bg($ch) {
-        $rgb = $colorIndex[[string]$ch]
+    function Get-BgSeq($ch) {
+        $rgb = $script:colorIndex[[string]${ch}]
         if ($null -eq $rgb) { return "" }
-        return "$esc[48;2;$($rgb[0]);$($rgb[1]);$($rgb[2])m"
+        $r = $rgb[0]; $g = $rgb[1]; $b = $rgb[2]
+        return "$(${script:escChar})[48;2;$(${r});$(${g});$(${b})m"
     }
 
-    $sheep = @'
-........................................
-..............###########...............
-............##WWWWWWWWWWW##.............
-........####WWWWWYYYYYYYWWW#............
-......##WWWWWWWYY######YYYWW#...........
-.....#WWWWWWWYY##MMDMMM##YYWW#..........
-....#WWWWWWYYY#MDMMDMMDMM#YYWW#.........
-...#WWWWWYYYYY#MMDMVVMVMVM#YW##.........
-...#WWWWYYYYY#DVMM#####MDV###LL#........
-...#WWWWYYYYY#MDV#VDDVD#DD#PPLL#........
-..#WWWWYYYYY#MMV#DDVDVDD##PPPPLL#.......
-..#WWWWYYYYY#MV#DDDD#####PPPP####.......
-..#WWWWYYYYY#MD#DD###PPPPPPP#WW###......
-..#WWWWYYYYY#MD#DD#PPP###PP#BW####......
-.#WWWWYYYYYY#MD#DD#PPP###PP#BW####......
-.#WWWYYYYYYY#MVV#DV###OOOPP#BW#W##......
-#WWWYYYYYYYY-#DD#VDV###AAPP#BW#####.....
-#WWYYYYYYYYY-#VDV#DDVV###AP#BBW###L#....
-#WWYYYYYYYYYY-#VDD####DD##PP#BBW#PPL#...
-#WYYYYYYYYYYYY#DDDVDDDD#--#PP###PPPPL#..
-#WYYYYYYYYYYYY-##VDDV##--YY#PPPPPPPPPL#.
-#YYYYYYYYYYYYYY--####--YYYY#PPPPPPPPPPL#
-#YYYYYYYYYYYYYYYY----YYYYYY+#PPPPPPPPPA#
-#YYYYYYYYYYYYYYYYYYYYYYYY+++#APPPPPPPAA#
-#+YYYY++YYYY+YYYYYYYYY+++Y++#AAAPPPPAAA#
-#+++YYYY++++YYYY+YY+YYYYY+++#OAAAAAAAAA#
-.#++++YYY++YYYY+YYYY+++++++++#OAAAAAAAO#
-.#YYYYY+YY+++++YYY+YYYY++++++-#OOAAAOO#.
-..#YY++++YY+++YY++++++++++--+--#OOOOO#..
-..#+++++++++++++++--+++----++++#OOOOO#..
-...#-+++++--+++--++-------++---#OOO##...
-....#--++-------++++-----------####.....
-.....#----------+-------------#.........
-......##--------------#------#..........
-.......######------##########...........
-.......#OAA#O######.#OOO#OAP#...........
-.......#OAPP#OOO#..#OOO#OAPP#...........
-........#APPP#OO#..#OO#OAPP#............
-........#OAPP#O#....##OAPP#.............
-.........#OA###......##AP#..............
-..........##...........##...............
-'@ -split "`n"
+    $sheepData = @(
+"........................................",
+"..............###########...............",
+"............##WWWWWWWWWWW##.............",
+"........####WWWWWYYYYYYYWWW#............",
+"......##WWWWWWWYY######YYYWW#...........",
+".....#WWWWWWWYY##MMDMMM##YYWW#..........",
+"....#WWWWWWYYY#MDMMDMMDMM#YYWW#.........",
+"...#WWWWWYYYYY#MMDMVVMVMVM#YW##.........",
+"...#WWWWYYYYY#DVMM#####MDV###LL#........",
+"...#WWWWYYYYY#MDV#VDDVD#DD#PPLL#........",
+"..#WWWWYYYYY#MMV#DDVDVDD##PPPPLL#.......",
+"..#WWWWYYYYY#MV#DDDD#####PPPP####.......",
+"..#WWWWYYYYY#MD#DD###PPPPPPP#WW###......",
+"..#WWWWYYYYY#MD#DD#PPP###PP#BW####......",
+".#WWWWYYYYYY#MD#DD#PPP###PP#BW####......",
+".#WWWYYYYYYY#MVV#DV###OOOPP#BW#W##......",
+"#WWWYYYYYYYY-#DD#VDV###AAPP#BW#####.....",
+"#WWYYYYYYYYY-#VDV#DDVV###AP#BBW###L#....",
+"#WWYYYYYYYYYY-#VDD####DD##PP#BBW#PPL#...",
+"#WYYYYYYYYYYYY#DDDVDDDD#--#PP###PPPPL#..",
+"#WYYYYYYYYYYYY-##VDDV##--YY#PPPPPPPPPL#.",
+"#YYYYYYYYYYYYYY--####--YYYY#PPPPPPPPPPL#",
+"#YYYYYYYYYYYYYYYY----YYYYYY+#PPPPPPPPPA#",
+"#YYYYYYYYYYYYYYYYYYYYYYYY+++#APPPPPPPAA#",
+"#+YYYY++YYYY+YYYYYYYYY+++Y++#AAAPPPPAAA#",
+"#+++YYYY++++YYYY+YY+YYYYY+++#OAAAAAAAAA#",
+".#++++YYY++YYYY+YYYY+++++++++#OAAAAAAAO#",
+".#YYYYY+YY+++++YYY+YYYY++++++-#OOAAAOO#.",
+"..#YY++++YY+++YY++++++++++--+--#OOOOO#..",
+"..#+++++++++++++++--+++----++++#OOOOO#..",
+"...#-+++++--+++--++-------++---#OOO##...",
+"....#--++-------++++-----------####.....",
+".....#----------+-------------#.........",
+"......##--------------#------#..........",
+".......######------##########...........",
+".......#OAA#O######.#OOO#OAP#...........",
+".......#OAPP#OOO#..#OOO#OAPP#...........",
+"........#APPP#OO#..#OO#OAPP#............",
+"........#OAPP#O#....##OAPP#.............",
+".........#OA###......##AP#..............",
+"..........##...........##..............."
+)
 
-    for ($y = 0; $y -lt $sheep.Count; $y += 2) {
-        $top = $sheep[$y].TrimEnd("`r")
-        $bottom = if ($y + 1 -lt $sheep.Count) {
-            $sheep[$y + 1].TrimEnd("`r")
-        } else {
-            "." * $top.Length
-        }
+    for ($y = 0; $y -lt $sheepData.Count; $y += 2) {
+        $topLine = $sheepData[$y]
+        $bottomLine = if ($y + 1 -lt $sheepData.Count) { $sheepData[$y + 1] } else { "." * $topLine.Length }
 
-        $out = ""
+        $outStr = ""
+        for ($x = 0; $x -lt $topLine.Length; $x++) {
+            $tChar = [string]$topLine[$x]
+            $bChar = [string]$bottomLine[$x]
 
-        for ($x = 0; $x -lt $top.Length; $x++) {
-            $t = [string]$top[$x]
-            $b = [string]$bottom[$x]
-
-            if ($t -eq "." -and $b -eq ".") {
-                $out += $NB
+            if ($tChar -eq "." -and $bChar -eq ".") {
+                $outStr += ${NBChar}
             }
-            elseif ($t -ne "." -and $b -eq ".") {
-                $out += "$(Get-Fg $t)$Upper$reset"
+            elseif ($tChar -ne "." -and $bChar -eq ".") {
+                $fgSeq = Get-FgSeq ${tChar}
+                $outStr += (${fgSeq} + ${UpperChar} + ${resetSeq})
             }
-            elseif ($t -eq "." -and $b -ne ".") {
-                $out += "$(Get-Fg $b)$Lower$reset"
+            elseif ($tChar -eq "." -and $bChar -ne ".") {
+                $fgSeq = Get-FgSeq ${bChar}
+                $outStr += (${fgSeq} + ${LowerChar} + ${resetSeq})
             }
             else {
-                $out += "$(Get-Fg $t)$(Get-Bg $b)$Upper$reset"
+                $fgSeq = Get-FgSeq ${tChar}
+                $bgSeq = Get-BgSeq ${bChar}
+                $outStr += (${fgSeq} + ${bgSeq} + ${UpperChar} + ${resetSeq})
             }
         }
-
-        Write-Host $out
+        Write-Host ${outStr}
     }
 
-    Write-Host $reset
+    Write-Host ${resetSeq}
 }

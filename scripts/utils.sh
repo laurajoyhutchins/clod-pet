@@ -92,8 +92,8 @@ show_success_sheep() {
 "......##WWWWWWWYY######YYYWW#..........."
 ".....#WWWWWWWYY##MMDMMM##YYWW#.........."
 "....#WWWWWWYYY#MDMMDMMDMM#YYWW#........."
-"...#WWWWWYYYYY#MMDMVVMVMVM#YW##.........",
-"...#WWWWYYYYY#DVMM#####MDV###LL#........",
+"...#WWWWWYYYYY#MMDMVVMVMVM#YW##........."
+"...#WWWWYYYYY#DVMM#####MDV###LL#........"
 "...#WWWWYYYYY#MDV#VDDVD#DD#PPLL#........"
 "..#WWWWYYYYY#MMV#DDVDVDD##PPPPLL#......."
 "..#WWWWYYYYY#MV#DDDD#####PPPP####......."

@@ -1,40 +1,46 @@
-#!/usr/bin/env bash
 # Run all backend benchmarks and generate a summary report
+# Run with: powershell -ExecutionPolicy Bypass -File scripts/run-benchmarks.ps1
 
-source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
+$ErrorActionPreference = "Stop"
 
-header "Running all backend benchmarks"
+. (Join-Path $PSScriptRoot "utils.ps1")
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
+$backendDir = Join-Path $repoRoot "backend"
+$benchResultsDir = Join-Path $repoRoot "bench-results"
+
+Write-Header "Running all backend benchmarks"
 
 # Create output directory
-mkdir -p bench-results
+if (-not (Test-Path $benchResultsDir)) {
+    New-Item -ItemType Directory -Path $benchResultsDir | Out-Null
+}
 
-# Run benchmarks for each package
-echo -e "\n=== Engine Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/engine/... > ../bench-results/engine.txt 2>&1
-cat ../bench-results/engine.txt | grep -E "^(Benchmark|ns/op)"
+$packages = @(
+    @{ Name = "engine"; Path = "./internal/engine/..." },
+    @{ Name = "expression"; Path = "./internal/expression/..." },
+    @{ Name = "pet"; Path = "./internal/pet/..." },
+    @{ Name = "ipc"; Path = "./internal/ipc/..." },
+    @{ Name = "service"; Path = "./internal/service/..." },
+    @{ Name = "llm"; Path = "./internal/llm/..." }
+)
 
-echo -e "\n=== Expression Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/expression/... > ../bench-results/expression.txt 2>&1
-cat ../bench-results/expression.txt | grep -E "^(Benchmark|ns/op)"
+Push-Location $backendDir
+try {
+    foreach ($pkg in $packages) {
+        Write-Host ""
+        Write-Host "=== $($pkg.Name) Benchmarks ===" -ForegroundColor Cyan
+        $outputPath = Join-Path $benchResultsDir "$($pkg.Name).txt"
+        
+        go test -bench=. -benchtime=3s -count=3 $($pkg.Path) | Tee-Object -FilePath $outputPath | Where-Object { $_ -match "^(Benchmark|ns/op)" }
+    }
+}
+finally {
+    Pop-Location
+}
 
-echo -e "\n=== Pet Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/pet/... > ../bench-results/pet.txt 2>&1
-cat ../bench-results/pet.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== IPC Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/ipc/... > ../bench-results/ipc.txt 2>&1
-cat ../bench-results/ipc.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== Service Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/service/... > ../bench-results/service.txt 2>&1
-cat ../bench-results/service.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=== LLM Benchmarks ==="
-cd backend; go test -bench=. -benchtime=3s -count=3 ./internal/llm/... > ../bench-results/llm.txt 2>&1
-cat ../bench-results/llm.txt | grep -E "^(Benchmark|ns/op)"
-
-echo -e "\n=========================================="
-info "Benchmark results saved to bench-results/"
-show_success_sheep "benchmarks completed!"
-
+Write-Host ""
+Write-Host ("=" * 42) -ForegroundColor Cyan
+Write-Info "Benchmark results saved to $benchResultsDir"
+Show-SuccessSheep "benchmarks completed!"
