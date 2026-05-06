@@ -21,6 +21,15 @@ Go HTTP backend for pet animation, settings, IPC handlers, and LLM provider inte
 cd backend
 go test ./...
 go run .
+go run ./cmd/pet-headless/ -pet eSheep-modern
+go run ./cmd/pet-headless/ -pet eSheep-modern -pet eSheep-modern -jsonl -seed 1
+go run ./cmd/pet-headless/ -pet eSheep-modern -spawn 1 -jsonl-file trace.jsonl
+go run ./cmd/pet-headless/ -pet eSheep-modern -pet eSheep-modern -spawn 1 -spawn 2 -screen-w 2560 -screen-h 1440
 ```
+
+- Repeat `-pet` for multi-pet runs.
+- Repeat `-spawn` once per pet to override spawn IDs in order, or use `-spawn-default` as a fallback.
+- Use `-screen-*`, `-work-area-*`, and `-desktop-*` to override the simulated world geometry.
+- Use `-jsonl-file` to write JSONL snapshots to disk.
 
 Build outputs and coverage artifacts in this directory are generated files.
