@@ -39,7 +39,9 @@ Clod Pet uses three communication patterns depending on the task:
 
 1. **Electron IPC:** Renderer windows call methods exposed from `app/src/preload/preload.ts`. The control panel and chat window use this bridge to reach the main process.
 2. **Request-response HTTP:** The animation loop uses standard HTTP POST requests. The main process sends world geometry to the Go backend and receives the next frame state. This is simple, easy to debug, and sufficient for 200 ms intervals.
-3. **Server-sent events:** AI chat responses use SSE via the `/api/llm/stream` endpoint. This allows the backend to stream tokens from LLM providers directly to the chat UI for a responsive typing effect.
+3. **Server-sent events:** AI chat responses use SSE via the `/api/llm/stream` endpoint, with `/api/llm/health` available for provider checks. This allows the backend to stream tokens from LLM providers directly to the chat UI for a responsive typing effect.
+
+The backend also exposes `/api/health`, `/api/describe`, and `/api/version` for health, discovery, and runtime metadata.
 
 ## App build model
 
@@ -56,9 +58,10 @@ Electron still loads generated JavaScript from `app/dist/src/main/main.js`, `app
 
 1. **Load** - `POST /api/pet/load` reads `animations.json` when available, falls back to legacy `animations.xml`, parses the sprite sheet, and returns base64 PNG plus metadata.
 2. **Add** - `POST /api` with `add_pet` creates an `Engine` instance for the pet and starts at a spawn point.
-3. **Step** - `POST /api` with `step_pet` passes raw world geometry (`screen`, `work_area`, and `desktop`, each with `w` and `h` fields). The engine uses the geometry to evaluate borders, floor contact, and gravity before returning the next frame state.
-4. **Render** - the Electron renderer, compiled from TypeScript, draws the frame tile from the sprite sheet onto a transparent canvas at the coordinates provided by the backend.
-5. **Transition** - when an animation sequence completes or a border/gravity transition is triggered, the engine picks the next animation via weighted probability.
+3. **Step** - `POST /api` with `step_pet` or `step_pets` passes raw world geometry (`screen`, `work_area`, and `desktop`, each with `w` and `h` fields). The engine uses the geometry to evaluate borders, floor contact, and gravity before returning the next frame state.
+4. **Sync** - `POST /api` with `set_position` updates the backend with the renderer's current position when the window is moved independently.
+5. **Render** - the Electron renderer, compiled from TypeScript, draws the frame tile from the sprite sheet onto a transparent canvas at the coordinates provided by the backend.
+6. **Transition** - when an animation sequence completes or a border/gravity transition is triggered, the engine picks the next animation via weighted probability.
 
 ## State machine
 

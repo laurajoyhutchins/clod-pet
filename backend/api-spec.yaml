@@ -40,14 +40,14 @@ paths:
               properties:
                 command:
                   type: string
-                  enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active, llm_chat]
+                  enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, step_pets, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active, set_position, llm_chat]
                 payload:
                   type: object
                   properties:
                     world:
                       type: object
                       description: Optional screen/work-area context used when spawning pets
-              responses:
+      responses:
         '200':
           description: Command response
           content:
@@ -98,6 +98,21 @@ paths:
                         type: integer
                       png_base64:
                         type: string
+                      frame_w:
+                        type: integer
+                      frame_h:
+                        type: integer
+                      spawns:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            probability:
+                              type: integer
+                      anim_count:
+                        type: integer
 
   /api/describe:
     get:
@@ -128,6 +143,27 @@ paths:
                           type: string
                         description:
                           type: string
+  /api/version:
+    get:
+      summary: Backend version information
+      responses:
+        '200':
+          description: Version and runtime metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  version:
+                    type: string
+                  pid:
+                    type: integer
+                  pets_dir:
+                    type: string
+                  settings_path:
+                    type: string
 
   /api/llm/stream:
     post:
@@ -165,3 +201,15 @@ paths:
       responses:
         '200':
           description: LLM status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [ok, error]
+                  message:
+                    type: string

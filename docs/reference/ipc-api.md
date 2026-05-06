@@ -109,6 +109,22 @@ Advance the pet's animation by one frame and process physics.
 
 `next_anim_id > 0` means a transition is triggered, either from internal physics or sequence completion.
 
+### `step_pets`
+
+Advance multiple pets in one call.
+
+**Payload:**
+```json
+{
+  "pet_ids": ["pet_1", "pet_2"],
+  "world": {
+    "screen": { "x": 0, "y": 0, "w": 1920, "h": 1080 },
+    "work_area": { "x": 0, "y": 0, "w": 1920, "h": 1040 },
+    "desktop": { "x": 0, "y": 0, "w": 3840, "h": 1080 }
+  }
+}
+```
+
 ### `remove_pet`
 
 Remove a pet from the engine.
@@ -283,8 +299,20 @@ Health check.
 
 **Response:**
 ```json
-{ "status": "ok" }
+{ "ok": true, "status": "ok" }
 ```
+
+### `GET /api/describe`
+
+Return the API capabilities and registered commands.
+
+### `POST /api/pet/load`
+
+Load a pet definition from `animations.json`, or fall back to legacy `animations.xml` when JSON is absent.
+
+### `GET /api/llm/health`
+
+Check the configured LLM provider.
 
 ### `GET /api/version`
 
@@ -292,5 +320,5 @@ Return the backend version information.
 
 **Response:**
 ```json
-{ "ok": true, "version": "0.1.0" }
+{ "ok": true, "version": "1.0.0", "pid": 12345 }
 ```

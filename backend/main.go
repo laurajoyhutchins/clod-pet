@@ -255,16 +255,18 @@ func describeHandler() http.HandlerFunc {
 			"version": "1.0.0",
 			"commands": []string{
 				"add_pet", "remove_pet", "drag_pet", "drop_pet",
-				"step_pet", "border_pet", "get_status", "get_pet",
+				"step_pet", "step_pets", "border_pet", "get_status", "get_pet",
 				"set_volume", "set_scale", "get_settings", "set_settings",
-				"list_pets", "list_active", "llm_chat",
+				"list_pets", "list_active", "set_position", "llm_chat",
 			},
 			"endpoints": []map[string]interface{}{
 				{"path": "/api", "method": "POST", "description": "Generic command endpoint"},
 				{"path": "/api/pet/load", "method": "POST", "description": "Load pet definition"},
 				{"path": "/api/health", "method": "GET", "description": "Health check"},
 				{"path": "/api/describe", "method": "GET", "description": "API description"},
+				{"path": "/api/version", "method": "GET", "description": "Backend version information"},
 				{"path": "/api/llm/stream", "method": "POST", "description": "LLM streaming chat"},
+				{"path": "/api/llm/health", "method": "GET", "description": "LLM provider health check"},
 			},
 		}
 		writeJSON(w, description)
