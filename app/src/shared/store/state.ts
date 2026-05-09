@@ -153,6 +153,7 @@ export interface BackendResponse<T = unknown> {
   ok: boolean;
   payload?: T;
   error?: string;
+  request_id?: string;
   [key: string]: unknown;
 }
 

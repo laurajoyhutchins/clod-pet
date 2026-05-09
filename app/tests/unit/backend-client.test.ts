@@ -13,7 +13,7 @@ import type { BackendResponse } from "../../src/shared/store";
 describe("BackendClient", () => {
   let client: InstanceType<typeof BackendClient>;
   let mockReq: { write: jest.Mock; end: jest.Mock; on: jest.Mock; destroy: jest.Mock };
-  let mockRes: { statusCode: number; on: jest.Mock };
+  let mockRes: { statusCode: number; headers?: Record<string, string>; on: jest.Mock };
   let dataCallback: ((chunk: Buffer) => void) | null;
   let endCallback: (() => void) | null;
   let mockRequest: jest.Mock;
@@ -34,6 +34,9 @@ describe("BackendClient", () => {
     
     mockRes = {
       statusCode: 200,
+      headers: {
+        "x-request-id": "response-request-id",
+      },
       on: jest.fn((event: string, cb: Function) => {
         if (event === "data") dataCallback = cb as (chunk: Buffer) => void;
         if (event === "end") endCallback = cb as () => void;
@@ -69,6 +72,7 @@ describe("BackendClient", () => {
     const result: any = await promise;
     expect(result.ok).toBe(true);
     expect(result.payload).toEqual({ data: "test" });
+    expect(result.request_id).toBe("response-request-id");
     expect(client.connected).toBe(true);
   });
 
@@ -113,7 +117,10 @@ describe("BackendClient", () => {
       "http://localhost:8080/api",
       expect.objectContaining({
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          "X-Request-Id": expect.any(String),
+        }),
       }),
       expect.any(Function)
     );
@@ -189,7 +196,13 @@ describe("BackendClient", () => {
 
     expect(mockRequest).toHaveBeenCalledWith(
       "http://localhost:8080/api/pet/load",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          "X-Request-Id": expect.any(String),
+        }),
+      }),
       expect.any(Function)
     );
   });
@@ -203,7 +216,12 @@ describe("BackendClient", () => {
 
     expect(mockRequest).toHaveBeenCalledWith(
       "http://localhost:8080/api/health",
-      expect.objectContaining({ method: "GET" }),
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          "X-Request-Id": expect.any(String),
+        }),
+      }),
       expect.any(Function)
     );
   });
@@ -217,7 +235,12 @@ describe("BackendClient", () => {
 
     expect(mockRequest).toHaveBeenCalledWith(
       "http://localhost:8080/api/version",
-      expect.objectContaining({ method: "GET" }),
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          "X-Request-Id": expect.any(String),
+        }),
+      }),
       expect.any(Function)
     );
   });

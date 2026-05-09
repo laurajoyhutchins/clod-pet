@@ -76,6 +76,9 @@ func TestRecoveryMiddleware(t *testing.T) {
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status 500, got %d", rr.Code)
 	}
+	if rr.Header().Get(requestIDHeader) == "" {
+		t.Fatal("expected request id header to be set")
+	}
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
@@ -86,6 +89,9 @@ func TestRecoveryMiddleware(t *testing.T) {
 	}
 	if result["error"] != "internal server error" {
 		t.Fatalf("expected internal server error, got %#v", result["error"])
+	}
+	if result["request_id"] == "" {
+		t.Fatal("expected request_id in panic response")
 	}
 }
 
@@ -282,6 +288,15 @@ func TestApiHandler(t *testing.T) {
 			if tt.wantOK && !resp.OK {
 				t.Error("expected resp.OK to be true")
 			}
+			if rr.Header().Get(requestIDHeader) == "" {
+				t.Fatal("expected request id header to be set")
+			}
+			if resp.RequestID == "" {
+				t.Fatal("expected request_id in response")
+			}
+			if resp.RequestID != rr.Header().Get(requestIDHeader) {
+				t.Fatalf("expected request id %q, got %q", rr.Header().Get(requestIDHeader), resp.RequestID)
+			}
 		})
 	}
 }
@@ -385,6 +400,9 @@ func TestHealthHandler(t *testing.T) {
 			if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
 				t.Fatalf("failed to decode response: %v", err)
 			}
+			if result["request_id"] == "" {
+				t.Fatal("expected request_id in health response")
+			}
 			if result["status"] != tt.wantStatus {
 				t.Fatalf("expected status %q, got %v", tt.wantStatus, result["status"])
 			}
@@ -428,6 +446,9 @@ func TestVersionHandler(t *testing.T) {
 				var result map[string]interface{}
 				if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
 					t.Fatalf("failed to decode response: %v", err)
+				}
+				if result["request_id"] == "" {
+					t.Fatal("expected request_id in version response")
 				}
 				if result["version"] == nil || result["pid"] == nil {
 					t.Fatalf("unexpected response body: %#v", result)
@@ -473,6 +494,9 @@ func TestDescribeHandler(t *testing.T) {
 				var result map[string]interface{}
 				if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
 					t.Fatalf("failed to decode response: %v", err)
+				}
+				if result["request_id"] == "" {
+					t.Fatal("expected request_id in describe response")
 				}
 				if result["version"] == nil || result["commands"] == nil || result["endpoints"] == nil {
 					t.Fatalf("unexpected response body: %#v", result)
@@ -521,6 +545,9 @@ func TestLLMHealthHandler(t *testing.T) {
 	var result map[string]interface{}
 	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["request_id"] == "" {
+		t.Fatal("expected request_id in llm health response")
 	}
 	if result["ok"] != false {
 		t.Fatalf("expected ok=false, got %#v", result["ok"])

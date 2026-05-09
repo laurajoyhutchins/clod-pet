@@ -1,5 +1,8 @@
 import http = require("http");
+import crypto = require("crypto");
 import type { ChatMessage, ChatStreamEvent, BackendResponse, AppSettings, PetData, BackendWorldContext } from "../shared/store";
+
+const REQUEST_ID_HEADER = "X-Request-Id";
 
 class BackendClient {
   baseUrl: string;
@@ -17,17 +20,23 @@ class BackendClient {
   }
 
   async request<T = unknown>(command: string, payload: Record<string, unknown> = {}): Promise<BackendResponse<T>> {
+    const requestId = this._nextRequestId();
     const result = await this._requestJson<BackendResponse<T>>("/api", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        [REQUEST_ID_HEADER]: requestId,
+      },
       body: JSON.stringify({ command, payload }),
       requireOk: true,
+      requestId,
     });
     return result;
   }
 
   async requestRaw(path: string, method = "GET"): Promise<unknown> {
-    return this._requestJson(path, { method, requireHttpOk: true });
+    const requestId = this._nextRequestId();
+    return this._requestJson(path, { method, requireHttpOk: true, requestId, headers: { [REQUEST_ID_HEADER]: requestId } });
   }
 
   _requestJson<T = unknown>(path: string, opts: {
@@ -36,11 +45,13 @@ class BackendClient {
     body?: string;
     requireOk?: boolean;
     requireHttpOk?: boolean;
+    requestId?: string;
   } = {}): Promise<T> {
     return new Promise((resolve, reject) => {
       let settled = false;
       let timer: NodeJS.Timeout | undefined;
       let req: http.ClientRequest;
+      const requestId = opts.requestId || this._nextRequestId();
       const finish = (fn: (value?: any) => void, value?: any) => {
         if (settled) return;
         settled = true;
@@ -50,21 +61,25 @@ class BackendClient {
 
       timer = setTimeout(() => {
         this.connected = false;
-        const timeoutErr = new Error(`backend request timed out after ${this.timeoutMs}ms`);
+        const timeoutErr = this._decorateError(`backend request timed out after ${this.timeoutMs}ms`, requestId);
         req.destroy(timeoutErr);
         finish(reject, timeoutErr);
       }, this.timeoutMs);
 
       req = http.request(`${this.baseUrl}${path}`, {
         method: opts.method || "GET",
-        headers: opts.headers,
+        headers: {
+          ...(opts.headers || {}),
+          [REQUEST_ID_HEADER]: requestId,
+        },
       }, (res) => {
+        const responseRequestId = this._readResponseRequestId(res) || requestId;
         let body = "";
         res.on("data", (chunk) => body += chunk);
         res.on("end", () => {
           if (opts.requireHttpOk && res.statusCode !== 200) {
             this.connected = false;
-            finish(reject, new Error(`backend returned HTTP ${res.statusCode}`));
+            finish(reject, this._decorateError(`backend returned HTTP ${res.statusCode}`, responseRequestId));
             return;
           }
 
@@ -72,21 +87,24 @@ class BackendClient {
             const result = JSON.parse(body) as any;
             if (opts.requireOk && !result.ok) {
               this.connected = false;
-              finish(reject, new Error(result.error || "unknown error"));
+              finish(reject, this._decorateError(result.error || "unknown error", result.request_id || responseRequestId));
               return;
+            }
+            if (result && typeof result === "object" && !result.request_id) {
+              result.request_id = responseRequestId;
             }
             this.connected = true;
             finish(resolve, result as T);
           } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
-            finish(reject, new Error(`invalid response: ${error.message}`));
+            finish(reject, this._decorateError(`invalid response: ${error.message}`, responseRequestId));
           }
         });
       });
 
       req.on("error", (err) => {
         this.connected = false;
-        finish(reject, err);
+        finish(reject, this._decorateError(err instanceof Error ? err.message : String(err), requestId));
       });
 
       if (opts.body) req.write(opts.body);
@@ -103,11 +121,16 @@ class BackendClient {
   }
 
   async loadPet(petPath: string): Promise<PetData> {
+    const requestId = this._nextRequestId();
     const response = await this._requestJson<BackendResponse<PetData>>("/api/pet/load", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        [REQUEST_ID_HEADER]: requestId,
+      },
       body: JSON.stringify({ pet_path: petPath }),
       requireOk: true,
+      requestId,
     });
 
     if (!response.payload) {
@@ -182,14 +205,19 @@ class BackendClient {
   }
 
   async streamChat(messages: ChatMessage[], onEvent: (event: ChatStreamEvent) => void) {
+    const requestId = this._nextRequestId();
     const response = await fetch(`${this.baseUrl}/api/llm/stream`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        [REQUEST_ID_HEADER]: requestId,
+      },
       body: JSON.stringify({ messages, stream: true }),
     });
 
     if (!response.ok) {
-      throw new Error(`stream request failed: ${response.statusText}`);
+      const responseRequestId = this._headerValue(response.headers.get(REQUEST_ID_HEADER)) || requestId;
+      throw this._decorateError(`stream request failed: ${response.statusText}`, responseRequestId);
     }
 
     const reader = response.body?.getReader();
@@ -230,6 +258,30 @@ class BackendClient {
         }
       }
     }
+  }
+
+  private _nextRequestId(): string {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      return `${Date.now().toString(36)}-${crypto.randomBytes(8).toString("hex")}`;
+    }
+  }
+
+  private _decorateError(message: string, requestId?: string): Error {
+    if (!requestId) return new Error(message);
+    return new Error(`${message} [request_id=${requestId}]`);
+  }
+
+  private _readResponseRequestId(res: http.IncomingMessage): string | undefined {
+    const header = this._headerValue(res.headers?.[REQUEST_ID_HEADER.toLowerCase()]);
+    return header || undefined;
+  }
+
+  private _headerValue(value: string | string[] | null | undefined): string | undefined {
+    if (Array.isArray(value)) return value[0];
+    if (typeof value === "string" && value.trim()) return value;
+    return undefined;
   }
 }
 

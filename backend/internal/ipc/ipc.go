@@ -35,9 +35,10 @@ type Request struct {
 }
 
 type Response struct {
-	OK      bool            `json:"ok"`
-	Error   string          `json:"error,omitempty"`
-	Payload json.RawMessage `json:"payload,omitempty"`
+	OK        bool            `json:"ok"`
+	Error     string          `json:"error,omitempty"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
+	RequestID string          `json:"request_id,omitempty"`
 }
 
 type AddPetPayload struct {
@@ -66,7 +67,7 @@ type StepPetPayload struct {
 }
 
 type StepPetsPayload struct {
-	PetIDs []string             `json:"pet_ids"`
+	PetIDs []string            `json:"pet_ids"`
 	World  engine.WorldContext `json:"world"`
 }
 
