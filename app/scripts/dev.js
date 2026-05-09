@@ -122,6 +122,7 @@ function startLauncher() {
     NODE_ENV: "development",
     CLOD_PET_INSTALL_ROOT: repoRoot,
     CLOD_PET_BACKEND_MODE: "source",
+    CLOD_PET_BUILD_MODE: "debug",
     CLOD_PET_DEV_RELOAD_FILE: reloadSignalPath,
   };
 

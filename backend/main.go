@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"clod-pet/backend/internal/buildmode"
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/ipc"
 	log "clod-pet/backend/internal/logutil"
@@ -24,7 +25,10 @@ import (
 	"github.com/rs/cors"
 )
 
-const requestIDHeader = "X-Request-Id"
+const (
+	apiVersion      = "1.0.0"
+	requestIDHeader = "X-Request-Id"
+)
 
 func main() {
 	verbose := os.Getenv("VERBOSE") == "true"
@@ -60,7 +64,10 @@ func main() {
 		errCh <- server.ListenAndServe()
 	}()
 
-	log.Info("clod-pet backend starting", "port", port, "pets_dir", petsDir)
+	log.Info("clod-pet backend starting", "port", port, "pets_dir", petsDir, "build_mode", buildmode.Mode)
+	if buildmode.Debug {
+		log.Warn("debug backend build tag enabled")
+	}
 	shutdownCh := make(chan os.Signal, 1)
 	signal.Notify(shutdownCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(shutdownCh)
@@ -285,7 +292,8 @@ func versionHandler(petsDir, settingsPath string) http.HandlerFunc {
 		}
 		writeJSON(w, map[string]interface{}{
 			"ok":            true,
-			"version":       "1.0.0",
+			"version":       apiVersion,
+			"build":         buildmode.Current(),
 			"pid":           os.Getpid(),
 			"pets_dir":      petsDir,
 			"settings_path": settingsPath,
@@ -331,7 +339,8 @@ func describeHandler() http.HandlerFunc {
 			return
 		}
 		description := map[string]interface{}{
-			"version": "1.0.0",
+			"version": apiVersion,
+			"build":   buildmode.Current(),
 			"commands": []string{
 				"add_pet", "remove_pet", "drag_pet", "drop_pet",
 				"step_pet", "step_pets", "border_pet", "get_status", "get_pet",

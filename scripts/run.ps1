@@ -63,6 +63,7 @@ if ($debug) {
     Write-Info "Debug mode enabled"
     $env:VERBOSE = "true"
     $env:NODE_ENV = "development"
+    $env:CLOD_PET_BUILD_MODE = "debug"
 }
 
 Write-Info "Checking required tools..."

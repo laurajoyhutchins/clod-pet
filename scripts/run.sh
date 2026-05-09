@@ -55,6 +55,7 @@ if [[ "$DEBUG" == "true" ]]; then
   info "Debug mode enabled"
   export VERBOSE=true
   export NODE_ENV=development
+  export CLOD_PET_BUILD_MODE=debug
 fi
 
 if ! command_exists go; then

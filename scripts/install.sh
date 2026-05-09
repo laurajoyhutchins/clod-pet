@@ -10,10 +10,16 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 backend_dir="$repo_root/backend"
 app_dir="$repo_root/app"
 backend_output="${CLOD_PET_BACKEND_OUTPUT:-clod-pet-backend}"
+build_mode="${CLOD_PET_BUILD_MODE:-release}"
 settings_dir="${XDG_CONFIG_HOME:-$HOME/.config}/clod-pet"
 settings_path="$settings_dir/clod-pet-settings.json"
 launcher_path="$repo_root/clod-pet"
 log_file="${TMPDIR:-/tmp}/clodpet-install.log"
+
+if ! build_mode="$(normalize_build_mode "$build_mode")"; then
+  error "Invalid CLOD_PET_BUILD_MODE: ${CLOD_PET_BUILD_MODE:-$build_mode}"
+  exit 1
+fi
 
 log() {
   local timestamp line
@@ -45,8 +51,14 @@ if ! command_exists npm; then
 fi
 success "Required tools found"
 
-info "Building Go backend..."
-(cd "$backend_dir" && go build -o "$backend_output" .)
+info "Building Go backend ($build_mode)..."
+go_build_args=(-o "$backend_output")
+if [[ "$build_mode" == "debug" ]]; then
+  go_build_args+=(-tags debug -gcflags "all=-N -l")
+else
+  go_build_args+=(-trimpath -ldflags "-s -w")
+fi
+(cd "$backend_dir" && go build "${go_build_args[@]}" .)
 success "Backend built: $backend_dir/$backend_output"
 log "Backend built: $backend_dir/$backend_output"
 

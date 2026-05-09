@@ -21,3 +21,5 @@ The app shell is organized under `app/src/main`, `app/src/preload`, `app/src/ren
 ## Usage
 
 Run the platform-appropriate script from the repo root. On Windows, the PowerShell wrappers are the canonical entry points.
+
+Backend builds default to `release`. Use `scripts/build.sh --debug`, `scripts/build.ps1 --debug`, or `CLOD_PET_BUILD_MODE=debug` to compile the Go backend with the `debug` build tag and `-gcflags='all=-N -l'`. Release builds use `-trimpath` and stripped linker flags.

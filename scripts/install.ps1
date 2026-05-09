@@ -5,6 +5,7 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
 . (Join-Path $PSScriptRoot "script-paths.ps1")
+. (Join-Path $PSScriptRoot "script-options.ps1")
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
@@ -18,6 +19,7 @@ $logFile = $installPaths.LogFile
 $backendOutput = $installPaths.BackendOutput
 $binaryPath = $installPaths.BinaryPath
 $clodpetCmd = $installPaths.WrapperPath
+$buildMode = (Get-ClodPetBuildOptions -Arguments @()).BuildMode
 
 # Initialize log
 $timestamp = Get-Date -Format "o"
@@ -82,7 +84,7 @@ if (-not $cert) {
 }
 
 # 3. Build Go backend
-Write-Info "Building Go backend..."
+Write-Info "Building Go backend ($buildMode)..."
 if (-not (Test-Path $backendDir)) {
     Write-Error "Backend directory not found: $backendDir"
     Show-FailureSheep "installation failed!"
@@ -91,7 +93,7 @@ if (-not (Test-Path $backendDir)) {
 
 New-Item -ItemType Directory -Force -Path $backendBinDir | Out-Null
 if (Test-Path $backendBuildScript) {
-    & $backendBuildScript
+    & $backendBuildScript -BuildMode $buildMode -OutputName $backendOutput
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Backend build failed"
         Show-FailureSheep "installation failed!"
@@ -99,7 +101,8 @@ if (Test-Path $backendBuildScript) {
     }
 } else {
     Push-Location $backendDir
-    go build -o (Join-Path $backendBinDir $backendOutput) .
+    $goBuildArgs = Get-ClodPetGoBuildArgs -OutputPath $binaryPath -BuildMode $buildMode
+    go @goBuildArgs .
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Backend build failed"
         Show-FailureSheep "installation failed!"

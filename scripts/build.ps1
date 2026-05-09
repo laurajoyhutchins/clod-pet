@@ -1,10 +1,25 @@
 # Quick build script - rebuilds backend and app
-# Run with: powershell -ExecutionPolicy Bypass -File scripts/build.ps1
+# Run with: powershell -ExecutionPolicy Bypass -File scripts/build.ps1 [--debug|--release]
+
+param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Arguments
+)
 
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "utils.ps1")
 . (Join-Path $PSScriptRoot "script-paths.ps1")
+. (Join-Path $PSScriptRoot "script-options.ps1")
+
+function Show-Usage {
+    Write-Host "Usage: powershell -ExecutionPolicy Bypass -File scripts/build.ps1 [--debug|--release]"
+    Write-Host ""
+    Write-Host "Options:"
+    Write-Host "  --debug      Build backend with debug tag and -gcflags='all=-N -l'"
+    Write-Host "  --release    Build backend with release flags (default)"
+    Write-Host "  -h, --help   Show this help"
+}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
@@ -13,6 +28,13 @@ $backendDir = $buildPaths.BackendDir
 $backendBuildScript = $buildPaths.BackendBuildScript
 $appDir = $buildPaths.AppDir
 $backendOutput = $buildPaths.BackendOutput
+$buildOptions = Get-ClodPetBuildOptions -Arguments $Arguments
+$buildMode = $buildOptions.BuildMode
+
+if ($buildOptions.Help) {
+    Show-Usage
+    exit 0
+}
 
 Write-Header "Building ClodPet"
 
@@ -29,9 +51,9 @@ if (-not (Test-CommandExists "npm")) {
 }
 Write-Success "Required tools found"
 
-Write-Info "Building Go backend..."
+Write-Info "Building Go backend ($buildMode)..."
 if (Test-Path $backendBuildScript) {
-    & $backendBuildScript
+    & $backendBuildScript -BuildMode $buildMode -OutputName $backendOutput
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Backend build failed"
         Show-FailureSheep "build failed!"
@@ -40,7 +62,8 @@ if (Test-Path $backendBuildScript) {
 } else {
     Push-Location $backendDir
     try {
-        go build -o $backendOutput .
+        $goBuildArgs = Get-ClodPetGoBuildArgs -OutputPath $backendOutput -BuildMode $buildMode
+        go @goBuildArgs .
         if ($LASTEXITCODE -ne 0) {
             Write-Fail "Backend build failed"
             Show-FailureSheep "build failed!"

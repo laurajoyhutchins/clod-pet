@@ -45,4 +45,22 @@ Describe "script-options.ps1" {
         $result.PassthroughArgs[0] | Should Be "--inspect"
         $result.PassthroughArgs[1] | Should Be "--foo"
     }
+
+    It "parses backend build mode options" {
+        (Get-ClodPetBuildOptions -Arguments @() -DefaultBuildMode "release").BuildMode | Should Be "release"
+        (Get-ClodPetBuildOptions -Arguments @("--debug") -DefaultBuildMode "release").BuildMode | Should Be "debug"
+        (Get-ClodPetBuildOptions -Arguments @("--release") -DefaultBuildMode "debug").BuildMode | Should Be "release"
+    }
+
+    It "builds debug Go arguments with tags and gcflags" {
+        $result = Get-ClodPetGoBuildArgs -OutputPath "bin\backend.exe" -BuildMode "debug"
+
+        $result | Should Be @("build", "-o", "bin\backend.exe", "-tags", "debug", "-gcflags", "all=-N -l")
+    }
+
+    It "builds release Go arguments with trimpath and stripped symbols" {
+        $result = Get-ClodPetGoBuildArgs -OutputPath "bin\backend.exe" -BuildMode "release"
+
+        $result | Should Be @("build", "-o", "bin\backend.exe", "-trimpath", "-ldflags", "-s -w")
+    }
 }

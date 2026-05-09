@@ -13,6 +13,8 @@ const DEFAULT_READY_INTERVAL_MS = 500;
 const DEFAULT_RESTART_BASE_DELAY_MS = 1000;
 const DEFAULT_RESTART_MAX_DELAY_MS = 15000;
 const DEFAULT_RESTART_MAX_ATTEMPTS = 3;
+const DEBUG_GO_RUN_ARGS = ["run", "-tags", "debug", "-gcflags", "all=-N -l", "."];
+const RELEASE_GO_RUN_ARGS = ["run", "."];
 
 class BackendManager {
   process: ChildProcess | null;
@@ -115,6 +117,7 @@ class BackendManager {
     const backendExe = this._resolveBackendBinary(backendPath);
 
     const backendMode = (process.env.CLOD_PET_BACKEND_MODE || "auto").toLowerCase();
+    const backendBuildMode = normalizeBackendBuildMode(process.env.CLOD_PET_BUILD_MODE);
     const exeExists = Boolean(backendExe);
     const useSource = backendMode === "source" || (backendMode !== "exe" && this.preferSource);
     const useExe = !useSource && exeExists;
@@ -124,7 +127,7 @@ class BackendManager {
     }
 
     const cmd = useExe && backendExe ? backendExe : "go";
-    const args = useExe ? [] : ["run", "."];
+    const args = useExe ? [] : goRunArgsForBuildMode(backendBuildMode);
 
     this.launch = {
       cmd,
@@ -155,6 +158,7 @@ class BackendManager {
     log.info("backend process spawned", {
       pid,
       executionMode: this.launch?.executionMode,
+      backendBuildMode,
       command: cmd,
       args,
       url: this.url,
@@ -584,6 +588,15 @@ function shouldSuppressBackendStderr(line: string): boolean {
   } catch {
     return false;
   }
+}
+
+function normalizeBackendBuildMode(value: string | undefined): "debug" | "release" {
+  const raw = (value || (process.env.NODE_ENV === "development" ? "debug" : "release")).toLowerCase();
+  return raw === "debug" ? "debug" : "release";
+}
+
+function goRunArgsForBuildMode(buildMode: "debug" | "release"): string[] {
+  return buildMode === "debug" ? DEBUG_GO_RUN_ARGS : RELEASE_GO_RUN_ARGS;
 }
 
 export = BackendManager;

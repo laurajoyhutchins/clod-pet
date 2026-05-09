@@ -41,6 +41,13 @@ section() {
   printf "${CYAN}============================================================${RESET}\n"
 }
 
+normalize_build_mode() {
+  case "${1:-release}" in
+    debug|release) printf '%s\n' "$1" ;;
+    *) return 1 ;;
+  esac
+}
+
 show_success_sheep() {
     local message="${1:-Task completed successfully!}"
     

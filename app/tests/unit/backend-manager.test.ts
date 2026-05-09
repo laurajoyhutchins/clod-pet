@@ -157,6 +157,27 @@ describe("BackendManager", () => {
     expect(url).toMatch(/http:\/\/localhost:\d+/);
   });
 
+  test("should run source backend with debug build flags when requested", async () => {
+    const originalBuildMode = process.env.CLOD_PET_BUILD_MODE;
+    process.env.CLOD_PET_BUILD_MODE = "debug";
+
+    try {
+      await manager.start();
+
+      expect(spawn).toHaveBeenCalledWith(
+        "go",
+        ["run", "-tags", "debug", "-gcflags", "all=-N -l", "."],
+        expect.any(Object)
+      );
+    } finally {
+      if (originalBuildMode === undefined) {
+        delete process.env.CLOD_PET_BUILD_MODE;
+      } else {
+        process.env.CLOD_PET_BUILD_MODE = originalBuildMode;
+      }
+    }
+  });
+
   test("should read backend ready timeout from env", async () => {
     const originalRetries = process.env.CLOD_PET_BACKEND_READY_MAX_RETRIES;
     const originalInterval = process.env.CLOD_PET_BACKEND_READY_INTERVAL_MS;

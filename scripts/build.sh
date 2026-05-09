@@ -11,6 +11,43 @@ backend_dir="$repo_root/backend"
 app_dir="$repo_root/app"
 
 backend_output="${CLOD_PET_BACKEND_OUTPUT:-clod-pet-backend}"
+build_mode="${CLOD_PET_BUILD_MODE:-release}"
+
+usage() {
+  echo "Usage: $0 [--debug|--release]"
+  echo ""
+  echo "Options:"
+  echo "  --debug      Build backend with debug tag and -gcflags='all=-N -l'"
+  echo "  --release    Build backend with release flags (default)"
+  echo "  -h, --help   Show this help"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --debug)
+      build_mode="debug"
+      shift
+      ;;
+    --release)
+      build_mode="release"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      error "Unknown build option: $1"
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if ! build_mode="$(normalize_build_mode "$build_mode")"; then
+  error "Invalid CLOD_PET_BUILD_MODE: ${CLOD_PET_BUILD_MODE:-$build_mode}"
+  exit 1
+fi
 
 header "Building ClodPet"
 
@@ -24,8 +61,14 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-info "Building Go backend..."
-(cd "$backend_dir" && go build -o "$backend_output" .)
+info "Building Go backend ($build_mode)..."
+go_build_args=(-o "$backend_output")
+if [[ "$build_mode" == "debug" ]]; then
+  go_build_args+=(-tags debug -gcflags "all=-N -l")
+else
+  go_build_args+=(-trimpath -ldflags "-s -w")
+fi
+(cd "$backend_dir" && go build "${go_build_args[@]}" .)
 success "Backend built: $backend_output"
 
 if [[ -d "$app_dir/node_modules" ]]; then
