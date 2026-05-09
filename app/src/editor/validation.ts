@@ -1,4 +1,7 @@
-import type { EditorPreviewState, ModernAnimation, ModernPetDocument, ValidationIssue } from "./types";
+import Ajv from "ajv";
+import { modernPetSchema } from "./schema";
+import type { ErrorObject } from "ajv";
+import type { EditorPreviewState, ModernPetDocument, ValidationIssue } from "./types";
 
 export interface ValidationResult {
   errors: ValidationIssue[];
@@ -19,6 +22,45 @@ function pushIssue(target: ValidationIssue[], severity: "error" | "warning", pat
 
 function makeIssueBuckets() {
   return { errors: [] as ValidationIssue[], warnings: [] as ValidationIssue[] };
+}
+
+const ajv = new Ajv({ allErrors: true, strict: false });
+let validateModernPetSchema: (((data: ModernPetDocument) => boolean) & { errors?: ErrorObject[] | null }) | null = null;
+let schemaValidationDisabled = false;
+
+function getSchemaValidator() {
+  if (validateModernPetSchema || schemaValidationDisabled) {
+    return validateModernPetSchema;
+  }
+
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    schemaValidationDisabled = true;
+    return null;
+  }
+
+  try {
+    validateModernPetSchema = ajv.compile(modernPetSchema) as ((data: ModernPetDocument) => boolean) & { errors?: ErrorObject[] | null };
+  } catch (err) {
+    schemaValidationDisabled = true;
+    validateModernPetSchema = null;
+  }
+
+  return validateModernPetSchema;
+}
+
+function formatAjvPath(error: ErrorObject) {
+  return error.instancePath
+    .replace(/^\//, "")
+    .replace(/\//g, ".")
+    .replace(/\.(\d+)(?=\.|$)/g, "[$1]");
+}
+
+function formatAjvMessage(error: ErrorObject) {
+  if (error.keyword === "required") {
+    const missing = (error.params as { missingProperty?: string }).missingProperty;
+    return missing ? `${missing} is required` : "required field is missing";
+  }
+  return error.message || "schema validation failed";
 }
 
 function validateTransitionGroup(
@@ -63,6 +105,13 @@ export function validateDocumentStructure(
     return issues;
   }
 
+  const schemaValidator = getSchemaValidator();
+  if (schemaValidator && !schemaValidator(document)) {
+    for (const error of schemaValidator.errors || []) {
+      pushIssue(issues.errors, "error", formatAjvPath(error), formatAjvMessage(error));
+    }
+  }
+
   if (!document.header || typeof document.header !== "object") {
     pushIssue(issues.errors, "error", "header", "header is required");
   }
@@ -100,15 +149,17 @@ export function validateDocumentStructure(
   const duplicateIds = new Set<number>();
 
   (document.animations || []).forEach((animation, index) => {
-    const key = `animation:${animation.id}`;
     if (!Number.isInteger(animation.id) || animation.id <= 0) {
-      pushIssue(issues.errors, "error", `animations[${index}].id`, "animation id must be a positive integer", key);
+      pushIssue(issues.errors, "error", `animations[${index}].id`, "animation id must be a positive integer", `animation:${animation.id}`);
     }
     if (animationIds.has(animation.id)) {
       duplicateIds.add(animation.id);
     }
     animationIds.add(animation.id);
+  });
 
+  (document.animations || []).forEach((animation, index) => {
+    const key = `animation:${animation.id}`;
     if (typeof animation.name !== "string" || animation.name.trim() === "") {
       pushIssue(issues.errors, "error", `animations[${index}].name`, "animation name is required", key);
     }
@@ -192,8 +243,19 @@ export function validateDocumentStructure(
     }
     if (typeof child.x !== "string") pushIssue(issues.errors, "error", `children[${index}].x`, "child x must be a string", key);
     if (typeof child.y !== "string") pushIssue(issues.errors, "error", `children[${index}].y`, "child y must be a string", key);
+    if (!child.next) {
+      pushIssue(issues.errors, "error", `children[${index}].next`, "child.next is required", key);
+      return;
+    }
+    if (!isNonNegativeInteger(child.next.probability)) {
+      pushIssue(issues.errors, "error", `children[${index}].next.probability`, "child next probability must be a non-negative integer", key);
+    }
+    if (!Number.isInteger(child.next.value) || child.next.value <= 0) {
+      pushIssue(issues.errors, "error", `children[${index}].next.value`, "child target must be a positive integer", key);
+    } else if (!animationIds.has(child.next.value)) {
+      pushIssue(issues.errors, "error", `children[${index}].next.value`, `target animation ${child.next.value} does not exist`, key);
+    }
   });
 
   return issues;
 }
-

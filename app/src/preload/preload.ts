@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld("clodPet", {
     saveDocumentAs: (input: Record<string, unknown>) => ipcRenderer.invoke("editor:save-document-as", input),
     showItemInFolder: (targetPath: string) => ipcRenderer.invoke("editor:show-item-in-folder", targetPath),
     getRecentDocuments: () => ipcRenderer.invoke("editor:get-recent-documents"),
+    getBootstrapPath: () => ipcRenderer.invoke("editor:get-bootstrap-path"),
     closeWindow: () => ipcRenderer.invoke("editor:close-window"),
     minimizeWindow: () => ipcRenderer.invoke("editor:minimize-window"),
     zoomWindow: () => ipcRenderer.invoke("editor:zoom-window"),

@@ -114,6 +114,7 @@ declare global {
     }): Promise<EditorSaveResult>;
     showItemInFolder(path: string): Promise<boolean>;
     getRecentDocuments(): Promise<EditorRecentDocument[]>;
+    getBootstrapPath(): Promise<string>;
     closeWindow(): Promise<boolean>;
     minimizeWindow(): Promise<boolean>;
     zoomWindow(): Promise<boolean>;

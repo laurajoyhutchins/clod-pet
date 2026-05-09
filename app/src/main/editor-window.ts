@@ -128,6 +128,10 @@ class EditorWindowManager {
       return this.recentDocuments.slice();
     });
 
+    ipcMain.handle("editor:get-bootstrap-path", async () => {
+      return this.bootstrapPath || this.getDefaultDocumentPath();
+    });
+
     ipcMain.handle("editor:close-window", async () => {
       if (this.window && !this.window.isDestroyed()) {
         this.window.close();
