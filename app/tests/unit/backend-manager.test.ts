@@ -175,11 +175,25 @@ describe("BackendManager", () => {
     }
   });
 
-  test("should start backend using exe by default when available", async () => {
+  test("should prefer source when exe is available and preferSource is enabled", async () => {
     const fs = require("fs");
     (fs.existsSync as jest.Mock).mockReturnValue(true);
 
     await manager.start();
+
+    expect(spawn).toHaveBeenCalledWith(
+      "go",
+      ["run", "."],
+      expect.any(Object)
+    );
+  });
+
+  test("should start backend using exe when source preference is disabled", async () => {
+    const fs = require("fs");
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    const m = new BackendManager({ preferSource: false });
+
+    await m.start();
 
     expect(spawn).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`backend[\\\\/]bin[\\\\/]clod-pet-backend(?:\\.exe)?$`)),

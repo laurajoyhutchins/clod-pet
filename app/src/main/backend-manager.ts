@@ -116,7 +116,7 @@ class BackendManager {
 
     const backendMode = (process.env.CLOD_PET_BACKEND_MODE || "auto").toLowerCase();
     const exeExists = Boolean(backendExe);
-    const useSource = backendMode === "source" || (backendMode !== "exe" && !exeExists && this.preferSource);
+    const useSource = backendMode === "source" || (backendMode !== "exe" && this.preferSource);
     const useExe = !useSource && exeExists;
     if (!useSource && !useExe) {
       const searched = this._backendBinarySearchPaths(backendPath);

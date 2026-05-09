@@ -336,6 +336,38 @@ func TestStepPetWithBorder(t *testing.T) {
 	}
 }
 
+func TestStepPetAirborneModernPetTriggersFallFromTopLeft(t *testing.T) {
+	svc := newTestService(t)
+	world := engine.WorldContext{
+		Screen:   engine.Rect{X: 0, Y: 0, W: 2160, H: 1440},
+		WorkArea: engine.Rect{X: 0, Y: 0, W: 2160, H: 1440},
+		Desktop:  engine.Rect{X: 0, Y: 0, W: 2160, H: 1440},
+	}
+
+	state, err := svc.AddPet("../../../pets/eSheep-modern", 1, world)
+	if err != nil {
+		t.Fatalf("AddPet failed: %v", err)
+	}
+	if state == nil {
+		t.Fatal("AddPet returned nil state")
+	}
+
+	if err := svc.SetPosition(state.PetID, -48, 0); err != nil {
+		t.Fatalf("SetPosition failed: %v", err)
+	}
+
+	state, err = svc.StepPet(state.PetID, world)
+	if err != nil {
+		t.Fatalf("StepPet failed: %v", err)
+	}
+	if state == nil {
+		t.Fatal("StepPet returned nil state")
+	}
+	if state.NextAnimID != 5 {
+		t.Fatalf("NextAnimID = %d, want 5 for fall transition; state=%+v", state.NextAnimID, *state)
+	}
+}
+
 func TestDragPet(t *testing.T) {
 	svc := newTestService(t)
 

@@ -4,10 +4,11 @@
   "StealTaskbarFocus": true,
   "AutostartPets": 1,
   "Scale": 1.5,
-  "ShowAdvancedSettings": false,
+  "ShowAdvancedSettings": true,
   "ShowDiagnostics": false,
-  "PanelStyle": "windows-98",
+  "PanelStyle": "windows-vista",
   "MultiScreenEnabled": true,
+  "GravityFactor": 2.5,
   "CurrentPet": "eSheep-modern",
   "LLM": {
     "provider": ""

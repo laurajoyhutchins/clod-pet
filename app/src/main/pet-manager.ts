@@ -14,6 +14,7 @@ class PetManager {
   backendClient: InstanceType<typeof BackendClient>;
   windowManager: InstanceType<typeof WindowManager>;
   petTimers: Map<string, NodeJS.Timeout>;
+  petBackendQueues: Map<string, Promise<unknown>>;
   windowToPetId: WeakMap<BrowserWindow, string>;
   draggingPets: Set<string>;
   ipcHandlersRegistered: boolean;
@@ -31,6 +32,7 @@ class PetManager {
     this.store = store || null;
     this.windowManager = new WindowManager(this.store || undefined);
     this.petTimers = new Map();
+    this.petBackendQueues = new Map();
     this.windowToPetId = new WeakMap();
     this.draggingPets = new Set();
     this.ipcHandlersRegistered = false;
@@ -87,6 +89,23 @@ class PetManager {
       clearTimeout(timer);
       this.petTimers.delete(petId);
     }
+  }
+
+  private _queuePetBackendCommand(petId: string, command: () => Promise<unknown>): void {
+    const previous = this.petBackendQueues.get(petId);
+    let next: Promise<unknown>;
+    const run = () => Promise.resolve(command())
+      .catch((err: unknown) => {
+        log.warn("Pet backend command failed:", err instanceof Error ? err.message : String(err));
+      });
+
+    next = (previous ? previous.catch(() => {}).then(run) : run())
+      .finally(() => {
+        if (this.petBackendQueues.get(petId) === next) {
+          this.petBackendQueues.delete(petId);
+        }
+      });
+    this.petBackendQueues.set(petId, next);
   }
 
   private _syncEnvironment(): void {
@@ -366,6 +385,7 @@ class PetManager {
 
   async removePet(petId: string): Promise<boolean> {
     this.draggingPets.delete(petId);
+    this.petBackendQueues.delete(petId);
     this._clearPetTimer(petId);
     await this.backendClient.removePet(petId);
     this._removePetFromStore(petId);
@@ -382,6 +402,7 @@ class PetManager {
     }
 
     this.draggingPets.clear();
+    this.petBackendQueues.clear();
 
     for (const petId of petIds) {
       this.windowManager.removePetWindow(petId);
@@ -416,10 +437,12 @@ class PetManager {
       try {
         const [winX, winY] = win.getPosition();
         const [winW, winH] = win.getSize();
+        const worldX = Number.isFinite(petEntry.state.x) ? petEntry.state.x : winX;
+        const worldY = Number.isFinite(petEntry.state.y) ? petEntry.state.y : winY;
 
         const backendWorld = BorderDetector.getRawWorldContext(
-          winX,
-          winY,
+          worldX,
+          worldY,
           winW,
           winH,
           this._activeDisplays(),
@@ -446,7 +469,7 @@ class PetManager {
         lastBorderCtx = borderCtx;
 
         if (isDebug()) {
-          log.info(`[DEBUG] loop win=(${winX},${winY}) screen=(${backendWorld.screen.w}x${backendWorld.screen.h}) wa=(${backendWorld.work_area.w}x${backendWorld.work_area.h})`);
+          log.info(`[DEBUG] loop win=(${winX},${winY}) world=(${worldX},${worldY}) screen=(${backendWorld.screen.x},${backendWorld.screen.y},${backendWorld.screen.w}x${backendWorld.screen.h}) wa=(${backendWorld.work_area.x},${backendWorld.work_area.y},${backendWorld.work_area.w}x${backendWorld.work_area.h})`);
           log.info(`[DEBUG] loop result animName=${resultPayload.current_anim_name} animId=${resultPayload.current_anim_id} x=${resultPayload.x} y=${resultPayload.y} nextAnim=${resultPayload.next_anim_id} borderCtx=${resultPayload.border_ctx}`);
         }
 
@@ -457,8 +480,9 @@ class PetManager {
 
         const nextPetState = {
           frameIndex: resultPayload.frame_index,
-          x: finalX,
-          y: finalY,
+          // Keep the dragged window position stable while the user is dragging.
+          x: this.draggingPets.has(petId) ? petEntry.state.x : finalX,
+          y: this.draggingPets.has(petId) ? petEntry.state.y : finalY,
           offsetY: resultPayload.offset_y,
           flipH: resultPayload.flip_h,
           opacity: resultPayload.opacity ?? 1.0,
@@ -532,18 +556,19 @@ class PetManager {
       const petId = this._getPetIdByWindow(win);
       if (petId) {
         this.draggingPets.add(petId);
-        const [winX, winY] = this._safeWindowPosition(win);
-        // Record where in the window the user clicked so we can preserve that offset
-        // during drag instead of snapping the window's top-left to the cursor.
-        const cursor = screen.getCursorScreenPoint();
         const entry = this._getPet(petId);
         if (entry) {
+          // Use cached pet state instead of win.getPosition(); on Wayland the
+          // window position can report (0, 0) and corrupt the drag offset.
+          const winX = entry.state.x;
+          const winY = entry.state.y;
+          const cursor = screen.getCursorScreenPoint();
           this._updatePet(petId, {
             dragOffsetX: cursor.x - winX,
             dragOffsetY: cursor.y - winY,
           });
+          this._queuePetBackendCommand(petId, () => this.backendClient.dragPet(petId, winX, winY));
         }
-        this.backendClient.dragPet(petId, winX, winY);
       }
     });
 
@@ -560,7 +585,7 @@ class PetManager {
         const cursor = screen.getCursorScreenPoint();
         const newX = cursor.x - (entry.dragOffsetX ?? 0);
         const newY = cursor.y - (entry.dragOffsetY ?? 0);
-        this.backendClient.dragPet(petId, newX, newY);
+        this._queuePetBackendCommand(petId, () => this.backendClient.dragPet(petId, newX, newY));
         if (!win.isDestroyed()) win.setPosition(Math.round(newX), Math.round(newY));
       }
     });
@@ -571,7 +596,7 @@ class PetManager {
       const petId = this._getPetIdByWindow(win);
       if (petId) {
         this.draggingPets.delete(petId);
-        this.backendClient.dropPet(petId);
+        this._queuePetBackendCommand(petId, () => this.backendClient.dropPet(petId));
       }
     });
   }

@@ -182,6 +182,7 @@ jest.mock("../../src/shared/store", () => {
 import PetManager from "../../src/main/pet-manager";
 import { BrowserWindow, ipcMain, screen } from "electron";
 import globalStore from "../../src/shared/store";
+import * as BorderDetector from "../../src/border-detector";
 
 // Type for mock BrowserWindow
 type MockBrowserWindow = {
@@ -209,6 +210,10 @@ describe("PetManager", () => {
   let mockBackendClient: { loadPet: jest.Mock; addPet: jest.Mock; removePet: jest.Mock; stepPet: jest.Mock; dragPet: jest.Mock; dropPet: jest.Mock; setPosition: jest.Mock; getSettings: jest.Mock };
   let mockWindowManager: { createPetWindow: jest.Mock; setPetWindowsForeground: jest.Mock; raisePetWindow: jest.Mock; getPetWindow: jest.Mock; removePetWindow: jest.Mock; updatePosition: jest.Mock; updateSize: jest.Mock; getAllWindows: jest.Mock; windows: Map<string, any> };
   let mockStore: any;
+  const flushPetQueue = async (petId: string) => {
+    const queued = (manager as any).petBackendQueues.get(petId) as Promise<unknown> | undefined;
+    if (queued) await queued;
+  };
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -491,21 +496,54 @@ describe("PetManager", () => {
       dragOffsetY: 0,
     });
 
-    // Cursor is at (40, 60) when the user presses down inside a window at (10, 20)
-    // → offset = (30, 40). Then cursor moves to (130, 160) → new window pos = (100, 120).
+    // Cursor is at (40, 60) when the user presses down. The drag origin comes
+    // from cached state x/y (0,0) instead of win.getPosition() (10,20), which
+    // avoids Wayland reporting (0,0) and breaking the offset.
+    // → offset = (40, 60). Then cursor moves to (130, 160) → new window pos = (90, 100).
     (screen.getCursorScreenPoint as jest.Mock)
       .mockReturnValueOnce({ x: 40, y: 60 })
       .mockReturnValueOnce({ x: 130, y: 160 });
 
     dragHandler({ sender: mockSender });
-    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 10, 20);
+    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 0, 0);
+    expect(mockStore.updatePet).toHaveBeenCalledWith("pet_1", {
+      dragOffsetX: 40,
+      dragOffsetY: 60,
+    });
 
+    await flushPetQueue("pet_1");
     moveHandler({ sender: mockSender }, { x: 0, y: 0 }); // renderer coords ignored
-    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 100, 120);
-    expect(mockWin.setPosition).toHaveBeenCalledWith(100, 120);
+    await flushPetQueue("pet_1");
+    expect(mockBackendClient.dragPet).toHaveBeenCalledWith("pet_1", 90, 100);
+    expect(mockWin.setPosition).toHaveBeenCalledWith(90, 100);
 
     dropHandler({ sender: mockSender });
+    await flushPetQueue("pet_1");
     expect(mockBackendClient.dropPet).toHaveBeenCalledWith("pet_1");
+  });
+
+  test("pet backend commands should preserve drag/drop order", async () => {
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const first = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+
+    (manager as any)._queuePetBackendCommand("pet_1", () => {
+      order.push("drag");
+      return first;
+    });
+    (manager as any)._queuePetBackendCommand("pet_1", () => {
+      order.push("drop");
+      return Promise.resolve();
+    });
+
+    expect(order).toEqual(["drag"]);
+    const queued = (manager as any).petBackendQueues.get("pet_1") as Promise<unknown>;
+    releaseFirst();
+    await queued;
+
+    expect(order).toEqual(["drag", "drop"]);
   });
 
   test("pet loop should advance frames while dragging without moving the window", async () => {
@@ -601,6 +639,66 @@ describe("PetManager", () => {
       state: expect.objectContaining({ x: 0, y: 10 })
     }));
     expect(mockBackendClient.setPosition).not.toHaveBeenCalled();
+  });
+
+  test("pet loop should choose display bounds from cached pet state when window position is unreliable", async () => {
+    const rawWorldSpy = jest.spyOn(BorderDetector, "getRawWorldContext");
+    (screen.getAllDisplays as jest.Mock).mockReturnValue([
+      {
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+      },
+      {
+        bounds: { x: 1920, y: 0, width: 1080, height: 1920 },
+        workArea: { x: 1920, y: 0, width: 1080, height: 1880 },
+      },
+    ]);
+
+    const mockWin = {
+      getPosition: jest.fn().mockReturnValue([0, 0]),
+      getSize: jest.fn().mockReturnValue([64, 64]),
+      setPosition: jest.fn(),
+      isDestroyed: jest.fn().mockReturnValue(false),
+      webContents: { send: jest.fn() }
+    };
+    mockWindowManager.windows.set("pet_1", { win: mockWin, opts: {} });
+    mockStore.setPet("pet_1", {
+      id: "pet_1",
+      path: "../pets/sheep",
+      backendPetId: "pet_1",
+      frameW: 64,
+      frameH: 64,
+      currentAnimId: 0,
+      currentAnimName: "idle",
+      state: { frameIndex: 0, x: 2000, y: 1700, offsetY: 0, flipH: false },
+      loaded: true,
+      stopped: false,
+    });
+
+    mockBackendClient.stepPet.mockResolvedValue({
+      ok: true,
+      payload: {
+        frame_index: 5,
+        x: 2000,
+        y: 1700,
+        opacity: 1,
+        interval_ms: 100
+      }
+    });
+
+    manager["_startPetLoop"]("pet_1");
+    await jest.advanceTimersByTimeAsync(200);
+
+    expect(rawWorldSpy).toHaveBeenCalledWith(
+      2000,
+      1700,
+      64,
+      64,
+      expect.any(Array),
+      { multiScreen: true },
+    );
+
+    rawWorldSpy.mockRestore();
   });
 
   test("pet loop should forward backend border context to store and renderer", async () => {
