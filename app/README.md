@@ -23,4 +23,4 @@ npm install
 npm start
 ```
 
-Use `npm run build:ts` for a TypeScript-only build and `npm test` for Jest unit tests.
+Use `npm run dev` for watch/restart development, `npm run build:ts` for a TypeScript-only build, and `npm test` for Jest unit tests.

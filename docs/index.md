@@ -15,7 +15,7 @@ A desktop pet application with AI chat capabilities. A Go backend handles animat
 cd app && npm install && npm start
 ```
 
-`npm start` compiles the app TypeScript before launching Electron. The main process starts the Go backend, opens the control panel, and spawns the default pet. Edit the `.ts` sources; generated files live under `app/dist/src/...` for Electron and browser script loading.
+`npm start` compiles the app TypeScript before launching Electron. The main process starts the Go backend, opens the control panel, and spawns the default pet. Use `npm run dev` while iterating so TypeScript and Go changes rebuild and relaunch automatically. Edit the `.ts` sources; generated files live under `app/dist/src/...` for Electron and browser script loading.
 
 ## Project structure
 

@@ -5,6 +5,7 @@
 cd app && npm install && npm start
 ```
 Compiles the TypeScript app, starts Electron, and spawns the Go backend automatically.
+For iterative development, use `cd app && npm run dev` to watch TypeScript and Go changes and restart Electron automatically.
 
 ## Project structure
 - `backend/` — Go animation engine, IPC handlers, & LLM providers (HTTP API on `:8080`)
@@ -73,6 +74,8 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 ## Frontend
 - Source entry: `app/src/main/main.ts`; Electron runtime entry: generated `app/dist/src/main/main.js`
 - Build: `cd app && npm run build:ts`
+- Dev watch: `cd app && npm run dev`
+- One-shot dev launch: `cd app && npm run dev:once`
 - Jest config in `package.json` (`testEnvironment: "node"`)
 - Coverage excludes `src/preload/preload.ts`, `src/renderer/pet-renderer.ts`
 - Key TypeScript modules: 

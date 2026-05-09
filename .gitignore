@@ -13,3 +13,4 @@ clod-pet.cmd
 scripts/*.log
 tools/temp/
 bench-results/
+app/.clod-pet-dev-*

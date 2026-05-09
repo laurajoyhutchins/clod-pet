@@ -60,7 +60,8 @@ The app npm scripts run the TypeScript compiler before launching or testing:
 |------------|-------------|
 | `npm run build:ts` | Compile Electron/main/preload TypeScript and browser-script TypeScript |
 | `npm start` | Compile TypeScript, then launch Electron |
-| `npm run dev` | Compile TypeScript, then launch Electron with `NODE_ENV=development` |
+| `npm run dev` | Watch app and backend source, rebuild TypeScript on change, and restart Electron in development |
+| `npm run dev:once` | Compile TypeScript, then launch Electron with `NODE_ENV=development` |
 | `npm test` | Compile TypeScript, then run app unit tests |
 | `npm run test:e2e` | Run app E2E tests that spawn the Go backend |
 

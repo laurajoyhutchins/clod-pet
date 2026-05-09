@@ -5,6 +5,7 @@ import PetManager = require("./pet-manager");
 import TrayManager = require("./tray-manager");
 import ChatManager = require("./chat-manager");
 import EditorWindowManager = require("./editor-window");
+import { setupDevReloadWatcher } from "./dev-reload";
 import globalStore, { standardizeError } from "../shared/store";
 import { StoreBridge } from "./store-bridge";
 import { getPetsDir } from "./project-paths";
@@ -48,6 +49,8 @@ if (process.platform === "linux" && process.env.XDG_SESSION_TYPE === "wayland" &
   // explicit pet window positioning reliable.
   app.commandLine.appendSwitch("ozone-platform-hint", "x11");
 }
+
+setupDevReloadWatcher(process.env.CLOD_PET_DEV_RELOAD_FILE);
 
 async function createPet(petPath?: string, opts: { throwOnError?: boolean } = {}): Promise<string | null> {
   if (!petManager) return null;
@@ -307,12 +310,15 @@ app.whenReady().then(async () => {
 
   backendManager = new BackendManager({ preferSource: !app.isPackaged, store: globalStore });
   const backendUrl = await backendManager.start();
+  if (shutdownStarted) return;
 
   petManager = new PetManager(backendUrl, globalStore);
   await petManager.init();
+  if (shutdownStarted) return;
   setupControlPanelHandlers();
 
   await handleAutoScaling();
+  if (shutdownStarted) return;
 
   const preloadPath = path.join(__dirname, "..", "preload", "preload.js");
   chatManager = new ChatManager(preloadPath);
@@ -329,7 +335,9 @@ app.whenReady().then(async () => {
   trayManager.init();
 
   await createPet();
+  if (shutdownStarted) return;
   showControlPanel();
+  if (shutdownStarted) return;
 
   app.on("activate", () => createPet());
 });

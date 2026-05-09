@@ -47,6 +47,7 @@ npm start
 ```
 
 `npm start` compiles the app TypeScript and then launches Electron.
+If you are actively editing code, `npm run dev` keeps rebuilding TypeScript and relaunching Electron when source files change.
 
 You will see:
 1. A system tray icon appear

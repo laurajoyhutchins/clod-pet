@@ -17,6 +17,8 @@ npm install
 cd app && npm start
 ```
 
+For iterative development, use `cd app && npm run dev` to watch TypeScript and Go changes and restart Electron automatically.
+
 3. On Windows, use the full installer if you want the backend, shortcuts, and default settings set up for you.
 
 ```powershell
