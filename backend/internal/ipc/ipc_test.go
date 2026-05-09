@@ -15,6 +15,18 @@ func newMockService() *mockService {
 	return &mockService{newCommonMockService("test", "Test")}
 }
 
+func TestCommandsReturnsCopy(t *testing.T) {
+	commands := Commands()
+	if len(commands) == 0 {
+		t.Fatal("expected commands to be non-empty")
+	}
+
+	commands[0] = "mutated"
+	if Commands()[0] != CmdAddPet {
+		t.Fatalf("Commands returned mutable registry")
+	}
+}
+
 func (m *mockService) addEngine(id string) {
 	e := engine.NewEngine(testPetDef())
 	e.Start(1)

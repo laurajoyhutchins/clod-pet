@@ -29,6 +29,32 @@ const (
 	CmdLLMChat     Command = "llm_chat"
 )
 
+var commandRegistry = []Command{
+	CmdAddPet,
+	CmdRemovePet,
+	CmdDragPet,
+	CmdDropPet,
+	CmdStepPet,
+	CmdStepPets,
+	CmdBorderPet,
+	CmdGetStatus,
+	CmdGetPet,
+	CmdSetVolume,
+	CmdSetScale,
+	CmdGetSettings,
+	CmdSetSettings,
+	CmdListPets,
+	CmdListActive,
+	CmdSetPosition,
+	CmdLLMChat,
+}
+
+func Commands() []Command {
+	commands := make([]Command, len(commandRegistry))
+	copy(commands, commandRegistry)
+	return commands
+}
+
 type Request struct {
 	Command Command         `json:"command"`
 	Payload json.RawMessage `json:"payload,omitempty"`

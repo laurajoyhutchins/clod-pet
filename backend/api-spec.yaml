@@ -26,41 +26,44 @@ paths:
                     enum: [ok, degraded]
                   message:
                     type: string
+                  request_id:
+                    type: string
 
   /api:
     post:
       summary: Generic command endpoint
+      description: RPC-over-HTTP command dispatcher. Each request has a command discriminator and a command-specific payload.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [command, payload]
-              properties:
-                command:
-                  type: string
-                  enum: [add_pet, remove_pet, drag_pet, drop_pet, step_pet, step_pets, border_pet, get_status, get_pet, set_volume, set_scale, get_settings, set_settings, list_pets, list_active, set_position, llm_chat]
-                payload:
-                  type: object
-                  properties:
-                    world:
-                      type: object
-                      description: Optional screen/work-area context used when spawning pets
+              $ref: '#/components/schemas/ApiCommandRequest'
       responses:
         '200':
           description: Command response
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  payload:
-                    type: object
-                  error:
-                    type: string
+                $ref: '#/components/schemas/ApiCommandResponse'
+        '400':
+          description: Invalid JSON, invalid payload, or command failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Referenced pet was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/pet/load:
     post:
@@ -113,6 +116,8 @@ paths:
                               type: integer
                       anim_count:
                         type: integer
+                  request_id:
+                    type: string
 
   /api/describe:
     get:
@@ -129,13 +134,7 @@ paths:
                   version:
                     type: string
                   build:
-                    type: object
-                    properties:
-                      mode:
-                        type: string
-                        enum: [debug, release]
-                      debug:
-                        type: boolean
+                    $ref: '#/components/schemas/BuildInfo'
                   commands:
                     type: array
                     items:
@@ -151,6 +150,8 @@ paths:
                           type: string
                         description:
                           type: string
+                  request_id:
+                    type: string
   /api/version:
     get:
       summary: Backend version information
@@ -167,24 +168,25 @@ paths:
                   version:
                     type: string
                   build:
-                    type: object
-                    properties:
-                      mode:
-                        type: string
-                        enum: [debug, release]
-                      debug:
-                        type: boolean
+                    $ref: '#/components/schemas/BuildInfo'
                   pid:
                     type: integer
                   pets_dir:
                     type: string
                   settings_path:
                     type: string
+                  request_id:
+                    type: string
 
   /api/llm/stream:
     post:
       summary: Stream AI response tokens
-      description: Server-Sent Events (SSE) endpoint for LLM chat streaming
+      description: |
+        Server-Sent Events (SSE) endpoint for LLM chat streaming.
+        Content chunks are emitted as default `data: <token>` events with newlines escaped as `\n`.
+        Completion is emitted as `event: done` with `data: {}`.
+        Provider stream failures are emitted as `event: error` with `data: stream error`.
+        Empty content chunks are not emitted.
       requestBody:
         required: true
         content:
@@ -210,6 +212,34 @@ paths:
             text/event-stream:
               schema:
                 type: string
+              examples:
+                token:
+                  summary: Token chunk
+                  value: "data: hello\n\n"
+                done:
+                  summary: Completion event
+                  value: "event: done\ndata: {}\n\n"
+                error:
+                  summary: Stream error event
+                  value: "event: error\ndata: stream error\n\n"
+        '400':
+          description: Invalid JSON request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Stream initialization failed or streaming is unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/llm/health:
     get:
@@ -229,3 +259,555 @@ paths:
                     enum: [ok, error]
                   message:
                     type: string
+                  request_id:
+                    type: string
+
+components:
+  schemas:
+    ApiCommandRequest:
+      oneOf:
+        - $ref: '#/components/schemas/AddPetCommand'
+        - $ref: '#/components/schemas/RemovePetCommand'
+        - $ref: '#/components/schemas/DragPetCommand'
+        - $ref: '#/components/schemas/DropPetCommand'
+        - $ref: '#/components/schemas/StepPetCommand'
+        - $ref: '#/components/schemas/StepPetsCommand'
+        - $ref: '#/components/schemas/BorderPetCommand'
+        - $ref: '#/components/schemas/GetStatusCommand'
+        - $ref: '#/components/schemas/GetPetCommand'
+        - $ref: '#/components/schemas/SetVolumeCommand'
+        - $ref: '#/components/schemas/SetScaleCommand'
+        - $ref: '#/components/schemas/GetSettingsCommand'
+        - $ref: '#/components/schemas/SetSettingsCommand'
+        - $ref: '#/components/schemas/ListPetsCommand'
+        - $ref: '#/components/schemas/ListActiveCommand'
+        - $ref: '#/components/schemas/SetPositionCommand'
+        - $ref: '#/components/schemas/LLMChatCommand'
+      discriminator:
+        propertyName: command
+        mapping:
+          add_pet: '#/components/schemas/AddPetCommand'
+          remove_pet: '#/components/schemas/RemovePetCommand'
+          drag_pet: '#/components/schemas/DragPetCommand'
+          drop_pet: '#/components/schemas/DropPetCommand'
+          step_pet: '#/components/schemas/StepPetCommand'
+          step_pets: '#/components/schemas/StepPetsCommand'
+          border_pet: '#/components/schemas/BorderPetCommand'
+          get_status: '#/components/schemas/GetStatusCommand'
+          get_pet: '#/components/schemas/GetPetCommand'
+          set_volume: '#/components/schemas/SetVolumeCommand'
+          set_scale: '#/components/schemas/SetScaleCommand'
+          get_settings: '#/components/schemas/GetSettingsCommand'
+          set_settings: '#/components/schemas/SetSettingsCommand'
+          list_pets: '#/components/schemas/ListPetsCommand'
+          list_active: '#/components/schemas/ListActiveCommand'
+          set_position: '#/components/schemas/SetPositionCommand'
+          llm_chat: '#/components/schemas/LLMChatCommand'
+    ApiCommandResponse:
+      anyOf:
+        - $ref: '#/components/schemas/PetStateResponse'
+        - $ref: '#/components/schemas/PetStatesResponse'
+        - $ref: '#/components/schemas/StatusResponse'
+        - $ref: '#/components/schemas/PetInfoResponse'
+        - $ref: '#/components/schemas/SettingsResponse'
+        - $ref: '#/components/schemas/ListPetsResponse'
+        - $ref: '#/components/schemas/ListActiveResponse'
+        - $ref: '#/components/schemas/LLMChatResponse'
+        - $ref: '#/components/schemas/EmptyCommandResponse'
+    BuildInfo:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [debug, release]
+        debug:
+          type: boolean
+    CommandEnvelope:
+      type: object
+      required: [ok, request_id]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        request_id:
+          type: string
+    AddPetCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [add_pet]
+        payload:
+          $ref: '#/components/schemas/AddPetPayload'
+    RemovePetCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [remove_pet]
+        payload:
+          $ref: '#/components/schemas/PetIDPayload'
+    DragPetCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [drag_pet]
+        payload:
+          $ref: '#/components/schemas/PositionPayload'
+    DropPetCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [drop_pet]
+        payload:
+          $ref: '#/components/schemas/PetIDPayload'
+    StepPetCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [step_pet]
+        payload:
+          $ref: '#/components/schemas/StepPetPayload'
+    StepPetsCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [step_pets]
+        payload:
+          $ref: '#/components/schemas/StepPetsPayload'
+    BorderPetCommand:
+      type: object
+      required: [command, payload]
+      description: Validates that the pet exists. Border transitions are driven by step_pet world context.
+      properties:
+        command:
+          type: string
+          enum: [border_pet]
+        payload:
+          $ref: '#/components/schemas/BorderPetPayload'
+    GetStatusCommand:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          enum: [get_status]
+    GetPetCommand:
+      type: object
+      required: [command, payload]
+      description: Returns metadata for an active pet. Despite the payload field name, pet_path must contain an active pet id.
+      properties:
+        command:
+          type: string
+          enum: [get_pet]
+        payload:
+          $ref: '#/components/schemas/GetPetPayload'
+    SetVolumeCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [set_volume]
+        payload:
+          $ref: '#/components/schemas/SetVolumePayload'
+    SetScaleCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [set_scale]
+        payload:
+          $ref: '#/components/schemas/SetScalePayload'
+    GetSettingsCommand:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          enum: [get_settings]
+    SetSettingsCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [set_settings]
+        payload:
+          $ref: '#/components/schemas/SettingsPatch'
+    ListPetsCommand:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          enum: [list_pets]
+    ListActiveCommand:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          enum: [list_active]
+    SetPositionCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [set_position]
+        payload:
+          $ref: '#/components/schemas/PositionPayload'
+    LLMChatCommand:
+      type: object
+      required: [command, payload]
+      properties:
+        command:
+          type: string
+          enum: [llm_chat]
+        payload:
+          $ref: '#/components/schemas/ChatRequest'
+    AddPetPayload:
+      type: object
+      required: [pet_path]
+      properties:
+        pet_path:
+          type: string
+        spawn_id:
+          type: integer
+          default: 0
+        world:
+          $ref: '#/components/schemas/WorldContext'
+    PetIDPayload:
+      type: object
+      required: [pet_id]
+      properties:
+        pet_id:
+          type: string
+    PositionPayload:
+      type: object
+      required: [pet_id, x, y]
+      properties:
+        pet_id:
+          type: string
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+    StepPetPayload:
+      type: object
+      required: [pet_id, world]
+      properties:
+        pet_id:
+          type: string
+        world:
+          $ref: '#/components/schemas/WorldContext'
+    StepPetsPayload:
+      type: object
+      required: [pet_ids, world]
+      properties:
+        pet_ids:
+          type: array
+          items:
+            type: string
+        world:
+          $ref: '#/components/schemas/WorldContext'
+    BorderPetPayload:
+      type: object
+      required: [pet_id, direction]
+      properties:
+        pet_id:
+          type: string
+        direction:
+          $ref: '#/components/schemas/BorderContext'
+    GetPetPayload:
+      type: object
+      required: [pet_path]
+      properties:
+        pet_path:
+          type: string
+          description: Active pet id.
+    SetVolumePayload:
+      type: object
+      required: [volume]
+      properties:
+        volume:
+          type: number
+          format: double
+    SetScalePayload:
+      type: object
+      required: [scale]
+      properties:
+        scale:
+          type: number
+          format: double
+    ChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        stream:
+          type: boolean
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+        content:
+          type: string
+        model:
+          type: string
+    Rect:
+      type: object
+      properties:
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        w:
+          type: number
+          format: double
+        h:
+          type: number
+          format: double
+    WorldContext:
+      type: object
+      properties:
+        screen:
+          $ref: '#/components/schemas/Rect'
+        work_area:
+          $ref: '#/components/schemas/Rect'
+        desktop:
+          $ref: '#/components/schemas/Rect'
+    BorderContext:
+      type: integer
+      description: Bitmask where floor=1, ceiling=2, left=4, right=8, walls=12, obstacle=16.
+      minimum: 0
+    SettingsPatch:
+      type: object
+      additionalProperties: true
+      properties:
+        Volume:
+          type: number
+          format: double
+        WinForeGround:
+          type: boolean
+        StealTaskbarFocus:
+          type: boolean
+        AutostartPets:
+          type: integer
+        Scale:
+          type: number
+          format: double
+        ShowAdvancedSettings:
+          type: boolean
+        ShowDiagnostics:
+          type: boolean
+        PanelStyle:
+          type: string
+        MultiScreenEnabled:
+          type: boolean
+        GravityFactor:
+          type: number
+          format: double
+        CurrentPet:
+          type: string
+    Settings:
+      allOf:
+        - $ref: '#/components/schemas/SettingsPatch'
+    SoundPayload:
+      type: object
+      properties:
+        mime_type:
+          type: string
+        data_base64:
+          type: string
+        loop:
+          type: integer
+    PetState:
+      type: object
+      properties:
+        pet_id:
+          type: string
+        frame_index:
+          type: integer
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        offset_y:
+          type: number
+          format: double
+        opacity:
+          type: number
+          format: double
+        interval_ms:
+          type: integer
+        flip_h:
+          type: boolean
+        current_anim_id:
+          type: integer
+        current_anim_name:
+          type: string
+        next_anim_id:
+          type: integer
+        border_ctx:
+          $ref: '#/components/schemas/BorderContext'
+        sound:
+          $ref: '#/components/schemas/SoundPayload'
+    SpawnInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        probability:
+          type: integer
+    PetInfo:
+      type: object
+      properties:
+        title:
+          type: string
+        pet_name:
+          type: string
+        tiles_x:
+          type: integer
+        tiles_y:
+          type: integer
+        png_base64:
+          type: string
+          description: Present for /api/pet/load, omitted by get_pet.
+        frame_w:
+          type: integer
+        frame_h:
+          type: integer
+        spawns:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpawnInfo'
+        anim_count:
+          type: integer
+    ActivePet:
+      type: object
+      additionalProperties: true
+      properties:
+        pet_id:
+          type: string
+        pet_path:
+          type: string
+        title:
+          type: string
+        pet_name:
+          type: string
+    ChatResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        content:
+          type: string
+    PetStateResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              $ref: '#/components/schemas/PetState'
+    PetStatesResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              type: array
+              items:
+                $ref: '#/components/schemas/PetState'
+    StatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              type: object
+              properties:
+                pet_count:
+                  type: integer
+    PetInfoResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              $ref: '#/components/schemas/PetInfo'
+    SettingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              $ref: '#/components/schemas/Settings'
+    ListPetsResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              type: array
+              items:
+                type: string
+    ListActiveResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              type: array
+              items:
+                $ref: '#/components/schemas/ActivePet'
+    LLMChatResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              $ref: '#/components/schemas/ChatResponse'
+    EmptyCommandResponse:
+      allOf:
+        - $ref: '#/components/schemas/CommandEnvelope'
+        - type: object
+          properties:
+            payload:
+              type: object
+              nullable: true
+              description: Omitted for commands that do not return a payload.
+    ErrorResponse:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+        request_id:
+          type: string

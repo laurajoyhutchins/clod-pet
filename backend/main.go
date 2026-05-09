@@ -338,15 +338,15 @@ func describeHandler() http.HandlerFunc {
 			writeErrorWithRequestID(w, "method not allowed", http.StatusMethodNotAllowed, requestID)
 			return
 		}
+		ipcCommands := ipc.Commands()
+		commands := make([]string, 0, len(ipcCommands))
+		for _, command := range ipcCommands {
+			commands = append(commands, string(command))
+		}
 		description := map[string]interface{}{
-			"version": apiVersion,
-			"build":   buildmode.Current(),
-			"commands": []string{
-				"add_pet", "remove_pet", "drag_pet", "drop_pet",
-				"step_pet", "step_pets", "border_pet", "get_status", "get_pet",
-				"set_volume", "set_scale", "get_settings", "set_settings",
-				"list_pets", "list_active", "set_position", "llm_chat",
-			},
+			"version":  apiVersion,
+			"build":    buildmode.Current(),
+			"commands": commands,
 			"endpoints": []map[string]interface{}{
 				{"path": "/api", "method": "POST", "description": "Generic command endpoint"},
 				{"path": "/api/pet/load", "method": "POST", "description": "Load pet definition"},

@@ -501,6 +501,18 @@ func TestDescribeHandler(t *testing.T) {
 				if result["version"] == nil || result["commands"] == nil || result["endpoints"] == nil {
 					t.Fatalf("unexpected response body: %#v", result)
 				}
+				commands, ok := result["commands"].([]interface{})
+				if !ok {
+					t.Fatalf("commands has unexpected type: %#v", result["commands"])
+				}
+				if len(commands) != len(ipc.Commands()) {
+					t.Fatalf("expected %d commands, got %d", len(ipc.Commands()), len(commands))
+				}
+				for i, command := range ipc.Commands() {
+					if commands[i] != string(command) {
+						t.Fatalf("command %d = %#v, want %q", i, commands[i], command)
+					}
+				}
 			}
 		})
 	}
