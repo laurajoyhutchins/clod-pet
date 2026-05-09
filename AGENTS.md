@@ -23,6 +23,10 @@ Compiles the TypeScript app, starts Electron, and spawns the Go backend automati
 | Frontend dev | `cd app && npm run dev` |
 | Frontend test | `cd app && npm test` |
 | Backend run | `cd backend && go run .` |
+| Pet port | `cd backend && go run ./cmd/pet-port/` |
+| Pet step | `cd backend && go run ./cmd/pet-step/ -pet <id> [-n steps] [-v]` |
+| Pet watch | `cd backend && go run ./cmd/pet-watch/ -pet <id> [-i ms] [-v]` |
+| Pet simulate | `cd backend && go run ./cmd/pet-simulate/ -pet <path> [-n steps] [-v]` |
 | Docs serve | `mkdocs serve` |
 
 ### Test script options

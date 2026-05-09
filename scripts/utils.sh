@@ -74,13 +74,13 @@ show_success_sheep() {
 
     get_fg() {
         local ch="$1"
-        if [[ -z "${colors[$ch]}" ]]; then echo ""; return; fi
+        if [[ -z "${colors[$ch]-}" ]]; then echo ""; return; fi
         echo -e "${esc}[38;2;${colors[$ch]}m"
     }
 
     get_bg() {
         local ch="$1"
-        if [[ -z "${colors[$ch]}" ]]; then echo ""; return; fi
+        if [[ -z "${colors[$ch]-}" ]]; then echo ""; return; fi
         echo -e "${esc}[48;2;${colors[$ch]}m"
     }
 
@@ -130,7 +130,7 @@ show_success_sheep() {
 
     for ((y=0; y<${#sheep[@]}; y+=2)); do
         local top="${sheep[$y]}"
-        local bottom="${sheep[$((y+1))]}"
+        local bottom="${sheep[$((y+1))]-}"
         if [[ -z "$bottom" ]]; then
             bottom=$(printf '%.0s.' $(seq 1 ${#top}))
         fi
@@ -188,13 +188,13 @@ show_failure_sheep() {
 
     get_fg() {
         local ch="$1"
-        if [[ -z "${colors[$ch]}" ]]; then echo ""; return; fi
+        if [[ -z "${colors[$ch]-}" ]]; then echo ""; return; fi
         echo -e "${esc}[38;2;${colors[$ch]}m"
     }
 
     get_bg() {
         local ch="$1"
-        if [[ -z "${colors[$ch]}" ]]; then echo ""; return; fi
+        if [[ -z "${colors[$ch]-}" ]]; then echo ""; return; fi
         echo -e "${esc}[48;2;${colors[$ch]}m"
     }
 
@@ -244,7 +244,7 @@ show_failure_sheep() {
 
     for ((y=0; y<${#sheep[@]}; y+=2)); do
         local top="${sheep[$y]}"
-        local bottom="${sheep[$((y+1))]}"
+        local bottom="${sheep[$((y+1))]-}"
         if [[ -z "$bottom" ]]; then
             bottom=$(printf '%.0s.' $(seq 1 ${#top}))
         fi
