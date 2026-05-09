@@ -8,11 +8,14 @@
     "rootDir": "src/editor",
     "lib": ["ES2020", "DOM"],
     "types": ["node"],
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
     "useUnknownInCatchVariables": true,
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "include": ["src/editor/**/*.ts", "src/editor/**/*.d.ts"],
+  "include": ["src/editor/**/*.ts", "src/editor/**/*.tsx", "src/editor/**/*.d.ts"],
   "exclude": ["src/editor/**/*.test.ts", "src/editor/**/__tests__/**", "node_modules"]
 }

@@ -17,6 +17,19 @@ describe("editor document model", () => {
     expect(doc.spawns.length).toBeGreaterThan(0);
   });
 
+  test("validates the bundled modern pet without false forward-reference errors", () => {
+    const raw = JSON.parse(fs.readFileSync(sheepsJsonPath, "utf8"));
+    const doc = normalizeDocument(raw);
+    const result = validateDocumentStructure(doc, {
+      spritesheetDataUrl: "data:image/png;base64,placeholder",
+      iconDataUrl: "data:image/png;base64,placeholder",
+      spritesheetError: null,
+      iconError: null,
+    });
+
+    expect(result.errors).toHaveLength(0);
+  });
+
   test("validation reports duplicate ids, missing targets, and frame overflow", () => {
     const doc = normalizeDocument({
       header: { title: "Test" },

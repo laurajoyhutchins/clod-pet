@@ -29,6 +29,11 @@ function copyStaticFiles() {
     cpSync(path.join(rootDir, "public", file), path.join(distDir, file));
   }
 
+  copyIfExists(
+    path.join(rootDir, "node_modules", "@xyflow", "react", "dist", "style.css"),
+    path.join(distDir, "editor", "react-flow.css")
+  );
+
   const assetsDir = path.join(rootDir, "assets");
   if (existsSync(assetsDir)) {
     cpSync(assetsDir, path.join(distDir, "assets"), { recursive: true });
@@ -42,7 +47,8 @@ function main() {
   rmSync(distDir, { recursive: true, force: true });
   mkdirSync(distDir, { recursive: true });
   run("tsc -p tsconfig.json");
-  run("tsc -p tsconfig.editor.json");
+  run("tsc -p tsconfig.editor.json --noEmit");
+  run("vite build --config vite.editor.config.ts");
   run("tsc -p tsconfig.browser.json");
   copyStaticFiles();
 }

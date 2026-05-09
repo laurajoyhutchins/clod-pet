@@ -17,6 +17,10 @@
   --win98-accent: #000080;
   --win98-slider-thumb: var(--win98-face);
   --win98-slider-track: #ffffff;
+  --editor-edge-sequence: var(--win98-accent);
+  --editor-edge-border: #2f6fc4;
+  --editor-edge-gravity: #c25d1b;
+  --editor-edge-muted: var(--win98-muted);
 }
 
 * {
@@ -25,6 +29,11 @@
 
 html,
 body {
+  width: 100%;
+  height: 100%;
+}
+
+#editor-root {
   width: 100%;
   height: 100%;
 }
@@ -50,6 +59,25 @@ body.theme-rounded {
   height: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+.editor-boot {
+  background: var(--win98-face);
+}
+
+.editor-runtime-error {
+  margin: 8px;
+  padding: 8px;
+  border: 2px solid;
+  border-color: var(--win98-shadow) var(--win98-highlight) var(--win98-highlight) var(--win98-shadow);
+  background: var(--win98-input);
+  color: var(--win98-text);
+  overflow: auto;
+}
+
+.editor-runtime-error pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .editor-toolbar {
@@ -129,6 +157,7 @@ body.theme-rounded {
 .sidebar-item,
 .validation-item {
   display: flex;
+  width: 100%;
   gap: 6px;
   align-items: center;
   justify-content: space-between;
@@ -136,6 +165,9 @@ body.theme-rounded {
   border: 2px solid;
   border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
   background: var(--win98-face);
+  color: var(--win98-text);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -202,6 +234,40 @@ body.theme-rounded {
   border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
 }
 
+.graph-stage .react-flow {
+  background: transparent;
+}
+
+.graph-stage .react-flow__node {
+  border: 0;
+  background: transparent;
+  width: auto;
+  box-shadow: none;
+}
+
+.graph-stage .react-flow__edge-textbg {
+  fill: var(--win98-input);
+}
+
+.graph-stage .react-flow__edge-text {
+  fill: var(--win98-text);
+  font-family: "MS Sans Serif", "Tahoma", sans-serif;
+}
+
+.graph-stage .react-flow__controls,
+.graph-stage .react-flow__minimap {
+  border: 2px solid;
+  border-color: var(--win98-highlight) var(--win98-shadow) var(--win98-shadow) var(--win98-highlight);
+  background: var(--win98-face);
+  box-shadow: none;
+}
+
+.graph-stage .react-flow__controls-button {
+  background: var(--win98-face);
+  border-bottom: 1px solid var(--win98-shadow);
+  color: var(--win98-text);
+}
+
 .graph-viewport {
   position: absolute;
   inset: 0;
@@ -245,7 +311,6 @@ body.theme-rounded {
 }
 
 .graph-node {
-  position: absolute;
   width: 240px;
   min-height: 160px;
   background: var(--win98-face);
@@ -259,8 +324,7 @@ body.theme-rounded {
   user-select: none;
 }
 
-.graph-node.spawn,
-.graph-node.child {
+.graph-node.source {
   width: 180px;
   min-height: 90px;
 }
@@ -301,6 +365,14 @@ body.theme-rounded {
   display: block;
   width: 100%;
   height: 96px;
+  background: var(--win98-input);
+  border: 1px solid var(--win98-shadow);
+}
+
+.animation-playback {
+  display: block;
+  width: 100%;
+  height: 120px;
   background: var(--win98-input);
   border: 1px solid var(--win98-shadow);
 }
@@ -465,4 +537,25 @@ body.theme-rounded {
   width: 24px;
   height: 24px;
   padding: 0;
+}
+
+.frame-button {
+  width: 30px;
+  height: 30px;
+  padding: 1px;
+}
+
+.frame-tile {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.selection-heading {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.graph-empty {
+  padding: 12px;
 }

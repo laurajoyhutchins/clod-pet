@@ -1,3 +1,5 @@
+import ELK from "elkjs/lib/elk.bundled.js";
+import { buildGraphModel } from "./graph";
 import type { EditorLayoutState, ModernPetDocument } from "./types";
 
 export interface LayoutBounds {
@@ -81,3 +83,43 @@ export function getLayoutBounds(layout: EditorLayoutState, nodeSize = { width: 2
   return { minX, minY, maxX, maxY };
 }
 
+export async function computeElkLayout(document: ModernPetDocument, currentLayout?: EditorLayoutState): Promise<EditorLayoutState> {
+  const elk = new ELK();
+  const sourceLayout = currentLayout || computeDefaultLayout(document);
+  const model = buildGraphModel(document, sourceLayout);
+  const graph = {
+    id: "root",
+    layoutOptions: {
+      "elk.algorithm": "layered",
+      "elk.direction": "RIGHT",
+      "elk.spacing.nodeNode": "80",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "100",
+    },
+    children: model.nodes.map((node) => ({
+      id: node.key,
+      width: node.width,
+      height: node.height,
+    })),
+    edges: model.edges.map((edge) => ({
+      id: edge.key,
+      sources: [edge.sourceKey],
+      targets: [edge.targetKey],
+    })),
+  };
+
+  const result = await elk.layout(graph);
+  const nodes: EditorLayoutState["nodes"] = {};
+  for (const node of result.children || []) {
+    if (typeof node.x === "number" && typeof node.y === "number") {
+      nodes[node.id] = { x: node.x + 40, y: node.y + 40 };
+    }
+  }
+
+  return {
+    nodes: {
+      ...sourceLayout.nodes,
+      ...nodes,
+    },
+    viewport: sourceLayout.viewport,
+  };
+}
