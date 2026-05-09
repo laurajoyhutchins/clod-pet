@@ -22,3 +22,9 @@ Electron main-process code lives here.
 - `store-bridge.ts` - connects shared store state to runtime consumers.
 - `tray-manager.ts` - tray icon and tray menu behavior.
 - `window-manager.ts` - lower-level Electron window helpers.
+
+## Logging
+
+- `CLOD_PET_LOG_DIR` - overrides the log directory.
+- `CLOD_PET_LOG_MAX_BYTES` - per-file rotation threshold in bytes.
+- `CLOD_PET_LOG_MAX_FILES` - number of rotated backups to keep per log family.
