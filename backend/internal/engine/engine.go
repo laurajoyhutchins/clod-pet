@@ -36,6 +36,21 @@ const (
 	StateFalling
 )
 
+func (s PetState) String() string {
+	switch s {
+	case StateIdle:
+		return "idle"
+	case StateAnimating:
+		return "animating"
+	case StateDragging:
+		return "dragging"
+	case StateFalling:
+		return "falling"
+	default:
+		return fmt.Sprintf("PetState(%d)", int(s))
+	}
+}
+
 type Rect struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -101,11 +116,11 @@ func NewEngine(p *pet.Pet) *Engine {
 	}
 
 	engine := &Engine{
-		petDef:       p,
-		animationIDs: animationIDs,
-		state:        StateIdle,
-		env:          expression.NewEnv(),
-		tolerance:    1.0,
+		petDef:        p,
+		animationIDs:  animationIDs,
+		state:         StateIdle,
+		env:           expression.NewEnv(),
+		tolerance:     1.0,
 		gravityFactor: 2.0,
 		scale:         1.0,
 	}
@@ -115,6 +130,9 @@ func NewEngine(p *pet.Pet) *Engine {
 }
 
 func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
+	prevState := e.state
+	prevAnim := e.currentAnim
+
 	spawn := e.pickSpawn(spawnID)
 	if spawn == nil {
 		return nil
@@ -144,6 +162,9 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	e.state = StateAnimating
 	e.flipH = false
 
+	e.logStateTransition(prevState, e.state, "start", "spawn_id", spawnID)
+	e.logAnimationTransition(prevAnim, e.currentAnim, "start", "spawn_id", spawnID, "x", x, "y", y)
+
 	e.loadAnimation()
 
 	petW := float64(e.petDef.FrameW) * e.scale
@@ -151,15 +172,19 @@ func (e *Engine) Start(spawnID int, worlds ...WorldContext) error {
 	if len(worlds) > 0 && e.detectGravity(world, petW, petH) {
 		if nextID := e.pickGravityTransition(); nextID > 0 {
 			log.Info("gravity triggered on spawn", "anim", e.currentAnim, "next_anim", nextID, "x", x, "y", y)
+			prevAnim := e.currentAnim
 			e.currentAnim = nextID
 			e.frameIdx = 0
 			e.totalStepsDone = 0
+			e.logAnimationTransition(prevAnim, e.currentAnim, "gravity_on_spawn", "x", x, "y", y)
 			e.loadAnimation()
 		} else if nextID := e.findAnimationByName("fall"); nextID > 0 && nextID != e.currentAnim {
 			log.Info("gravity triggered on spawn", "anim", e.currentAnim, "next_anim", nextID, "x", x, "y", y)
+			prevAnim := e.currentAnim
 			e.currentAnim = nextID
 			e.frameIdx = 0
 			e.totalStepsDone = 0
+			e.logAnimationTransition(prevAnim, e.currentAnim, "gravity_on_spawn", "x", x, "y", y)
 			e.loadAnimation()
 		}
 	}
@@ -447,23 +472,35 @@ func (e *Engine) applyAction(action string) {
 }
 
 func (e *Engine) SetDrag() {
+	prevState := e.state
+	prevAnim := e.currentAnim
+
 	e.state = StateDragging
 	dragAnim := e.findAnimationByName("drag")
 	if dragAnim <= 0 {
+		e.logStateTransition(prevState, e.state, "set_drag")
 		return
 	}
 	if e.currentAnim == dragAnim {
+		e.logStateTransition(prevState, e.state, "set_drag")
 		return
 	}
 	e.currentAnim = dragAnim
 	e.frameIdx = 0
 	e.totalStepsDone = 0
+	e.logStateTransition(prevState, e.state, "set_drag")
+	e.logAnimationTransition(prevAnim, e.currentAnim, "set_drag")
 	e.loadAnimation()
 }
 
 func (e *Engine) SetFall() {
+	prevState := e.state
+	prevAnim := e.currentAnim
+
 	e.state = StateFalling
 	e.currentAnim = e.findAnimationByName("fall")
+	e.logStateTransition(prevState, e.state, "set_fall")
+	e.logAnimationTransition(prevAnim, e.currentAnim, "set_fall")
 	if e.currentAnim > 0 {
 		e.frameIdx = 0
 		e.totalStepsDone = 0
@@ -493,17 +530,25 @@ func (e *Engine) SetScale(scale float64) {
 }
 
 func (e *Engine) Reset() {
+	prevState := e.state
+	prevAnim := e.currentAnim
+
 	e.state = StateIdle
 	e.currentAnim = 0
 	e.frameIdx = 0
 	e.totalStepsDone = 0
+	e.logStateTransition(prevState, e.state, "reset")
+	e.logAnimationTransition(prevAnim, e.currentAnim, "reset")
 }
 
 func (e *Engine) TransitionTo(animID int) {
+	prevAnim := e.currentAnim
+
 	e.env.RegenerateRandom()
 	e.currentAnim = animID
 	e.frameIdx = 0
 	e.totalStepsDone = 0
+	e.logAnimationTransition(prevAnim, e.currentAnim, "transition_to")
 	e.loadAnimation()
 }
 
@@ -616,6 +661,51 @@ func (e *Engine) pickGravityTransition() int {
 
 func (e *Engine) findAnimationByName(name string) int {
 	return e.animationIDs[name]
+}
+
+func (e *Engine) logStateTransition(from, to PetState, reason string, attrs ...any) {
+	if from == to {
+		return
+	}
+
+	fields := []any{
+		"pet_name", e.petName(),
+		"reason", reason,
+		"from_state", from.String(),
+		"to_state", to.String(),
+	}
+	fields = append(fields, attrs...)
+	log.Debug("engine state transition", fields...)
+}
+
+func (e *Engine) logAnimationTransition(from, to int, reason string, attrs ...any) {
+	fields := []any{
+		"pet_name", e.petName(),
+		"reason", reason,
+		"from_anim", e.animationLabel(from),
+		"to_anim", e.animationLabel(to),
+	}
+	fields = append(fields, attrs...)
+	log.Debug("engine animation transition", fields...)
+}
+
+func (e *Engine) petName() string {
+	if e.petDef == nil {
+		return ""
+	}
+	return e.petDef.Header.PetName
+}
+
+func (e *Engine) animationLabel(animID int) string {
+	if e.petDef == nil {
+		return fmt.Sprintf("%d", animID)
+	}
+
+	if anim, ok := e.petDef.Animations[animID]; ok && anim.Name != "" {
+		return fmt.Sprintf("%d (%s)", animID, anim.Name)
+	}
+
+	return fmt.Sprintf("%d", animID)
 }
 
 func (e *Engine) stepResult(frame int, offsetY, opacity float64, intervalMs, nextAnimID int, borderCtx BorderContext) *StepResult {
