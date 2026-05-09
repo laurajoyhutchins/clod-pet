@@ -89,21 +89,22 @@ export SETTINGS_PATH="${SETTINGS_PATH:-$settings_path}"
 
 dist_main="$app_dir/dist/src/main/main.js"
 electron_bin="$app_dir/node_modules/.bin/electron"
+electron_launcher="$app_dir/scripts/start-electron.js"
 if [[ ! -f "$dist_main" ]]; then
   error "Built app not found at $dist_main. Run scripts/build.sh first."
   show_failure_sheep "run failed!"
   exit 1
 fi
 
-if [[ ! -x "$electron_bin" ]]; then
-  error "Electron executable not found at $electron_bin. Reinstall app dependencies."
+if [[ ! -f "$electron_launcher" ]]; then
+  error "Electron launcher not found at $electron_launcher. Run scripts/build.sh first."
   show_failure_sheep "run failed!"
   exit 1
 fi
 
 cd "$app_dir"
 info "Starting Electron app..."
-if "$electron_bin" --no-sandbox . "${PASSTHROUGH_ARGS[@]}"; then
+if node "$electron_launcher" "${PASSTHROUGH_ARGS[@]}"; then
   exit 0
 else
   status=$?

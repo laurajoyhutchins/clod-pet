@@ -41,6 +41,8 @@ contextBridge.exposeInMainWorld("clodPet", {
     setGravityFactor: (gravity: number) => ipcRenderer.invoke("control:set-gravity-factor", gravity),
     resizeWindow: (width: number, height: number) => ipcRenderer.invoke("control:resize-window", { width, height }),
     diagnostics: () => ipcRenderer.invoke("control:diagnostics"),
+    log: (source: string, level: "debug" | "info" | "warn" | "error", ...args: unknown[]) =>
+      ipcRenderer.invoke("control:renderer-log", { source, level, args }),
     reportError: (source: string, message: string, stack?: string) =>
       ipcRenderer.invoke("control:renderer-error", { source, message, stack }),
 

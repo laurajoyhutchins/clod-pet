@@ -143,6 +143,7 @@ declare global {
         setGravityFactor(gravity: number): Promise<void>;
         resizeWindow(width: number, height: number): Promise<boolean>;
         diagnostics(): Promise<FullDiagnostics>;
+        log(source: string, level: "debug" | "info" | "warn" | "error", ...args: unknown[]): Promise<void>;
         reportError(source: string, message: string, stack?: string): Promise<void>;
         streamChat(messages: ChatMessage[], onEvent: (event: ChatStreamEvent) => void): void;
         closeWindow(): Promise<void>;

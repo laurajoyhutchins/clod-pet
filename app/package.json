@@ -5,8 +5,8 @@
   "main": "dist/src/main/main.js",
   "scripts": {
     "build:ts": "node scripts/build.js",
-    "start": "npm run build:ts && electron --no-sandbox .",
-    "dev": "npm run build:ts && cross-env NODE_ENV=development electron --no-sandbox .",
+    "start": "npm run build:ts && node scripts/start-electron.js",
+    "dev": "npm run build:ts && cross-env NODE_ENV=development node scripts/start-electron.js",
     "test": "npm run build:ts && jest",
     "test:watch": "jest --watch",
     "test:e2e": "jest tests/e2e --runInBand --forceExit --testPathIgnorePatterns=/node_modules/"

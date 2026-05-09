@@ -78,6 +78,21 @@ type SoundPayload = {
   loop?: number;
 };
 
+const log = {
+  debug: (...args: unknown[]) => {
+    void window.clodPet.control.log("pet-renderer", "debug", ...args);
+  },
+  info: (...args: unknown[]) => {
+    void window.clodPet.control.log("pet-renderer", "info", ...args);
+  },
+  warn: (...args: unknown[]) => {
+    void window.clodPet.control.log("pet-renderer", "warn", ...args);
+  },
+  error: (...args: unknown[]) => {
+    void window.clodPet.control.log("pet-renderer", "error", ...args);
+  },
+};
+
 class SoundPlayer {
   volume: number;
 
@@ -96,7 +111,7 @@ class SoundPlayer {
     const audio = new Audio(`data:${mimeType};base64,${sound.data_base64}`);
     audio.volume = this.volume;
     audio.play().catch((err) => {
-      console.warn("[pet-renderer] Failed to play sound:", err);
+      log.warn("Failed to play sound:", err);
     });
   }
 }
@@ -151,11 +166,11 @@ function setBackendStatus(message: string | null) {
 
 async function initPetRenderer() {
   try {
-    console.log("[pet-renderer] Requesting init data via invoke...");
+    log.info("Requesting init data via invoke...");
     const params = new URLSearchParams(window.location.search);
     const petId = params.get('petId');
     const data = await window.clodPet.invoke("get-pet-init", petId) as any;
-    console.log("[pet-renderer] Received init data, loading sprite...");
+    log.info("Received init data, loading sprite...");
     
     // Initial sync from store
     const state = await window.clodPet.store.getState();
@@ -170,9 +185,10 @@ async function initPetRenderer() {
     renderer.drawFrame(0);
     
     subscribeToStore(petId);
-    console.log("[pet-renderer] Pet initialized successfully");
+    log.info("Pet initialized successfully");
   } catch (err) {
-    console.error("[pet-renderer] Failed to init pet:", err);
+    const error = err instanceof Error ? err : new Error(String(err));
+    void window.clodPet.control.reportError("pet-renderer", error.message, error.stack);
   }
 }
 

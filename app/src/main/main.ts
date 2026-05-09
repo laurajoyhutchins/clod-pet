@@ -12,6 +12,7 @@ import path = require("path");
 import type { BackendResponse, FullDiagnostics, DiagnosticEvent } from "../shared/store";
 
 const log = logger.createLogger("main");
+const rendererLoggers = new Map<string, ReturnType<typeof logger.createLogger>>();
 const diagnostics: {
   startedAt: string;
   lastError: string | null;
@@ -30,6 +31,23 @@ let editorWindowManager: InstanceType<typeof EditorWindowManager> | null = null;
 let controlPanelWindow: BrowserWindow | null = null;
 let controlPanelHandlersRegistered = false;
 let shutdownStarted = false;
+
+function getRendererLogger(source: string) {
+  const key = source || "renderer";
+  const cached = rendererLoggers.get(key);
+  if (cached) return cached;
+
+  const created = logger.createLogger(key);
+  rendererLoggers.set(key, created);
+  return created;
+}
+
+if (process.platform === "linux" && process.env.XDG_SESSION_TYPE === "wayland" && process.env.CLOD_PET_ALLOW_WAYLAND !== "1") {
+  // Electron/Wayland compositors can ignore setPosition() for toplevel windows,
+  // which makes pet windows visually cascade from the top-left. XWayland keeps
+  // explicit pet window positioning reliable.
+  app.commandLine.appendSwitch("ozone-platform-hint", "x11");
+}
 
 async function createPet(petPath?: string, opts: { throwOnError?: boolean } = {}): Promise<string | null> {
   if (!petManager) return null;
@@ -206,6 +224,29 @@ function setupControlPanelHandlers(): void {
   });
   ipcMain.handle("control:remove-pet", (_event, petId) => petManager?.removePet(petId));
   ipcMain.handle("control:diagnostics", async () => getDiagnostics());
+  ipcMain.handle("control:renderer-log", (_event, entry) => {
+    const source = entry?.source || "renderer";
+    const level = entry?.level === "debug" || entry?.level === "info" || entry?.level === "warn" || entry?.level === "error"
+      ? entry.level
+      : "info";
+    const args = Array.isArray(entry?.args) ? entry.args : [];
+    const rendererLog = getRendererLogger(source);
+    switch (level) {
+      case "debug":
+        rendererLog.debug(...args);
+        break;
+      case "warn":
+        rendererLog.warn(...args);
+        break;
+      case "error":
+        rendererLog.error(...args);
+        break;
+      default:
+        rendererLog.info(...args);
+        break;
+    }
+    return true;
+  });
   ipcMain.handle("control:renderer-error", (_event, err) => {
     const entry: DiagnosticEvent = {
       source: err.source || "renderer",
@@ -216,7 +257,7 @@ function setupControlPanelHandlers(): void {
     diagnostics.rendererErrors.unshift(entry);
     diagnostics.rendererErrors = diagnostics.rendererErrors.slice(0, 20);
     diagnostics.lastError = `${entry.source}: ${entry.message}`;
-    log.error("renderer error", entry);
+    getRendererLogger(entry.source).error(entry.message, { stack: entry.stack, at: entry.at });
     return true;
   });
 
