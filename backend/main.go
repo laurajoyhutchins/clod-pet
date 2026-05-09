@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"github.com/goccy/go-json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -18,6 +18,7 @@ import (
 	"clod-pet/backend/internal/service"
 	"clod-pet/backend/internal/settings"
 
+	"github.com/goccy/go-json"
 	"github.com/rs/cors"
 )
 
@@ -46,7 +47,7 @@ func main() {
 	fmt.Printf("Backend starting on port %s\n", port)
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           cors.Default().Handler(mux),
+		Handler:           recoveryMiddleware(cors.Default().Handler(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -83,6 +84,51 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+	status      int
+}
+
+func (w *responseWriter) WriteHeader(statusCode int) {
+	if w.wroteHeader {
+		return
+	}
+
+	w.wroteHeader = true
+	w.status = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *responseWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	return w.ResponseWriter.Write(b)
+}
+
+func recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Error("recovered panic in http handler",
+					"panic", rec,
+					"method", r.Method,
+					"path", r.URL.Path,
+					"stack", string(debug.Stack()),
+				)
+				if !rw.wroteHeader {
+					writeError(rw, "internal server error", http.StatusInternalServerError)
+				}
+			}
+		}()
+
+		next.ServeHTTP(rw, r)
+	})
 }
 
 func loadSettings(path string) *settings.Config {

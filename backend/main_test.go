@@ -63,6 +63,32 @@ func invokeHandler(t *testing.T, handler http.HandlerFunc, method, target, body 
 	return rr
 }
 
+func TestRecoveryMiddleware(t *testing.T) {
+	handler := recoveryMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom")
+	}))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/panic", nil)
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", rr.Code)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["ok"] != false {
+		t.Fatalf("expected ok=false, got %#v", result["ok"])
+	}
+	if result["error"] != "internal server error" {
+		t.Fatalf("expected internal server error, got %#v", result["error"])
+	}
+}
+
 func TestEnvOr(t *testing.T) {
 	os.Unsetenv("TEST_VAR")
 	result := envOr("TEST_VAR", "default")
@@ -149,11 +175,11 @@ func TestWriteError(t *testing.T) {
 
 func TestWriteResponse(t *testing.T) {
 	tests := []struct {
-		name       string
-		resp       *ipc.Response
-		wantStatus int
-		wantOK     bool
-		wantError  string
+		name        string
+		resp        *ipc.Response
+		wantStatus  int
+		wantOK      bool
+		wantError   string
 		wantPayload string
 	}{
 		{
@@ -334,8 +360,8 @@ func TestHealthHandler(t *testing.T) {
 		wantMessage string
 	}{
 		{
-			name:       "degraded when empty",
-			wantStatus: "degraded",
+			name:        "degraded when empty",
+			wantStatus:  "degraded",
 			wantMessage: "no pets loaded",
 		},
 		{
@@ -365,9 +391,9 @@ func TestHealthHandler(t *testing.T) {
 			if tt.wantMessage != "" && result["message"] != tt.wantMessage {
 				t.Fatalf("expected message %q, got %v", tt.wantMessage, result["message"])
 			}
-			})
-		}
+		})
 	}
+}
 
 func TestVersionHandler(t *testing.T) {
 	handler := versionHandler("../pets", "settings.json")
