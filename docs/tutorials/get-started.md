@@ -4,7 +4,7 @@ In this tutorial you will start the application and watch a pet walk across your
 
 ## Prerequisites
 
-- Go 1.21+
+- Go 1.24+
 - Node.js 18+
 - npm
 - Windows SDK (optional, for code signing)

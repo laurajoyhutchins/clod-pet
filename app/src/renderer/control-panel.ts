@@ -52,6 +52,33 @@ function applyPanelStyle(style: PanelStyle) {
   scheduleControlPanelResize();
 }
 
+function setDiagnosticsPollingEnabled(enabled: boolean) {
+  if (enabled) {
+    if (diagnosticsRefreshTimer === null) {
+      diagnosticsRefreshTimer = window.setInterval(() => {
+        void refreshDiagnostics();
+      }, 2000);
+    }
+    if (petTrackerTimer === null) {
+      petTrackerTimer = window.setInterval(() => {
+        void renderPetTracker();
+      }, 1000);
+    }
+    void refreshDiagnostics();
+    void renderPetTracker();
+    return;
+  }
+
+  if (diagnosticsRefreshTimer !== null) {
+    clearInterval(diagnosticsRefreshTimer);
+    diagnosticsRefreshTimer = null;
+  }
+  if (petTrackerTimer !== null) {
+    clearInterval(petTrackerTimer);
+    petTrackerTimer = null;
+  }
+}
+
 function measureScrollContentHeight(container: HTMLElement): number {
   const style = getComputedStyle(container);
   const children = Array.from(container.children) as HTMLElement[];
@@ -168,8 +195,8 @@ async function initControlPanel() {
     renderSettings();
     renderPetSelect();
     startAutoSizing();
+    setDiagnosticsPollingEnabled(settings.ShowDiagnosticsPanel || false);
     await refreshActivePets();
-    await refreshDiagnostics();
     scheduleControlPanelResize();
   } catch (err: unknown) {
     updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
@@ -180,7 +207,7 @@ function renderSettings() {
   const volume = settings.Volume ?? 0.3;
   const scale = settings.Scale ?? 1.0;
   const showAdvanced = settings.ShowAdvancedSettings || false;
-  const showDiagnostics = settings.ShowDiagnostics || false;
+  const showDiagnosticsPanel = settings.ShowDiagnosticsPanel || false;
   const panelStyle = getPanelStyle(settings.PanelStyle);
 
   input("volume").value = String(volume);
@@ -190,8 +217,8 @@ function renderSettings() {
   
   input("show-advanced").checked = showAdvanced;
   el("advanced-settings").style.display = showAdvanced ? "block" : "none";
-  input("show-diagnostics").checked = showDiagnostics;
-  el("diagnostics-card").style.display = showDiagnostics ? "block" : "none";
+  input("show-diagnostics").checked = showDiagnosticsPanel;
+  el("diagnostics-card").style.display = showDiagnosticsPanel ? "block" : "none";
   
   input("scale").value = String(scale);
   el("scale-value").textContent = scale.toFixed(1) + "x";
@@ -502,8 +529,9 @@ el("show-advanced").addEventListener("change", async (e: Event) => {
 el("show-diagnostics").addEventListener("change", async (e: Event) => {
   const show = (e.target as HTMLInputElement).checked;
   el("diagnostics-card").style.display = show ? "block" : "none";
+  setDiagnosticsPollingEnabled(show);
   try {
-    await api.setSettings({ ShowDiagnostics: show });
+    await api.setSettings({ ShowDiagnosticsPanel: show });
     scheduleControlPanelResize();
   } catch (err: unknown) {
     updateStatus("Error: " + (err instanceof Error ? err.message : String(err)), "error");
@@ -511,8 +539,6 @@ el("show-diagnostics").addEventListener("change", async (e: Event) => {
 });
 
 initControlPanel();
-
-diagnosticsRefreshTimer = setInterval(refreshDiagnostics, 2000) as unknown as number;
 
 window.addEventListener("error", (event) => {
   api.reportError("control-panel", event.message, event.error?.stack);
@@ -536,10 +562,7 @@ window.addEventListener("beforeunload", () => {
     resizeObserver.disconnect();
     resizeObserver = null;
   }
-  if (diagnosticsRefreshTimer !== null) {
-    clearInterval(diagnosticsRefreshTimer);
-    diagnosticsRefreshTimer = null;
-  }
+  setDiagnosticsPollingEnabled(false);
 });
 
 document.getElementById("close-btn")?.addEventListener("click", () => {

@@ -1,17 +1,40 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import type { ChatMessage, ChatStreamEvent } from "../shared/store";
 
+// Track registered listeners so off() can remove the correct wrapper.
+// Map key is channel, value maps the user's callback to the actual registered listener.
+const listenerMap = new Map<string, Map<Function, (_event: IpcRendererEvent, data: Record<string, unknown>) => void>>();
+
+function getListenerMap(channel: string): Map<Function, (_event: IpcRendererEvent, data: Record<string, unknown>) => void> {
+  let map = listenerMap.get(channel);
+  if (!map) {
+    map = new Map();
+    listenerMap.set(channel, map);
+  }
+  return map;
+}
+
 contextBridge.exposeInMainWorld("clodPet", {
   send: (channel: string, data?: unknown) => ipcRenderer.send(channel, data),
 
   on: (channel: string, callback: (data: Record<string, unknown>) => void) => {
     const listener = (_event: IpcRendererEvent, data: Record<string, unknown>) => callback(data);
+    getListenerMap(channel).set(callback, listener);
     ipcRenderer.on(channel, listener);
-    return () => ipcRenderer.removeListener(channel, listener);
+    return () => {
+      ipcRenderer.removeListener(channel, listener);
+      getListenerMap(channel).delete(callback);
+    };
   },
 
   off: (channel: string, callback: (data: Record<string, unknown>) => void) => {
-    ipcRenderer.removeListener(channel, (_, data) => callback(data as Record<string, unknown>));
+    const map = listenerMap.get(channel);
+    if (!map) return;
+    const listener = map.get(callback);
+    if (listener) {
+      ipcRenderer.removeListener(channel, listener);
+      map.delete(callback);
+    }
   },
 
   once: (channel: string, callback: (data: Record<string, unknown>) => void) => {

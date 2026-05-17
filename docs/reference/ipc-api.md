@@ -14,9 +14,12 @@ Renderer windows communicate with the main process through the `preload.ts` brid
 
 ## Response format
 
+All responses include a `request_id` field that echoes the `X-Request-Id` header for correlation.
+
 ```json
 {
   "ok": true,
+  "request_id": "a1b2c3d4...",
   "payload": { ... }
 }
 ```
@@ -26,6 +29,7 @@ or
 ```json
 {
   "ok": false,
+  "request_id": "a1b2c3d4...",
   "error": "error message"
 }
 ```
@@ -111,7 +115,7 @@ Advance the pet's animation by one frame and process physics.
 
 ### `step_pets`
 
-Advance multiple pets in one call.
+Advance multiple pets in one call. If any pet fails, the response includes an error and the corresponding result is `null`. Successful results are still returned for pets that stepped without error.
 
 **Payload:**
 ```json
@@ -163,11 +167,11 @@ Set the pet to falling state.
 
 ### `border_pet`
 
-Notify the pet that it hit a screen border.
+Validate that the given pet exists. This command does **not** trigger border transitions — those are handled internally during `step_pet` when the engine detects border contact in the world context.
 
 **Payload:**
 ```json
-{ "pet_id": "pet_1", "border_ctx": 1 }
+{ "pet_id": "pet_1", "direction": 1 }
 ```
 
 ### `llm_chat`
@@ -255,11 +259,11 @@ Read or update global settings such as volume, scale, and the startup pet.
 
 ### `get_pet`
 
-Load pet data from an `animations.json` file, or fall back to a legacy `animations.xml` pet when no JSON file is present.
+Return metadata for an active pet by its pet ID.
 
 **Payload:**
 ```json
-{ "pet_path": "../pets/eSheep-modern" }
+{ "pet_id": "pet_1" }
 ```
 
 **Response:**
@@ -271,14 +275,13 @@ Load pet data from an `animations.json` file, or fall back to a legacy `animatio
     "pet_name": "eSheep",
     "tiles_x": 16,
     "tiles_y": 11,
-    "png_base64": "iVBORw0KGgo...",
-    "frame_w": 64,
-    "frame_h": 64,
     "spawns": [{ "id": 1, "probability": 20 }],
     "anim_count": 77
   }
 }
 ```
+
+Note: `png_base64`, `frame_w`, and `frame_h` are omitted from this command. Use `POST /api/pet/load` to get the full definition including sprite data.
 
 ## Streaming and specialized endpoints
 

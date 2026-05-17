@@ -330,6 +330,10 @@ func (h *Handler) handleStepPets(payload json.RawMessage) *Response {
 	return marshalSuccess(states)
 }
 
+// handleBorderPet validates that the given pet exists.
+// Note: this command does NOT perform border transition logic.
+// Border transitions are handled internally during step_pet when the engine
+// detects border contact in the world context.
 func (h *Handler) handleBorderPet(payload json.RawMessage) *Response {
 	var p BorderPetPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
@@ -349,13 +353,13 @@ func (h *Handler) handleGetStatus() *Response {
 
 func (h *Handler) handleGetPet(payload json.RawMessage) *Response {
 	var p struct {
-		PetPath string `json:"pet_path"`
+		PetID string `json:"pet_id"`
 	}
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return errorResponse("invalid payload: " + err.Error())
 	}
 
-	data, err := h.svc.Pet(p.PetPath)
+	data, err := h.svc.Pet(p.PetID)
 	if err != nil {
 		return errorResponse(err.Error())
 	}

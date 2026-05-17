@@ -2,9 +2,11 @@ package ipc
 
 import (
 	"context"
-	"github.com/goccy/go-json"
 	"errors"
+	"fmt"
 	"sync"
+
+	"github.com/goccy/go-json"
 
 	"clod-pet/backend/internal/engine"
 	"clod-pet/backend/internal/expression"
@@ -139,7 +141,11 @@ func (m *commonMockService) StepPet(petID string, world engine.WorldContext) (*P
 
 func (m *commonMockService) StepPets(petIDs []string, world engine.WorldContext) ([]*PetState, error) {
 	results := make([]*PetState, len(petIDs))
-	var wg sync.WaitGroup
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+	)
 
 	for i, petID := range petIDs {
 		wg.Add(1)
@@ -147,7 +153,9 @@ func (m *commonMockService) StepPets(petIDs []string, world engine.WorldContext)
 			defer wg.Done()
 			state, err := m.StepPet(id, world)
 			if err != nil {
-				results[idx] = nil
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("pet %s: %w", id, err))
+				mu.Unlock()
 			} else {
 				results[idx] = state
 			}
@@ -155,6 +163,9 @@ func (m *commonMockService) StepPets(petIDs []string, world engine.WorldContext)
 	}
 
 	wg.Wait()
+	if len(errs) > 0 {
+		return results, errors.Join(errs...)
+	}
 	return results, nil
 }
 

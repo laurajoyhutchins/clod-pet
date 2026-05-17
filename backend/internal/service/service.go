@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +35,6 @@ type Service struct {
 	idCounter     int
 	workerPool    chan struct{}
 	workerWg      sync.WaitGroup
-	shutdown      chan struct{}
 }
 
 func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
@@ -48,7 +48,6 @@ func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
 		petPaths:      make(map[string]string),
 		pendingSounds: make(map[string]*ipc.SoundPayload),
 		workerPool:    make(chan struct{}, poolSize),
-		shutdown:      make(chan struct{}),
 	}
 
 	return svc
@@ -339,7 +338,11 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 
 func (s *Service) StepPets(petIDs []string, world engine.WorldContext) ([]*ipc.PetState, error) {
 	results := make([]*ipc.PetState, len(petIDs))
-	var wg sync.WaitGroup
+	var (
+		wg     sync.WaitGroup
+		mu     sync.Mutex
+		errs   []error
+	)
 
 	for i, petID := range petIDs {
 		s.submitWork()
@@ -349,7 +352,9 @@ func (s *Service) StepPets(petIDs []string, world engine.WorldContext) ([]*ipc.P
 			defer wg.Done()
 			state, err := s.StepPet(id, world)
 			if err != nil {
-				results[idx] = nil
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("pet %s: %w", id, err))
+				mu.Unlock()
 			} else {
 				results[idx] = state
 			}
@@ -357,6 +362,9 @@ func (s *Service) StepPets(petIDs []string, world engine.WorldContext) ([]*ipc.P
 	}
 
 	wg.Wait()
+	if len(errs) > 0 {
+		return results, errors.Join(errs...)
+	}
 	return results, nil
 }
 
@@ -443,7 +451,7 @@ func (s *Service) Settings() map[string]interface{} {
 		"AutostartPets":        s.settings.AutostartPets,
 		"Scale":                s.settings.Scale,
 		"ShowAdvancedSettings": s.settings.ShowAdvancedSettings,
-		"ShowDiagnostics":      s.settings.ShowDiagnostics,
+		"ShowDiagnosticsPanel": s.settings.ShowDiagnosticsPanel,
 		"PanelStyle":           s.settings.PanelStyle,
 		"MultiScreenEnabled":   s.settings.MultiScreenEnabled,
 		"GravityFactor":        s.settings.GravityFactor,
@@ -483,9 +491,9 @@ func (s *Service) SetSettings(settings map[string]interface{}) error {
 			s.settings.ShowAdvancedSettings = show
 		}
 	}
-	if v, ok := settings["ShowDiagnostics"]; ok {
+	if v, ok := settings["ShowDiagnosticsPanel"]; ok {
 		if show, ok := v.(bool); ok {
-			s.settings.ShowDiagnostics = show
+			s.settings.ShowDiagnosticsPanel = show
 		}
 	}
 	if v, ok := settings["PanelStyle"]; ok {
@@ -541,11 +549,6 @@ func (s *Service) ListPets() ([]string, error) {
 	return pets, nil
 }
 
-func (s *Service) Shutdown() {
-	close(s.shutdown)
-	s.workerWg.Wait()
-}
-
 func (s *Service) submitWork() {
 	s.workerPool <- struct{}{}
 	s.workerWg.Add(1)
@@ -560,8 +563,16 @@ func (s *Service) ListActive() ([]map[string]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var active []map[string]interface{}
-	for petID, petPath := range s.petPaths {
+	// Collect pet IDs in sorted order for deterministic output.
+	ids := make([]string, 0, len(s.petPaths))
+	for petID := range s.petPaths {
+		ids = append(ids, petID)
+	}
+	sort.Strings(ids)
+
+	active := make([]map[string]interface{}, 0, len(ids))
+	for _, petID := range ids {
+		petPath := s.petPaths[petID]
 		info := map[string]interface{}{
 			"pet_id":   petID,
 			"pet_path": petPath,

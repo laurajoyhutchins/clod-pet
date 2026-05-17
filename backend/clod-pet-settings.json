@@ -5,7 +5,7 @@
   "AutostartPets": 1,
   "Scale": 1.5,
   "ShowAdvancedSettings": true,
-  "ShowDiagnostics": false,
+  "ShowDiagnosticsPanel": false,
   "PanelStyle": "windows-vista",
   "MultiScreenEnabled": true,
   "GravityFactor": 2.5,

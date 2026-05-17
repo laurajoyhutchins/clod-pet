@@ -103,7 +103,7 @@ export interface AppSettings {
   Scale?: number;
   Volume?: number;
   ShowAdvancedSettings?: boolean;
-  ShowDiagnostics?: boolean;
+  ShowDiagnosticsPanel?: boolean;
   PanelStyle?: string;
   GravityFactor?: number;
   MultiScreenEnabled?: boolean;

@@ -388,7 +388,7 @@ components:
     BorderPetCommand:
       type: object
       required: [command, payload]
-      description: Validates that the pet exists. Border transitions are driven by step_pet world context.
+      description: Validates that the given pet exists. Does NOT trigger border transitions — those are handled internally by step_pet when the engine detects border contact in the world context.
       properties:
         command:
           type: string
@@ -405,7 +405,7 @@ components:
     GetPetCommand:
       type: object
       required: [command, payload]
-      description: Returns metadata for an active pet. Despite the payload field name, pet_path must contain an active pet id.
+      description: Returns metadata for an active pet by its pet ID.
       properties:
         command:
           type: string
@@ -535,11 +535,11 @@ components:
           $ref: '#/components/schemas/BorderContext'
     GetPetPayload:
       type: object
-      required: [pet_path]
+      required: [pet_id]
       properties:
-        pet_path:
+        pet_id:
           type: string
-          description: Active pet id.
+          description: Active pet ID (e.g. "pet_1").
     SetVolumePayload:
       type: object
       required: [volume]
@@ -621,7 +621,7 @@ components:
           format: double
         ShowAdvancedSettings:
           type: boolean
-        ShowDiagnostics:
+        ShowDiagnosticsPanel:
           type: boolean
         PanelStyle:
           type: string

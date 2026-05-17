@@ -65,17 +65,15 @@ type WorldContext struct {
 }
 
 type StepResult struct {
-	FrameIndex  int
-	X           float64
-	Y           float64
-	OffsetY     float64
-	Opacity     float64
-	IntervalMs  int
-	NextAnimID  int
-	ShouldFlip  bool
-	ShouldSpawn bool
-	SoundID     int
-	BorderCtx   BorderContext
+	FrameIndex int
+	X          float64
+	Y          float64
+	OffsetY    float64
+	Opacity    float64
+	IntervalMs int
+	NextAnimID int
+	ShouldFlip bool
+	BorderCtx  BorderContext
 }
 
 type Engine struct {

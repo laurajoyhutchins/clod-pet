@@ -11,7 +11,7 @@ function readConfig() {
 const config = readConfig();
 const activePets = Number.isFinite(config.activePets) ? Math.max(0, Math.floor(config.activePets)) : 0;
 const showAdvanced = !!config.showAdvanced;
-const showDiagnostics = !!config.showDiagnostics;
+const showDiagnosticsPanel = !!(config.showDiagnosticsPanel ?? config.showDiagnostics);
 const panelStyle = typeof config.panelStyle === "string" ? config.panelStyle : "windows-98";
 
 function makeActivePet(index) {
@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld("clodPet", {
         Volume: 0.3,
         Scale: 1.0,
         ShowAdvancedSettings: showAdvanced,
-        ShowDiagnostics: showDiagnostics,
+        ShowDiagnosticsPanel: showDiagnosticsPanel,
         MultiScreenEnabled: true,
         WinForeGround: false,
         StealTaskbarFocus: false,

@@ -15,7 +15,7 @@ function parseArgs(argv) {
     delayMs: 750,
     postResizeDelayMs: 500,
     showAdvanced: false,
-    showDiagnostics: false,
+    showDiagnosticsPanel: false,
     activePets: 0,
     panelStyle: "windows-98",
   };
@@ -37,7 +37,7 @@ function parseArgs(argv) {
     } else if (arg === "--advanced") {
       args.showAdvanced = true;
     } else if (arg === "--diagnostics") {
-      args.showDiagnostics = true;
+      args.showDiagnosticsPanel = true;
     } else if (arg === "--active-pets" && argv[i + 1]) {
       args.activePets = parseInt(argv[++i], 10);
     } else if (arg.startsWith("--active-pets=")) {
@@ -77,7 +77,7 @@ if (!process.versions.electron) {
     ...process.env,
     CAPTURE_CONTROL_PANEL_MOCK: JSON.stringify({
       showAdvanced: args.showAdvanced,
-      showDiagnostics: args.showDiagnostics,
+      showDiagnosticsPanel: args.showDiagnosticsPanel,
       activePets: args.activePets,
       panelStyle: args.panelStyle,
     }),

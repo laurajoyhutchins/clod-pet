@@ -201,7 +201,7 @@ func TestHandleGetPet(t *testing.T) {
 
 	resp := h.Handle(&Request{
 		Command: CmdGetPet,
-		Payload: json.RawMessage(`{"pet_path":"some-pet"}`),
+		Payload: json.RawMessage(`{"pet_id":"some-pet"}`),
 	})
 
 	if !resp.OK {

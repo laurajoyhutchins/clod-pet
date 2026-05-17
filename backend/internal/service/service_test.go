@@ -290,8 +290,8 @@ func TestStepPetsWithNonExistent(t *testing.T) {
 
 	petIDs := []string{state.PetID, "non-existent"}
 	states, err := svc.StepPets(petIDs, engine.WorldContext{})
-	if err != nil {
-		t.Fatalf("StepPets failed: %v", err)
+	if err == nil {
+		t.Fatal("expected StepPets to return error for non-existent pet")
 	}
 
 	if len(states) != 2 {

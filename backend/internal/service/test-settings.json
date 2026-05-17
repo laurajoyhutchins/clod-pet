@@ -5,7 +5,7 @@
   "AutostartPets": 5,
   "Scale": 3,
   "ShowAdvancedSettings": false,
-  "ShowDiagnostics": false,
+  "ShowDiagnosticsPanel": false,
   "PanelStyle": "windows-xp",
   "MultiScreenEnabled": false,
   "GravityFactor": 2,

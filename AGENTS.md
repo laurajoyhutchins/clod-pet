@@ -9,7 +9,7 @@ For iterative development, use `cd app && npm run dev` to watch TypeScript and G
 
 ## Project structure
 - `backend/` — Go animation engine, IPC handlers, & LLM providers (HTTP API on `:8080`)
-- `app/` — TypeScript + Electron desktop shell & Chat UI
+- `app/` — TypeScript + Electron desktop shell, Chat UI, & animation graph editor
 - `pets/` — Pet definitions (Modern `animations.json` or legacy `animations.xml` sprite sheets)
 - `docs/` — MkDocs documentation (Diataxis)
 - `scripts/` — Lifecycle & build scripts (PowerShell for Windows, Shell for Linux/macOS)
@@ -28,6 +28,8 @@ For iterative development, use `cd app && npm run dev` to watch TypeScript and G
 | Pet step | `cd backend && go run ./cmd/pet-step/ -pet <id> [-n steps] [-v]` |
 | Pet watch | `cd backend && go run ./cmd/pet-watch/ -pet <id> [-i ms] [-v]` |
 | Pet simulate | `cd backend && go run ./cmd/pet-simulate/ -pet <path> [-n steps] [-v]` |
+| Pet headless | `cd backend && go run ./cmd/pet-headless/ -pet <path> [-n steps]` |
+| Export modern pet | `cd backend && go run ./cmd/export-modern-pet -src <legacy-pet> -dst <new-pet>` |
 | Docs serve | `mkdocs serve` |
 
 ### Test script options
@@ -56,20 +58,23 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - `PETS_DIR` — pet definitions path (default `../pets`)
 - `SETTINGS_PATH` — settings JSON path (default `clod-pet-settings.json`)
 - `VERBOSE` — enable debug logging (default `false`)
+- `CLOD_PET_ALLOW_WAYLAND` — allow native Wayland on Linux (default forces X11)
 
 ## Backend
 - Entry: `backend/main.go`
-- Internal packages: 
-  - `pet`: XML parser for animation definitions
-  - `engine`: Animation state machine and world context
-  - `expression`: Mathematical expression evaluator for XML
-  - `ipc`: HTTP/JSON command handlers (add_pet, step_pet, llm_chat, etc.) and streaming SSE
+- Internal packages:
+  - `pet`: Modern JSON pet loader and legacy XML parser with conversion
+  - `engine`: Animation state machine, physics, border/gravity detection, and world context
+  - `expression`: Mathematical expression evaluator for animation parameters
+  - `ipc`: HTTP/JSON command handlers and streaming SSE
   - `llm`: AI provider integration (OpenAI, Anthropic, Gemini, Ollama)
-  - `service`: Orchestration of pets, settings, and AI
-  - `settings`: Configuration persistence
-  - `sound`: SFX playback via `beep`
+  - `service`: Orchestration of pets, settings, worker pool, and AI
+  - `settings`: Configuration persistence (Volume, Scale, GravityFactor, PanelStyle, LLM config, Autostart)
+  - `sound`: Weighted sound selection and audio normalization
+  - `buildmode`: Build-time metadata (debug/release), surfaced through the API
 - API Spec: `backend/api-spec.yaml`
 - Tests: Go built-in testing (run with `go test -v -cover ./...`)
+- CLI tools (`backend/cmd/`): `pet-port`, `pet-step`, `pet-watch`, `pet-simulate`, `pet-headless`, `export-modern-pet`
 
 ## Frontend
 - Source entry: `app/src/main/main.ts`; Electron runtime entry: generated `app/dist/src/main/main.js`
@@ -78,19 +83,29 @@ NOTE: To avoid "Windows protected your PC" SmartScreen prompts, either:
 - One-shot dev launch: `cd app && npm run dev:once`
 - Jest config in `package.json` (`testEnvironment: "node"`)
 - Coverage excludes `src/preload/preload.ts`, `src/renderer/pet-renderer.ts`
-- Key TypeScript modules: 
-  - `main/`: backend startup, window lifecycle, tray, and app commands
-  - `preload/`: context bridge for renderer windows
+- Key TypeScript modules:
+  - `main/`: backend startup, window lifecycle, tray, store bridge, and app commands
+  - `preload/`: context bridge for renderer windows (IPC security boundary)
   - `renderer/`: chat, control-panel, and pet window entrypoints
-  - `shared/store/`: world state, diagnostics, and shared types
+  - `editor/`: ReactFlow-based animation graph editor with validation and document normalization
+  - `shared/store/`: WorldStore (source of truth for UI state), diagnostics, and shared types
 - UI: `public/index.html` (Main), `public/chat.html` (AI Chat), `public/control-panel.html` (Settings)
+
+## Communication patterns
+- **Main ↔ Go backend**: HTTP POST with `{ command, payload }` envelope on `:8080`. AI chat uses SSE via `/api/llm/stream`. Requests include `X-Request-Id` for correlation.
+- **Main ↔ Renderer**: Electron IPC via `preload.ts` and `contextBridge`. Key channels: `store:updated`, `pet:frame`, `pet:drag`, `pet:drop`, `control:*`, `editor:*`. `window.clodPet` API is the security boundary.
+- **Store broadcasts**: `StoreBridge` sends full `WorldState` to all renderer windows on every update. Renderers subscribe to `store:updated`.
 
 ## Pet format
 - Directory per pet under `pets/` (e.g., `pets/eSheep-modern/`)
-- `animations.xml` — sprite sheet + animation state machine
-- XML supports expressions: `screenW`, `random`, `imageH`, etc.
+- `animations.json` — modern JSON format (preferred)
+- `animations.xml` — legacy sprite sheet + animation state machine (still supported)
+- Expressions in both formats: `screenW`, `random`, `imageH`, etc.
 
 ## Notes
-- Backend and app communicate via HTTP JSON and SSE (not Electron IPC)
+- `border_pet` command only validates that the pet exists; border transitions happen during `step_pet`
+- `get_pet` takes a `pet_id` (not a pet path); use `POST /api/pet/load` for full definition loading
+- `step_pets` returns partial results with a joined error when any pet fails
+- `list_active` returns pets sorted by ID for deterministic ordering
 - `repl.js` and `test-flow.js` are helper scripts (gitignored)
 - No CI/CD configured

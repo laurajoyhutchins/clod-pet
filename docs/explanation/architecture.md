@@ -10,8 +10,8 @@ Clod Pet follows a client-server architecture split across two processes.
 | - control panel            | <------------------  | - store bridge        |
 | - chat window              |      responses       | - tray/menu           |
 | - pet window               |                      | - window management   |
-+----------------------------+                       | - backend client      |
-                                                     +----------+-----------+
+| - editor window            |                      | - backend client      |
++----------------------------+                       +----------+-----------+
                                                                 |
                                                                 | HTTP POST / SSE
                                                                 v
@@ -22,6 +22,7 @@ Clod Pet follows a client-server architecture split across two processes.
                                                      | - pet parsing        |
                                                      | - settings storage   |
                                                      | - AI providers       |
+                                                     | - CLI tools          |
                                                      +----------------------+
 ```
 
@@ -42,6 +43,25 @@ Clod Pet uses three communication patterns depending on the task:
 3. **Server-sent events:** AI chat responses use SSE via the `/api/llm/stream` endpoint, with `/api/llm/health` available for provider checks. This allows the backend to stream tokens from LLM providers directly to the chat UI for a responsive typing effect.
 
 The backend also exposes `/api/health`, `/api/describe`, and `/api/version` for health, discovery, and runtime metadata.
+
+## Shared state
+
+The `WorldStore` in `app/src/shared/store/` is the source of truth for UI state. It holds backend status, active pets, environment data, and UI state. The `StoreBridge` in the main process broadcasts the full store to all renderer windows via IPC on every update. Renderers subscribe to `store:updated` events.
+
+Because `setState` is a shallow merge, nested state updates require full-object replacement. This is important when updating a single pet's properties — use `setPet` or `updatePet` rather than spreading into `setState`.
+
+## Animation editor
+
+The editor subsystem (`app/src/editor/`) is a standalone ReactFlow-based graph editor for creating and modifying pet animation definitions. It runs in its own `BrowserWindow` and communicates with the main process through the `editor:*` IPC channels.
+
+Key concepts:
+- **Document normalization** — the editor rewrites IDs and cross-references when animations are renamed or reordered, keeping transitions and sounds consistent
+- **Sidecar layout files** — editor layout state is persisted next to the document, not inside it
+- **Validation** — browser-side schema validation is intentionally limited; deeper checks happen in the main/editor process
+
+## Build metadata
+
+The `buildmode` package (`backend/internal/buildmode/`) provides build-time metadata (debug/release mode) that is surfaced through the `/api/version` and `/api/describe` endpoints. Build mode is controlled with Go build tags: `go build -tags debug .` for debug, or the default release build.
 
 ## App build model
 
