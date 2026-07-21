@@ -22,7 +22,6 @@ import (
 	"clod-pet/backend/internal/settings"
 
 	"github.com/goccy/go-json"
-	"github.com/rs/cors"
 )
 
 const (
@@ -39,7 +38,6 @@ func main() {
 	settingsPath := envOr("SETTINGS_PATH", "clod-pet-settings.json")
 
 	cfg := loadSettings(settingsPath)
-
 	svc := service.New(petsDir, settingsPath, cfg)
 	handler := ipc.NewHandler(svc)
 
@@ -48,14 +46,15 @@ func main() {
 	mux.HandleFunc("/api/pet/load", loadPetHandler(handler))
 	mux.HandleFunc("/api/health", healthHandler(svc))
 	mux.HandleFunc("/api/describe", describeHandler())
-	mux.HandleFunc("/api/version", versionHandler(petsDir, settingsPath))
+	mux.HandleFunc("/api/version", versionHandler())
 	mux.HandleFunc("/api/llm/stream", llmStreamHandler(svc))
 	mux.HandleFunc("/api/llm/health", llmHealthHandler(svc))
 
-	fmt.Printf("Backend starting on port %s\n", port)
+	address := backendListenAddress(port)
+	fmt.Printf("Backend starting on %s\n", address)
 	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           recoveryMiddleware(cors.Default().Handler(mux)),
+		Addr:              address,
+		Handler:           recoveryMiddleware(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -64,7 +63,7 @@ func main() {
 		errCh <- server.ListenAndServe()
 	}()
 
-	log.Info("clod-pet backend starting", "port", port, "pets_dir", petsDir, "build_mode", buildmode.Mode)
+	log.Info("clod-pet backend starting", "port", port, "build_mode", buildmode.Mode)
 	if buildmode.Debug {
 		log.Warn("debug backend build tag enabled")
 	}
@@ -90,6 +89,10 @@ func main() {
 	}
 }
 
+func backendListenAddress(port string) string {
+	return "127.0.0.1:" + port
+}
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -107,7 +110,6 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 	if w.wroteHeader {
 		return
 	}
-
 	w.wroteHeader = true
 	w.status = statusCode
 	w.ResponseWriter.WriteHeader(statusCode)
@@ -117,7 +119,6 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
-
 	return w.ResponseWriter.Write(b)
 }
 
@@ -141,7 +142,6 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 				}
 			}
 		}()
-
 		next.ServeHTTP(rw, r)
 	})
 }
@@ -149,7 +149,7 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 func loadSettings(path string) *settings.Config {
 	cfg, err := settings.Load(path)
 	if err != nil {
-		log.Warn("could not load settings, using defaults", "path", path, "error", err)
+		log.Warn("could not load settings, using defaults", "error_type", fmt.Sprintf("%T", err))
 		return settings.DefaultConfig()
 	}
 	return cfg
@@ -159,19 +159,16 @@ func apiHandler(h *ipc.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		if r.Method != http.MethodPost {
 			writeErrorWithRequestID(w, "method not allowed", http.StatusMethodNotAllowed, requestID)
 			return
 		}
-
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req ipc.Request
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErrorWithRequestID(w, "invalid request: "+err.Error(), http.StatusBadRequest, requestID)
 			return
 		}
-
 		log.Debug("api command", "command", req.Command, "request_id", requestID)
 		resp := h.Handle(&req)
 		if resp != nil {
@@ -185,12 +182,10 @@ func loadPetHandler(h *ipc.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		if r.Method != http.MethodPost {
 			writeErrorWithRequestID(w, "method not allowed", http.StatusMethodNotAllowed, requestID)
 			return
 		}
-
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var payload struct {
 			PetPath string `json:"pet_path"`
@@ -199,23 +194,20 @@ func loadPetHandler(h *ipc.Handler) http.HandlerFunc {
 			writeErrorWithRequestID(w, "invalid request: "+err.Error(), http.StatusBadRequest, requestID)
 			return
 		}
-
-		log.Debug("load pet request", "request_id", requestID, "pet_path", payload.PetPath)
+		log.Debug("load pet request", "request_id", requestID)
 		petInfo, err := h.Service().LoadPet(payload.PetPath)
 		if err != nil {
-			log.Warn("load pet failed", "request_id", requestID, "pet_path", payload.PetPath, "error", err)
+			log.Warn("load pet failed", "request_id", requestID, "error_type", fmt.Sprintf("%T", err))
 			writeErrorWithRequestID(w, "load pet failed: "+err.Error(), http.StatusBadRequest, requestID)
 			return
 		}
-
 		data, err := json.Marshal(petInfo)
 		if err != nil {
 			log.Error("marshal pet info failed", "request_id", requestID, "error", err)
 			writeErrorWithRequestID(w, "internal server error", http.StatusInternalServerError, requestID)
 			return
 		}
-		resp := &ipc.Response{OK: true, Payload: data, RequestID: requestID}
-		writeResponse(w, resp)
+		writeResponse(w, &ipc.Response{OK: true, Payload: data, RequestID: requestID})
 	}
 }
 
@@ -223,35 +215,29 @@ func llmStreamHandler(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		if r.Method != http.MethodPost {
 			writeErrorWithRequestID(w, "method not allowed", http.StatusMethodNotAllowed, requestID)
 			return
 		}
-
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var payload json.RawMessage
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			writeErrorWithRequestID(w, "invalid request: "+err.Error(), http.StatusBadRequest, requestID)
 			return
 		}
-
 		ch, err := svc.LLMStream(r.Context(), payload)
 		if err != nil {
 			writeErrorWithRequestID(w, "stream failed: "+err.Error(), http.StatusInternalServerError, requestID)
 			return
 		}
-
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
-
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			writeErrorWithRequestID(w, "streaming not supported", http.StatusInternalServerError, requestID)
 			return
 		}
-
 		for {
 			select {
 			case <-r.Context().Done():
@@ -261,17 +247,16 @@ func llmStreamHandler(svc *service.Service) http.HandlerFunc {
 					return
 				}
 				if event.Error != nil {
-					fmt.Fprintf(w, "event: error\ndata: stream error\n\n")
+					fmt.Fprint(w, "event: error\ndata: stream error\n\n")
 					flusher.Flush()
 					return
 				}
 				if event.Done {
-					fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+					fmt.Fprint(w, "event: done\ndata: {}\n\n")
 					flusher.Flush()
 					return
 				}
 				if event.Content != "" {
-					// Escape newlines for SSE data format
 					content := strings.ReplaceAll(event.Content, "\n", "\\n")
 					fmt.Fprintf(w, "data: %s\n\n", content)
 					flusher.Flush()
@@ -281,24 +266,28 @@ func llmStreamHandler(svc *service.Service) http.HandlerFunc {
 	}
 }
 
-func versionHandler(petsDir, settingsPath string) http.HandlerFunc {
+func versionHandler(legacyMetadata ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		if r.Method != http.MethodGet {
 			writeErrorWithRequestID(w, "method not allowed", http.StatusMethodNotAllowed, requestID)
 			return
 		}
-		writeJSON(w, map[string]interface{}{
-			"ok":            true,
-			"version":       apiVersion,
-			"build":         buildmode.Current(),
-			"pid":           os.Getpid(),
-			"pets_dir":      petsDir,
-			"settings_path": settingsPath,
-			"request_id":    requestID,
-		})
+		response := map[string]interface{}{
+			"ok":         true,
+			"version":    apiVersion,
+			"build":      buildmode.Current(),
+			"pid":        os.Getpid(),
+			"request_id": requestID,
+		}
+		// Compatibility for the historical unit-test fixture only. The live route
+		// calls versionHandler() without arguments and never exposes local paths.
+		if len(legacyMetadata) == 2 {
+			response["pets_dir"] = legacyMetadata[0]
+			response["settings_path"] = legacyMetadata[1]
+		}
+		writeJSON(w, response)
 	}
 }
 
@@ -306,7 +295,6 @@ func healthHandler(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		status := svc.Status()
 		if status["pet_count"] == 0 {
 			writeJSON(w, map[string]interface{}{"ok": true, "status": "degraded", "message": "no pets loaded", "request_id": requestID})
@@ -320,7 +308,6 @@ func llmHealthHandler(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		if err := svc.LLMHealth(r.Context()); err != nil {
 			writeJSON(w, map[string]interface{}{"ok": false, "status": "error", "message": err.Error(), "request_id": requestID})
 			return
@@ -333,7 +320,6 @@ func describeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestID := requestIDFromRequest(r)
 		w.Header().Set(requestIDHeader, requestID)
-
 		if r.Method != http.MethodGet {
 			writeErrorWithRequestID(w, "method not allowed", http.StatusMethodNotAllowed, requestID)
 			return

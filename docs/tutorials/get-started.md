@@ -1,84 +1,91 @@
 # Tutorial: Run your first pet
 
-In this tutorial you will start the application and watch a pet walk across your screen.
+In this tutorial you will build the application from source and watch a pet walk across your screen.
 
 ## Prerequisites
 
 - Go 1.24+
-- Node.js 18+
+- Node.js 22+
 - npm
-- Windows SDK (optional, for code signing)
+- PowerShell 7 (`pwsh`) on Windows
 
-## Step 1: Install dependencies
+The Windows SDK is required only for explicit development or release signing. It is not part of ordinary source installation.
 
-**Recommended:** Use the install script for automatic setup:
+## Step 1: Install from source
+
+From the repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install.ps1
+pwsh -NoProfile -File .\scripts\install.ps1
 ```
 
-This script will:
-- Create a self-signed certificate for code signing
-- Build the Go backend
-- Sign the executable if the Windows SDK is installed
-- Add a Windows Defender exclusion
-- Install app dependencies
-- Compile the app TypeScript when the app starts
-- Create a Start Menu shortcut
+The installer runs as the current user. It builds the Go backend, installs locked frontend dependencies with `npm ci`, compiles TypeScript, and creates a per-user launcher and Start Menu shortcut.
 
-**Manual install:**
+It does not request administrator rights, change PowerShell execution policy, add Windows Defender exclusions, create certificates, store credentials, stop processes, or disable Electron's sandbox.
 
-```bash
-cd app
-npm install
+Close a running Clod Pet instance before reinstalling. If a build output is locked, installation stops instead of killing processes by name.
+
+For development without creating a launcher, use:
+
+```powershell
+pwsh -NoProfile -File .\scripts\bootstrap-dev.ps1
 ```
 
 ## Step 2: Start the application
 
-**If you used the install script:**
-- Use the Start Menu shortcut `ClodPet`, or
-- Run `npm start` in the `app/` directory
+After source installation, use the Start Menu shortcut or run:
 
-**Manual start:**
-
-```bash
-cd app
-npm start
+```powershell
+.\clod-pet.cmd
 ```
 
-`npm start` compiles the app TypeScript and then launches Electron.
-If you are actively editing code, `npm run dev` keeps rebuilding TypeScript and relaunching Electron when source files change.
+For iterative development:
+
+```powershell
+cd app
+npm run dev
+```
 
 You will see:
-1. A system tray icon appear
-2. The Go backend start on port 8080
-3. A sheep pet appear on your screen
-4. The control panel open automatically
+
+1. A system tray icon appear.
+2. The Go backend start on loopback only.
+3. A sheep pet appear on your screen.
+4. The control panel open automatically.
 
 ## Step 3: Watch the pet
 
-The pet walks left across your screen. After 40 frames it decides what to do next, usually by continuing to walk. This is the `walk` animation with 20 repeats of a 2-frame cycle.
+The pet walks left across your screen. After 40 frames it decides what to do next, usually by continuing to walk. This is the `walk` animation with 20 repeats of a two-frame cycle.
 
 ## Step 4: Use the tray
 
 Click the tray icon:
-- `Add Pet` - spawns another pet
-- `Options` - shows the control panel
-- `Chat` - opens the AI chat window
-- `Quit` - closes the application
 
-## Step 5: Quit
+- `Add Pet` spawns another pet.
+- `Options` shows the control panel.
+- `Chat` opens the AI chat window.
+- `Quit` closes the application.
 
-Select `Quit` from the tray menu. The main process shuts down the pets, closes the windows, and terminates the Go backend process.
+## Step 5: Quit or uninstall
+
+Select `Quit` from the tray menu. The main process closes its own pet windows and terminates the exact Go child process it started.
+
+To remove generated installation files while preserving user settings:
+
+```powershell
+pwsh -NoProfile -File .\scripts\uninstall.ps1
+```
+
+Use `-RemoveUserData` only when you also intend to delete settings.
 
 ## What happens under the hood
 
-1. `app/src/main/main.ts` compiles to `app/dist/src/main/main.js`, which Electron runs
-2. The main process starts the Go backend, loads settings, and spawns the default pet
-3. `app/src/main/backend-client.ts` loads `pets/eSheep-modern/animations.json` data and creates a transparent `BrowserWindow`
-4. `app/src/main/pet-manager.ts` polls `/api` every 200 ms with the current world geometry
-5. Each step returns the next frame state, including position, opacity, and optional sound metadata
-6. `app/src/renderer/pet-renderer.ts` draws the correct tile from the sprite sheet
+1. `app/src/main/main.ts` compiles to `app/dist/src/main/main.js`, which Electron runs.
+2. The main process starts the Go backend on `127.0.0.1`, loads settings, and spawns the default pet.
+3. The preload exposes fixed APIs rather than arbitrary IPC channel access.
+4. `app/src/main/pet-manager.ts` polls the loopback API with current world geometry.
+5. Each step returns the next frame state, including position, opacity, and optional sound metadata.
+6. `app/src/renderer/pet-renderer.ts` draws the correct tile from the sprite sheet.
 
 ## Next steps
 

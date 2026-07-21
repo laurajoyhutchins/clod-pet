@@ -1,7 +1,8 @@
-# Run Pester tests for the PowerShell scripts in scripts/
-# Run with: powershell -ExecutionPolicy Bypass -File scripts/test-scripts.ps1
+# Run Pester tests for the PowerShell scripts in scripts/.
+# Run with: pwsh -NoProfile -File .\scripts\test-scripts.ps1
 
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
 $testsDir = Join-Path $PSScriptRoot "tests"
 

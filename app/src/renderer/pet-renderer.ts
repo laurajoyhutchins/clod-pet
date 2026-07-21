@@ -49,7 +49,6 @@ class SpriteRenderer {
 
     const dw = this.tileW * this.scale;
     const dh = this.tileH * this.scale;
-
     this.canvas.width = Math.ceil(dw);
     this.canvas.height = Math.ceil(dh);
     this.ctx.imageSmoothingEnabled = false;
@@ -166,24 +165,23 @@ function setBackendStatus(message: string | null) {
 
 async function initPetRenderer() {
   try {
-    log.info("Requesting init data via invoke...");
+    log.info("Requesting init data...");
     const params = new URLSearchParams(window.location.search);
-    const petId = params.get('petId');
-    const data = await window.clodPet.invoke("get-pet-init", petId) as any;
+    const petId = params.get("petId");
+    const data = await window.clodPet.pet.getInit(petId) as any;
     log.info("Received init data, loading sprite...");
-    
-    // Initial sync from store
+
     const state = await window.clodPet.store.getState();
     if (state.environment.scale) renderer.setScale(state.environment.scale);
     if (typeof state.environment.volume === "number") soundPlayer.setVolume(state.environment.volume);
-    
+
     isDebug = !!data.isDebug;
     if (isDebug && debugBorders) {
       debugBorders.style.display = "block";
     }
     await renderer.loadSpriteSheet(data.pngBase64, data.tilesX, data.tilesY);
     renderer.drawFrame(0);
-    
+
     subscribeToStore(petId);
     log.info("Pet initialized successfully");
   } catch (err) {
@@ -196,24 +194,21 @@ function subscribeToStore(petId: string | null) {
   if (!petId) return;
 
   window.clodPet.store.subscribe((state: WorldState, _prevState?: WorldState) => {
-    // 1. Sync Settings
     renderer.setScale(state.environment.scale || 1.0);
     soundPlayer.setVolume(state.environment.volume || 0.3);
 
-    // 2. Sync Backend Status
-    const backendStatus = state.backend.status || "";
+    const backendState = state.backend.status || "";
     const backendAvailable = state.backend.available || false;
-    if (backendStatus === "fatal" || backendStatus === "failed" || !backendAvailable) {
+    if (backendState === "fatal" || backendState === "failed" || !backendAvailable) {
       const fatal = state.backend.lastError || "unexpected crash";
       setBackendStatus(`Backend unavailable: ${fatal}`);
-    } else if (backendStatus === "restarting") {
+    } else if (backendState === "restarting") {
       const suffix = state.backend.nextRestartAt ? `, retrying at ${state.backend.nextRestartAt}` : "";
       setBackendStatus(`Backend restarting after crash${suffix}`);
     } else {
       setBackendStatus(null);
     }
 
-    // 3. Reactive Rendering
     const pet = state.pets[petId];
     if (pet) {
       renderer.drawFrame(pet.state.frameIndex, pet.state.flipH);
@@ -226,10 +221,8 @@ function subscribeToStore(petId: string | null) {
   });
 }
 
-const removeFrameListener = window.clodPet.on("pet:frame", (data: Record<string, unknown>) => {
-  // Sound is a transient event, so we still use IPC for it for now.
-  // Physics and Animation state are now handled reactively via the store.
-  soundPlayer.play(data.sound as Record<string, unknown>);
+const removeFrameListener = window.clodPet.pet.onFrame((data: Record<string, unknown>) => {
+  soundPlayer.play(data.sound as SoundPayload);
 });
 
 function updateDebugBorders(borderCtx: number) {
@@ -239,20 +232,16 @@ function updateDebugBorders(borderCtx: number) {
   debugBorders.textContent = label ? `Border: ${label}` : "";
 }
 
-// Remove old listeners
-const removeScaleListener = () => {};
-const removeVolumeListener = () => {};
-
 clickLayer.addEventListener("pointerdown", (e) => {
   isDragging = true;
   clickLayer.classList.add("dragging");
   clickLayer.setPointerCapture(e.pointerId);
-  window.clodPet.send("pet:drag");
+  window.clodPet.pet.beginDrag();
 });
 
 clickLayer.addEventListener("pointermove", (e) => {
   if (!isDragging) return;
-  window.clodPet.send("pet:drag:move", {
+  window.clodPet.pet.moveDrag({
     x: e.screenX,
     y: e.screenY,
   });
@@ -263,13 +252,11 @@ clickLayer.addEventListener("pointerup", (e) => {
   isDragging = false;
   clickLayer.releasePointerCapture(e.pointerId);
   clickLayer.classList.remove("dragging");
-  window.clodPet.send("pet:drop");
+  window.clodPet.pet.endDrag();
 });
 
 window.addEventListener("beforeunload", () => {
   removeFrameListener();
-  removeScaleListener();
-  removeVolumeListener();
 });
 
 initPetRenderer();

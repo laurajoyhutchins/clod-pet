@@ -122,11 +122,13 @@ declare global {
 
   interface Window {
     clodPet: {
-      send(channel: string, data?: unknown): void;
-      on(channel: string, callback: (data: Record<string, unknown>) => void): () => void;
-      off(channel: string, callback: (data: Record<string, unknown>) => void): void;
-      once(channel: string, callback: (data: Record<string, unknown>) => void): void;
-      invoke(channel: string, data?: unknown): Promise<unknown>;
+      pet: {
+        getInit(petId: string | null): Promise<unknown>;
+        onFrame(callback: (data: Record<string, unknown>) => void): () => void;
+        beginDrag(): void;
+        moveDrag(position: { x: number; y: number }): void;
+        endDrag(): void;
+      };
       store: {
         getState(): Promise<WorldState>;
         subscribe(callback: (state: WorldState, prevState?: WorldState) => void): () => void;
