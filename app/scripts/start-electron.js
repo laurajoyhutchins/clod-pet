@@ -4,7 +4,7 @@ const { spawn } = require("child_process");
 const electronPath = require("electron");
 
 const env = { ...process.env };
-const args = ["--no-sandbox"];
+const args = [];
 
 if (process.platform === "linux" && env.XDG_SESSION_TYPE === "wayland" && env.CLOD_PET_ALLOW_WAYLAND !== "1") {
   env.ELECTRON_OZONE_PLATFORM_HINT = "x11";

@@ -1,58 +1,20 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import type { ChatMessage, ChatStreamEvent } from "../shared/store";
+import { createPetBridge } from "./ipc-contract";
 
-// Track registered listeners so off() can remove the correct wrapper.
-// Map key is channel, value maps the user's callback to the actual registered listener.
-const listenerMap = new Map<string, Map<Function, (_event: IpcRendererEvent, data: Record<string, unknown>) => void>>();
+contextBridge.exposeInMainWorld("clodPet", Object.freeze({
+  pet: createPetBridge(ipcRenderer),
 
-function getListenerMap(channel: string): Map<Function, (_event: IpcRendererEvent, data: Record<string, unknown>) => void> {
-  let map = listenerMap.get(channel);
-  if (!map) {
-    map = new Map();
-    listenerMap.set(channel, map);
-  }
-  return map;
-}
-
-contextBridge.exposeInMainWorld("clodPet", {
-  send: (channel: string, data?: unknown) => ipcRenderer.send(channel, data),
-
-  on: (channel: string, callback: (data: Record<string, unknown>) => void) => {
-    const listener = (_event: IpcRendererEvent, data: Record<string, unknown>) => callback(data);
-    getListenerMap(channel).set(callback, listener);
-    ipcRenderer.on(channel, listener);
-    return () => {
-      ipcRenderer.removeListener(channel, listener);
-      getListenerMap(channel).delete(callback);
-    };
-  },
-
-  off: (channel: string, callback: (data: Record<string, unknown>) => void) => {
-    const map = listenerMap.get(channel);
-    if (!map) return;
-    const listener = map.get(callback);
-    if (listener) {
-      ipcRenderer.removeListener(channel, listener);
-      map.delete(callback);
-    }
-  },
-
-  once: (channel: string, callback: (data: Record<string, unknown>) => void) => {
-    ipcRenderer.once(channel, (_event: IpcRendererEvent, data: Record<string, unknown>) => callback(data));
-  },
-
-  invoke: (channel: string, data?: unknown) => ipcRenderer.invoke(channel, data),
-
-  store: {
+  store: Object.freeze({
     getState: () => ipcRenderer.invoke("store:get-state"),
     subscribe: (callback: (state: Record<string, unknown>) => void) => {
       const listener = (_event: IpcRendererEvent, state: Record<string, unknown>) => callback(state);
       ipcRenderer.on("store:updated", listener);
       return () => ipcRenderer.removeListener("store:updated", listener);
     },
-  },
+  }),
 
-  control: {
+  control: Object.freeze({
     getSettings: () => ipcRenderer.invoke("control:get-settings"),
     setSettings: (settings: Record<string, unknown>) => ipcRenderer.invoke("control:set-settings", settings),
     listPets: () => ipcRenderer.invoke("control:list-pets"),
@@ -70,8 +32,7 @@ contextBridge.exposeInMainWorld("clodPet", {
       ipcRenderer.invoke("control:renderer-error", { source, message, stack }),
 
     streamChat: (messages: ChatMessage[], onEvent: (event: ChatStreamEvent) => void) => {
-      const channel = `llm-stream-${Math.random().toString(36).slice(2)}`;
-      ipcRenderer.send("llm-stream-start", { messages, channel });
+      const channel = `llm-stream-${crypto.randomUUID()}`;
       const handler = (_event: IpcRendererEvent, data: ChatStreamEvent) => {
         onEvent(data);
         if (data.done || data.error) {
@@ -79,14 +40,15 @@ contextBridge.exposeInMainWorld("clodPet", {
         }
       };
       ipcRenderer.on(channel, handler);
+      ipcRenderer.send("llm-stream-start", { messages, channel });
     },
 
     closeWindow: () => ipcRenderer.invoke("control:close-window"),
     minimizeWindow: () => ipcRenderer.invoke("control:minimize-window"),
     zoomWindow: () => ipcRenderer.invoke("control:zoom-window"),
-  },
+  }),
 
-  editor: {
+  editor: Object.freeze({
     show: (initialPath?: string) => ipcRenderer.invoke("editor:show", initialPath),
     openPetDirectory: () => ipcRenderer.invoke("editor:open-pet-directory"),
     openAnimationFile: () => ipcRenderer.invoke("editor:open-animation-file"),
@@ -101,5 +63,5 @@ contextBridge.exposeInMainWorld("clodPet", {
     closeWindow: () => ipcRenderer.invoke("editor:close-window"),
     minimizeWindow: () => ipcRenderer.invoke("editor:minimize-window"),
     zoomWindow: () => ipcRenderer.invoke("editor:zoom-window"),
-  },
-});
+  }),
+}));

@@ -1,162 +1,106 @@
-# Scripts Reference
+# Scripts reference
 
-Clod Pet provides PowerShell scripts for Windows and shell scripts for Linux/macOS build and test workflows.
+Clod Pet separates ordinary source installation, local development, development-only signing, and release packaging. No ordinary script requires an execution-policy bypass or administrator rights.
 
-## Available Scripts
+## Windows scripts
 
-| Script | Description |
-|--------|-------------|
-| `install.ps1` | Full installation with code signing, Defender exclusions, and shortcuts |
-| `build.ps1` | Quick rebuild of backend and app dependencies |
-| `test.ps1` | Run test suites (backend, app, E2E) |
-| `test-scripts.ps1` | Run Pester specs for the PowerShell script helpers |
-| `uninstall.ps1` | Clean removal of installed components |
-| `script-options.ps1` / `script-paths.ps1` | Shared PowerShell helper modules |
-| `build.sh` | Linux/macOS build for the Go backend and TypeScript app |
-| `test.sh` | Linux/macOS test runner for backend, app, and optional E2E tests |
+| Script | Purpose | Host trust changes |
+|---|---|---|
+| `install.ps1` | Deterministic per-user source build, launcher, and optional Start Menu shortcut | None |
+| `uninstall.ps1` | Idempotent removal of generated source-install files | Exact legacy cleanup only |
+| `bootstrap-dev.ps1` | Locked dependency install, TypeScript build, and Go tests | None |
+| `dev-signing.ps1` | Explicit development-only signing with a current-user self-signed certificate | Opt-in certificate creation in `CurrentUser\My`; never trusted automatically |
+| `cleanup-dev-signing.ps1` | Remove one exact development certificate | Removes only an unambiguous exact match |
+| `package-release.ps1` | Release packaging and signing with a pre-existing certificate thumbprint | Never creates or imports a certificate |
+| `build.ps1` | Rebuild backend and app | None |
+| `test.ps1` | Run backend, app, and E2E tests | None |
+| `test-scripts.ps1` | Run Pester tests for script helpers and security decisions | None |
 
----
+## Safe source installation
 
-## install.ps1
-
-Full installation script that sets up Clod Pet for development or production use.
-
-**Usage:**
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install.ps1
+pwsh -NoProfile -File .\scripts\install.ps1
 ```
 
-**What it does:**
-1. Creates a self-signed code-signing certificate (for development)
-2. Builds the Go backend executable
-3. Signs the backend executable (requires Windows SDK `signtool.exe`)
-4. Adds Windows Defender exclusion for the backend directory
-5. Installs app npm dependencies
-6. Builds Electron app (if `electron-builder` is available)
-7. Creates Start Menu shortcut
-8. Writes default settings to `%APPDATA%\clod-pet-settings.json`
-9. Creates `clod-pet.cmd` wrapper in repo root
+The script requires Go, Node.js, npm, and `app/package-lock.json`. It uses `npm ci`, builds the Go executable and TypeScript output, then writes a per-user launcher and shortcut. Repeated runs are supported.
 
-**Output:** Log file saved to `%TEMP%\clodpet-install.log`
+The source installer does not:
 
----
+- request elevation;
+- modify Defender, firewall, browser, or operating-system settings;
+- create, import, or trust certificates;
+- change PowerShell execution policy;
+- write credentials or provider configuration;
+- terminate processes;
+- pass `--no-sandbox` to Electron.
 
-## build.ps1
+Its log at `%TEMP%\clodpet-install.log` records step names and error types, not credentials or absolute user paths.
 
-Quick build script for rebuilding the backend and installing app dependencies.
+Optional parameters:
 
-**Usage:**
+- `-SkipShortcut` — do not create a Start Menu shortcut.
+- `-AppDataRoot <path>` — override the per-user state root for isolated tests.
+- `-TempRoot <path>` — override the log root for isolated tests.
+
+## Safe uninstallation
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build.ps1
+pwsh -NoProfile -File .\scripts\uninstall.ps1
 ```
 
-**What it does:**
-1. Builds Go backend to `backend/clod-pet-backend.exe`
-2. Installs/updates app npm dependencies
+The uninstaller removes the shortcut, source launcher, and generated backend executable. It preserves settings by default.
 
-The app npm scripts run the TypeScript compiler before launching or testing:
+- `-RemoveUserData` explicitly removes the settings file.
+- `-SkipLegacySecurityCleanup` skips inspection for historical project-created Defender and certificate artifacts.
 
-| npm script | Description |
-|------------|-------------|
-| `npm run build:ts` | Compile Electron/main/preload TypeScript and browser-script TypeScript |
-| `npm start` | Compile TypeScript, then launch Electron |
-| `npm run dev` | Watch app and backend source, rebuild TypeScript on change, and restart Electron in development |
-| `npm run dev:once` | Compile TypeScript, then launch Electron with `NODE_ENV=development` |
-| `npm test` | Compile TypeScript, then run app unit tests |
-| `npm run test:e2e` | Run app E2E tests that spawn the Go backend |
+Legacy cleanup is deliberately narrow. It removes only the exact historical `backend\bin` Defender exclusion and only one exact current-user self-signed code-signing certificate named `CN=ClodPet Dev` with friendly name `ClodPet Dev Cert`. If selection is ambiguous, cleanup stops without removing anything.
 
----
+## Local development
 
-## test.ps1
-
-Comprehensive test runner for backend (Go) and app (Jest) test suites.
-
-**Usage:**
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/test.ps1 [backend|app|e2e|all]
+pwsh -NoProfile -File .\scripts\bootstrap-dev.ps1
+cd app
+npm run dev
 ```
 
-**Options:**
-- No arguments: runs backend + app unit tests
-- `backend`: runs only Go backend tests with coverage
-- `app`: runs only Jest unit tests
-- `e2e`: runs end-to-end tests
-- `all`: runs all test suites including E2E
+Development bootstrap does not call the installer, signing, packaging, or host-security helpers.
 
-**Example:**
+## Development-only signing
+
 ```powershell
-# Run only backend tests
-powershell -ExecutionPolicy Bypass -File scripts/test.ps1 backend
-
-# Run everything
-powershell -ExecutionPolicy Bypass -File scripts/test.ps1 all
+pwsh -NoProfile -File .\scripts\dev-signing.ps1 -CreateCertificate -ArtifactPath .\path\to\artifact.exe
 ```
 
-**Output:** Log file saved to `%TEMP%\clodpet-test.log`
+`-CreateCertificate` is an explicit opt-in. The certificate is stored only in `Cert:\CurrentUser\My`, is not added to Trusted Publishers or a root store, and expires after one year.
 
----
+Cleanup:
 
-## test-scripts.ps1
-
-Runs the Pester specs for `scripts/`, covering shared helper functions and script option parsing.
-
-**Usage:**
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/test-scripts.ps1
+pwsh -NoProfile -File .\scripts\cleanup-dev-signing.ps1
 ```
 
-The runner expects the Pester PowerShell module to be installed in the current environment.
+## Release packaging and signing
 
----
+```powershell
+pwsh -NoProfile -File .\scripts\package-release.ps1 -CertificateThumbprint <40-hex-thumbprint>
+```
 
-## build.sh and test.sh
+The release script requires `signtool.exe`, `electron-builder`, and a pre-existing current-user certificate with an accessible private key. It never creates, imports, exports, or logs signing material.
 
-Unix-like systems can use the shell scripts from the repo root.
+## Tests
 
-**Usage:**
+```powershell
+pwsh -NoProfile -File .\scripts\test-scripts.ps1
+pwsh -NoProfile -File .\scripts\test.ps1 all
+```
+
+The security workflow also runs repeated source installation and uninstallation in an isolated user-state directory, compares Defender exclusions and current-user certificate thumbprints before and after installation, and starts the built backend to verify a loopback-only listener.
+
+## Unix build and test scripts
+
 ```bash
 scripts/build.sh
 scripts/test.sh [backend|app|e2e|all]
 ```
 
-Sound playback runs in Electron/Chromium, so Unix backend builds do not need native audio development headers.
-
----
-
-## uninstall.ps1
-
-Removes Clod Pet shortcuts, settings, and generated files.
-
-**Usage:**
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/uninstall.ps1
-```
-
-**What it removes:**
-- Start Menu shortcut
-- Settings file (`%APPDATA%\clod-pet-settings.json`)
-- Wrapper script (`clod-pet.cmd`)
-- Backend executable
-- Self-signed certificate (optional)
-- Windows Defender exclusion (optional)
-
-**Note:** Node modules and pets folder are not removed. To fully clean up, delete the repo directory.
-
----
-
-## Troubleshooting
-
-### "Windows protected your PC" SmartScreen prompt
-
-To avoid this prompt, either:
-1. Install the Windows SDK and ensure `signtool.exe` is in PATH
-2. Run PowerShell as Administrator so the script can add Defender exclusions
-
-### Missing signtool.exe
-
-Download and install the Windows SDK:
-https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
-
-### Permission errors
-
-Some operations (like adding Defender exclusions) require administrator privileges. Run PowerShell as Administrator.
+Unix scripts build and test the application but do not implement Windows installation or signing behavior.

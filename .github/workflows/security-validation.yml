@@ -1,0 +1,213 @@
+name: Security validation
+
+on:
+  push:
+    branches: ["security/windows-install-hardening"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record exact head tree
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: git rev-parse "${HEAD_SHA}^{tree}" | tee validated-head-tree.txt
+      - name: Publish exact head tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-head-tree
+          path: validated-head-tree.txt
+          retention-days: 1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Check changed Go formatting
+        shell: bash
+        run: |
+          files="$(git diff --name-only --diff-filter=ACMR origin/main...HEAD -- 'backend/*.go' 'backend/**/*.go')"
+          if [ -n "$files" ]; then
+            unformatted="$(gofmt -l $files)"
+            test -z "$unformatted" || { printf 'gofmt required:\n%s\n' "$unformatted"; gofmt -d $unformatted; exit 1; }
+          fi
+      - name: Go vet and tests
+        working-directory: backend
+        run: |
+          go vet ./...
+          go test ./...
+      - name: Frontend install, type-check, build, and tests
+        working-directory: app
+        run: |
+          npm ci --loglevel=error
+          npm run build:ts
+          npx tsc --noEmit
+          npm test -- --runInBand
+      - name: Check patch whitespace
+        run: git diff --check origin/main...HEAD
+
+  windows-install:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install Pester 4 for repository script tests
+        shell: pwsh
+        run: Install-Module Pester -RequiredVersion 4.10.1 -Scope CurrentUser -Force -SkipPublisherCheck
+      - name: Run installer helper tests
+        shell: pwsh
+        run: .\scripts\test-scripts.ps1
+      - name: Simulate fresh, repeated install and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $state = Join-Path $env:RUNNER_TEMP 'clod-pet-user-state'
+          $appData = Join-Path $state 'AppData'
+          $temp = Join-Path $state 'Temp'
+          New-Item -ItemType Directory -Force -Path $appData, $temp | Out-Null
+
+          $certBefore = @(Get-ChildItem Cert:\CurrentUser\My | Select-Object -ExpandProperty Thumbprint)
+          $defenderAvailable = [bool](Get-Command Get-MpPreference -ErrorAction SilentlyContinue)
+          $exclusionsBefore = if ($defenderAvailable) { @((Get-MpPreference).ExclusionPath) } else { @() }
+
+          .\scripts\install.ps1 -AppDataRoot $appData -TempRoot $temp -SkipShortcut
+          .\scripts\install.ps1 -AppDataRoot $appData -TempRoot $temp -SkipShortcut
+
+          if (-not (Test-Path .\clod-pet.cmd)) { throw 'source launcher was not created' }
+          if (-not (Test-Path .\backend\bin\clod-pet-backend.exe)) { throw 'backend executable was not created' }
+
+          $certAfter = @(Get-ChildItem Cert:\CurrentUser\My | Select-Object -ExpandProperty Thumbprint)
+          if (Compare-Object $certBefore $certAfter) { throw 'ordinary installation changed the current-user certificate store' }
+          if ($defenderAvailable) {
+            $exclusionsAfter = @((Get-MpPreference).ExclusionPath)
+            if (Compare-Object $exclusionsBefore $exclusionsAfter) { throw 'ordinary installation changed Defender exclusions' }
+          }
+
+          .\scripts\uninstall.ps1 -AppDataRoot $appData -SkipLegacySecurityCleanup
+          .\scripts\uninstall.ps1 -AppDataRoot $appData -SkipLegacySecurityCleanup
+          if (Test-Path .\clod-pet.cmd) { throw 'source launcher remained after uninstall' }
+          if (Test-Path .\backend\bin\clod-pet-backend.exe) { throw 'backend executable remained after uninstall' }
+      - name: Verify ordinary backend startup on loopback
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\scripts\install.ps1 -AppDataRoot (Join-Path $env:RUNNER_TEMP 'startup-appdata') -TempRoot $env:RUNNER_TEMP -SkipShortcut
+          $port = 18765
+          $env:PORT = "$port"
+          $env:PETS_DIR = (Resolve-Path .\pets).Path
+          $env:SETTINGS_PATH = Join-Path $env:RUNNER_TEMP 'startup-settings.json'
+          $process = Start-Process -FilePath .\backend\bin\clod-pet-backend.exe -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            foreach ($attempt in 1..30) {
+              try {
+                $health = Invoke-RestMethod "http://127.0.0.1:$port/api/health"
+                if ($health.ok) { $ready = $true; break }
+              } catch { Start-Sleep -Milliseconds 250 }
+            }
+            if (-not $ready) { throw 'backend did not become ready' }
+            $listeners = @(Get-NetTCPConnection -State Listen -OwningProcess $process.Id)
+            if ($listeners.Count -eq 0) { throw 'backend listener was not found' }
+            if (@($listeners | Where-Object { $_.LocalAddress -notin @('127.0.0.1', '::1') }).Count -gt 0) {
+              throw 'backend listened beyond loopback'
+            }
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+      - name: Smoke test ordinary Electron application startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'electron-appdata'
+          New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
+          Remove-Item Env:PORT -ErrorAction SilentlyContinue
+          Remove-Item Env:SETTINGS_PATH -ErrorAction SilentlyContinue
+          Remove-Item Env:CLOD_PET_BACKEND_MODE -ErrorAction SilentlyContinue
+
+          function Get-ProcessTreeIds([int]$RootPid) {
+            $result = [System.Collections.Generic.List[int]]::new()
+            $queue = [System.Collections.Generic.Queue[int]]::new()
+            $queue.Enqueue($RootPid)
+            while ($queue.Count -gt 0) {
+              $current = $queue.Dequeue()
+              if ($result.Contains($current)) { continue }
+              $result.Add($current)
+              foreach ($child in @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $current" -ErrorAction SilentlyContinue)) {
+                $queue.Enqueue([int]$child.ProcessId)
+              }
+            }
+            return @($result)
+          }
+
+          $launcher = Start-Process -FilePath $env:ComSpec -ArgumentList '/d', '/c', '.\clod-pet.cmd' -PassThru -WindowStyle Hidden
+          $knownPids = [System.Collections.Generic.HashSet[int]]::new()
+          [void]$knownPids.Add($launcher.Id)
+          try {
+            $initialized = $false
+            $backendPort = $null
+            foreach ($attempt in 1..240) {
+              foreach ($processId in @(Get-ProcessTreeIds $launcher.Id)) {
+                [void]$knownPids.Add([int]$processId)
+              }
+
+              $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object {
+                $knownPids.Contains([int]$_.OwningProcess)
+              })
+              foreach ($port in @($listeners.LocalPort | Sort-Object -Unique)) {
+                try {
+                  $health = Invoke-RestMethod "http://127.0.0.1:$port/api/health"
+                  $active = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/api" -ContentType 'application/json' -Body '{"command":"list_active"}'
+                  if ($health.ok -and $active.ok -and @($active.payload).Count -gt 0) {
+                    $initialized = $true
+                    $backendPort = [int]$port
+                    break
+                  }
+                } catch {
+                  # Other processes in the exact tree may have non-HTTP listeners.
+                }
+              }
+              if ($initialized) { break }
+              Start-Sleep -Milliseconds 250
+            }
+            if (-not $initialized) {
+              throw 'Electron application did not initialize its owned backend and default pet within 60 seconds'
+            }
+
+            $treeProcesses = @(Get-CimInstance Win32_Process | Where-Object { $knownPids.Contains([int]$_.ProcessId) })
+            if (@($treeProcesses | Where-Object { $_.Name -like 'electron*' }).Count -eq 0) {
+              throw 'Electron process was not present in the launched process tree'
+            }
+
+            $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object {
+              $knownPids.Contains([int]$_.OwningProcess)
+            })
+            $backendListeners = @($listeners | Where-Object { [int]$_.LocalPort -eq $backendPort })
+            if ($backendListeners.Count -eq 0) { throw 'application backend listener was not found' }
+            if (@($backendListeners | Where-Object { $_.LocalAddress -notin @('127.0.0.1', '::1') }).Count -gt 0) {
+              throw 'application backend listened beyond loopback'
+            }
+          } finally {
+            foreach ($processId in @($knownPids | Sort-Object -Descending)) {
+              Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            }
+          }
