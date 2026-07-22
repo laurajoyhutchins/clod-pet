@@ -7,20 +7,40 @@ import (
 )
 
 func NewClient(cfg *ProviderConfig) (Client, error) {
+	return NewClientWithCredentials(cfg, EnvironmentCredentialSource{})
+}
+
+func NewClientWithCredentials(cfg *ProviderConfig, credentials CredentialSource) (Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("provider config is required")
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	switch cfg.Provider {
+
+	resolved := *cfg
+	if resolved.Provider != "ollama" {
+		if credentials == nil {
+			return nil, fmt.Errorf("%s credential is not configured: %w", resolved.Provider, ErrCredentialNotFound)
+		}
+		apiKey, err := credentials.APIKey(resolved.Provider)
+		if err != nil || apiKey == "" {
+			return nil, fmt.Errorf("%s credential is not configured: %w", resolved.Provider, ErrCredentialNotFound)
+		}
+		resolved.apiKey = apiKey
+	}
+
+	switch resolved.Provider {
 	case "openai":
-		return newOpenAIClient(cfg)
+		return newOpenAIClient(&resolved)
 	case "anthropic":
-		return newAnthropicClient(cfg)
+		return newAnthropicClient(&resolved)
 	case "gemini":
-		return newGeminiClient(cfg)
+		return newGeminiClient(&resolved)
 	case "ollama":
-		return newOllamaClient(cfg)
+		return newOllamaClient(&resolved)
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s", cfg.Provider)
+		return nil, fmt.Errorf("unsupported provider: %s", resolved.Provider)
 	}
 }
 

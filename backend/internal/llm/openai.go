@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"github.com/goccy/go-json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"net/http"
 	"strings"
 	"time"
@@ -19,7 +19,7 @@ type openaiClient struct {
 }
 
 func newOpenAIClient(cfg *ProviderConfig) (Client, error) {
-	if cfg.APIKey == "" {
+	if cfg.apiKey == "" {
 		return nil, fmt.Errorf("openai: API key required")
 	}
 	baseURL := cfg.BaseURL
@@ -31,7 +31,7 @@ func newOpenAIClient(cfg *ProviderConfig) (Client, error) {
 		model = "gpt-4o"
 	}
 	return &openaiClient{
-		apiKey:  cfg.APIKey,
+		apiKey:  cfg.apiKey,
 		baseURL: baseURL,
 		model:   model,
 		client:  &http.Client{Timeout: 60 * time.Second},

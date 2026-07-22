@@ -7,7 +7,7 @@ A desktop pet application with AI chat capabilities. A Go backend handles animat
 |                | **Tutorials** (learning) | **How-to guides** (goals) | **Reference** (information) | **Explanation** (understanding) |
 |----------------|--------------------------|---------------------------|-----------------------------|----------------------------------|
 | **Purpose**    | Get started              | Solve real problems       | Look up facts               | Understand concepts             |
-| **Where**      | [Get started](tutorials/get-started.md) | [Add a custom pet](howto/add-custom-pet.md) | [Backend HTTP API](reference/ipc-api.md) | [Architecture](explanation/architecture.md) |
+| **Where**      | [Get started](tutorials/get-started.md) | [Add a custom pet](howto/add-custom-pet.md)<br>[Configure an AI provider](howto/configure-llm-providers.md) | [Backend HTTP API](reference/ipc-api.md) | [Architecture](explanation/architecture.md) |
 
 ## Quick start
 

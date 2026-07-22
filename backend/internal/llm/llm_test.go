@@ -8,11 +8,10 @@ import (
 func TestNewClientOpenAI(t *testing.T) {
 	cfg := &ProviderConfig{
 		Provider: "openai",
-		APIKey:   "test-key",
 		Model:    "gpt-4",
 		BaseURL:  "https://api.openai.com/v1",
 	}
-	client, err := NewClient(cfg)
+	client, err := NewClientWithCredentials(cfg, staticCredentialSource{"openai": "test-key"})
 	if err != nil {
 		t.Fatalf("NewClient failed: %v", err)
 	}
@@ -28,7 +27,7 @@ func TestNewClientOpenAINoKey(t *testing.T) {
 	cfg := &ProviderConfig{
 		Provider: "openai",
 	}
-	_, err := NewClient(cfg)
+	_, err := NewClientWithCredentials(cfg, staticCredentialSource{})
 	if err == nil {
 		t.Error("expected error for missing API key")
 	}
@@ -37,10 +36,9 @@ func TestNewClientOpenAINoKey(t *testing.T) {
 func TestNewClientAnthropic(t *testing.T) {
 	cfg := &ProviderConfig{
 		Provider: "anthropic",
-		APIKey:   "test-key",
 		Model:    "claude-sonnet-4-20250514",
 	}
-	client, err := NewClient(cfg)
+	client, err := NewClientWithCredentials(cfg, staticCredentialSource{"anthropic": "test-key"})
 	if err != nil {
 		t.Skipf("anthropic client creation failed (may need valid API): %v", err)
 	}
@@ -52,10 +50,9 @@ func TestNewClientAnthropic(t *testing.T) {
 func TestNewClientGemini(t *testing.T) {
 	cfg := &ProviderConfig{
 		Provider: "gemini",
-		APIKey:   "test-key",
 		Model:    "gemini-2.5-flash",
 	}
-	client, err := NewClient(cfg)
+	client, err := NewClientWithCredentials(cfg, staticCredentialSource{"gemini": "test-key"})
 	if err != nil {
 		t.Skipf("gemini client creation failed (may need valid API): %v", err)
 	}
@@ -178,7 +175,6 @@ func TestStreamEvent(t *testing.T) {
 func TestProviderConfig(t *testing.T) {
 	cfg := &ProviderConfig{
 		Provider: "openai",
-		APIKey:   "key",
 		BaseURL:  "https://api.openai.com/v1",
 		Model:    "gpt-4",
 	}

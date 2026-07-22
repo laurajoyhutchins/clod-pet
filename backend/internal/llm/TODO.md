@@ -32,5 +32,5 @@ Add LLM chat functionality to clod-pet for AI-powered pet interactions.
 
 ## Notes
 - Currently supports: OpenAI, Anthropic, Gemini, Ollama
-- Configuration stored in `clod-pet-settings.json`
+- Non-secret provider preferences are stored in `clod-pet-settings.json`; hosted credentials are resolved from process environment variables
 - Default provider: Ollama (localhost:11434)

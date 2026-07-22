@@ -16,7 +16,7 @@ type geminiClient struct {
 }
 
 func newGeminiClient(cfg *ProviderConfig) (Client, error) {
-	if cfg.APIKey == "" {
+	if cfg.apiKey == "" {
 		return nil, fmt.Errorf("gemini: API key required")
 	}
 
@@ -25,7 +25,7 @@ func newGeminiClient(cfg *ProviderConfig) (Client, error) {
 	}
 
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
-		APIKey:     cfg.APIKey,
+		APIKey:     cfg.apiKey,
 		Backend:    genai.BackendGeminiAPI,
 		HTTPClient: httpClient,
 		HTTPOptions: genai.HTTPOptions{

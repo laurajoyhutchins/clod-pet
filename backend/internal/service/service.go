@@ -339,9 +339,9 @@ func (s *Service) StepPet(petID string, world engine.WorldContext) (*ipc.PetStat
 func (s *Service) StepPets(petIDs []string, world engine.WorldContext) ([]*ipc.PetState, error) {
 	results := make([]*ipc.PetState, len(petIDs))
 	var (
-		wg     sync.WaitGroup
-		mu     sync.Mutex
-		errs   []error
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
 	)
 
 	for i, petID := range petIDs {
@@ -456,83 +456,136 @@ func (s *Service) Settings() map[string]interface{} {
 		"MultiScreenEnabled":   s.settings.MultiScreenEnabled,
 		"GravityFactor":        s.settings.GravityFactor,
 		"CurrentPet":           s.settings.CurrentPet,
+		"LLM": map[string]interface{}{
+			"provider": s.settings.LLM.Provider,
+			"base_url": s.settings.LLM.BaseURL,
+			"model":    s.settings.LLM.Model,
+		},
 	}
 }
 
 func (s *Service) SetSettings(settings map[string]interface{}) error {
+	if containsCredentialField(settings) {
+		return fmt.Errorf("provider credentials are not accepted through settings; configure the provider environment variable before starting Clod Pet")
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	gravityUpdated := false
+	next := *s.settings
 	if v, ok := settings["Volume"]; ok {
 		if vol, ok := v.(float64); ok {
-			s.settings.Volume = vol
+			next.Volume = vol
 		}
 	}
 	if v, ok := settings["Scale"]; ok {
 		if scale, ok := v.(float64); ok {
-			s.settings.Scale = scale
-			for _, e := range s.engines {
-				e.SetScale(scale)
-			}
+			next.Scale = scale
 		}
 	}
 	if v, ok := settings["GravityFactor"]; ok {
 		if gravity, ok := v.(float64); ok {
-			s.settings.GravityFactor = gravity
-			for _, e := range s.engines {
-				e.SetGravityFactor(gravity)
-			}
-			gravityUpdated = true
+			next.GravityFactor = gravity
 		}
 	}
 	if v, ok := settings["ShowAdvancedSettings"]; ok {
 		if show, ok := v.(bool); ok {
-			s.settings.ShowAdvancedSettings = show
+			next.ShowAdvancedSettings = show
 		}
 	}
 	if v, ok := settings["ShowDiagnosticsPanel"]; ok {
 		if show, ok := v.(bool); ok {
-			s.settings.ShowDiagnosticsPanel = show
+			next.ShowDiagnosticsPanel = show
 		}
 	}
 	if v, ok := settings["PanelStyle"]; ok {
 		if panelStyle, ok := v.(string); ok {
-			s.settings.PanelStyle = panelStyle
+			next.PanelStyle = panelStyle
 		}
 	}
 	if v, ok := settings["WinForeGround"]; ok {
 		if fg, ok := v.(bool); ok {
-			s.settings.WinForeGround = fg
+			next.WinForeGround = fg
 		}
 	}
 	if v, ok := settings["StealTaskbarFocus"]; ok {
 		if st, ok := v.(bool); ok {
-			s.settings.StealTaskbarFocus = st
+			next.StealTaskbarFocus = st
 		}
 	}
 	if v, ok := settings["AutostartPets"]; ok {
 		if ap, ok := v.(float64); ok {
-			s.settings.AutostartPets = int(ap)
+			next.AutostartPets = int(ap)
 		}
 	}
 	if v, ok := settings["MultiScreenEnabled"]; ok {
 		if ms, ok := v.(bool); ok {
-			s.settings.MultiScreenEnabled = ms
+			next.MultiScreenEnabled = ms
 		}
 	}
 	if v, ok := settings["CurrentPet"]; ok {
 		if pet, ok := v.(string); ok {
-			s.settings.CurrentPet = pet
+			next.CurrentPet = pet
 		}
 	}
-	if err := s.settings.Save(s.settingsPath); err != nil {
+	if v, ok := settings["LLM"]; ok {
+		providerSettings, ok := v.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("LLM settings must be an object")
+		}
+		providerConfig := next.LLM
+		if provider, ok := providerSettings["provider"].(string); ok {
+			providerConfig.Provider = provider
+		}
+		if baseURL, ok := providerSettings["base_url"].(string); ok {
+			providerConfig.BaseURL = baseURL
+		}
+		if model, ok := providerSettings["model"].(string); ok {
+			providerConfig.Model = model
+		}
+		if err := providerConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid LLM settings: %w", err)
+		}
+		next.LLM = providerConfig
+	}
+
+	scaleChanged := next.Scale != s.settings.Scale
+	gravityChanged := next.GravityFactor != s.settings.GravityFactor
+	if err := next.Save(s.settingsPath); err != nil {
 		return err
 	}
-	if gravityUpdated {
-		log.Info("updated gravity factor", "gravity_factor", s.settings.GravityFactor, "active_pets", len(s.engines))
+
+	*s.settings = next
+	if scaleChanged {
+		for _, e := range s.engines {
+			e.SetScale(next.Scale)
+		}
+	}
+	if gravityChanged {
+		for _, e := range s.engines {
+			e.SetGravityFactor(next.GravityFactor)
+		}
+		log.Info("updated gravity factor", "gravity_factor", next.GravityFactor, "active_pets", len(s.engines))
 	}
 	return nil
+}
+
+func containsCredentialField(value interface{}) bool {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for name, child := range typed {
+			if llm.IsCredentialField(name) || containsCredentialField(child) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, child := range typed {
+			if containsCredentialField(child) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Service) ListPets() ([]string, error) {

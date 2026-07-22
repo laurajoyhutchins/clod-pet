@@ -14,11 +14,11 @@ type anthropicClient struct {
 }
 
 func newAnthropicClient(cfg *ProviderConfig) (Client, error) {
-	if cfg.APIKey == "" {
+	if cfg.apiKey == "" {
 		return nil, fmt.Errorf("anthropic: API key required")
 	}
 
-	opts := []option.RequestOption{option.WithAPIKey(cfg.APIKey)}
+	opts := []option.RequestOption{option.WithAPIKey(cfg.apiKey)}
 	if cfg.BaseURL != "" {
 		opts = append(opts, option.WithBaseURL(cfg.BaseURL))
 	}
