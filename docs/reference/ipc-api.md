@@ -242,7 +242,7 @@ List currently running pet instances.
 
 ### `get_settings` / `set_settings`
 
-Read or update global settings such as volume, scale, and the startup pet.
+Read or update global settings such as volume, scale, the startup pet, and non-secret LLM provider preferences. Provider credentials are not accepted through this API.
 
 **`get_settings` response:**
 ```json
@@ -252,10 +252,17 @@ Read or update global settings such as volume, scale, and the startup pet.
     "Scale": 1,
     "Volume": 0.5,
     "GravityFactor": 2,
-    "CurrentPet": "eSheep-modern"
+    "CurrentPet": "eSheep-modern",
+    "LLM": {
+      "provider": "ollama",
+      "base_url": "http://localhost:11434",
+      "model": "llama3"
+    }
   }
 }
 ```
+
+`LLM` may contain only `provider`, `base_url`, and `model`. Fields such as `api_key`, `token`, and `authorization` are rejected. Hosted-provider keys are resolved from the backend process environment; see [Configure an AI provider](../howto/configure-llm-providers.md).
 
 ### `get_pet`
 

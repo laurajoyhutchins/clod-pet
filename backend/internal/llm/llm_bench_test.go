@@ -104,7 +104,7 @@ func BenchmarkOpenAIChatNonNetwork(b *testing.B) {
 
 	client, _ := newOpenAIClient(&ProviderConfig{
 		Provider: "openai",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 	})
 
@@ -156,7 +156,7 @@ func BenchmarkAnthropicChatNonNetwork(b *testing.B) {
 
 	client, _ := newAnthropicClient(&ProviderConfig{
 		Provider: "anthropic",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 	})
 
@@ -180,7 +180,7 @@ func BenchmarkGeminiChatNonNetwork(b *testing.B) {
 
 	client, _ := newGeminiClient(&ProviderConfig{
 		Provider: "gemini",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 	})
 
@@ -206,7 +206,7 @@ func BenchmarkStreamChatOpenAI(b *testing.B) {
 
 	client, _ := newOpenAIClient(&ProviderConfig{
 		Provider: "openai",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 	})
 

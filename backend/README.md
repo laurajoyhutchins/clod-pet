@@ -35,3 +35,12 @@ Backend release builds are the default. Use `CLOD_PET_BUILD_MODE=debug` or `../s
 - Use `-jsonl-file` to write JSONL snapshots to disk.
 
 Build outputs and coverage artifacts in this directory are generated files.
+## Provider credentials
+
+Provider preferences are stored in `clod-pet-settings.json`, but credentials are not. The backend resolves hosted-provider keys from its process environment:
+
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `GEMINI_API_KEY` or the compatibility fallback `GOOGLE_API_KEY`
+
+Ollama requires no credential for the default local configuration. Credential fields sent through `set_settings` are rejected. Legacy credential fields are removed from a writable settings file during load; migration fails closed if the file cannot be rewritten safely.

@@ -36,7 +36,7 @@ type Client interface {
 
 type ProviderConfig struct {
 	Provider string `json:"provider"`
-	APIKey   string `json:"api_key,omitempty"`
+	apiKey   string
 	BaseURL  string `json:"base_url,omitempty"`
 	Model    string `json:"model,omitempty"`
 }
@@ -49,10 +49,6 @@ func (c *ProviderConfig) Validate() error {
 		return fmt.Errorf("provider is required")
 	default:
 		return fmt.Errorf("unsupported provider: %s", c.Provider)
-	}
-
-	if (c.Provider == "openai" || c.Provider == "anthropic" || c.Provider == "gemini") && c.APIKey == "" {
-		return fmt.Errorf("API key is required for %s provider", c.Provider)
 	}
 
 	return nil

@@ -2,8 +2,8 @@ package llm
 
 import (
 	"context"
-	"github.com/goccy/go-json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,7 +47,7 @@ func TestOpenAIChat(t *testing.T) {
 
 	client, _ := newOpenAIClient(&ProviderConfig{
 		Provider: "openai",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 		Model:    "gpt-4",
 	})
@@ -172,7 +172,7 @@ func TestAnthropicChat(t *testing.T) {
 
 	client, _ := newAnthropicClient(&ProviderConfig{
 		Provider: "anthropic",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 		Model:    "claude-3",
 	})
@@ -227,7 +227,7 @@ func TestGeminiChat(t *testing.T) {
 
 	client, _ := newGeminiClient(&ProviderConfig{
 		Provider: "gemini",
-		APIKey:   "test-key",
+		apiKey:   "test-key",
 		BaseURL:  server.URL,
 		Model:    "gemini-1.5",
 	})

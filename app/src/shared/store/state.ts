@@ -111,6 +111,11 @@ export interface AppSettings {
   StealTaskbarFocus?: boolean;
   AutostartPets?: number;
   CurrentPet?: string;
+  LLM?: {
+    provider?: "openai" | "anthropic" | "gemini" | "ollama";
+    base_url?: string;
+    model?: string;
+  };
   [key: string]: unknown;
 }
 

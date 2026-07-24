@@ -52,6 +52,10 @@ Development signing is optional and isolated in `scripts/dev-signing.ps1`. It us
 
 Release maintainers use `scripts/package-release.ps1` with a pre-existing release certificate thumbprint. The release script never creates or imports a signing identity.
 
+## Configure AI providers safely
+
+Clod Pet persists only the provider name, model, and optional base URL. Hosted-provider credentials are read from process environment variables and are never accepted through the settings API or stored in the settings JSON. See [Configure an AI provider without storing its API key](docs/howto/configure-llm-providers.md).
+
 ## Common commands
 
 - `cd app && npm run dev` — frontend development with auto-reload

@@ -1,10 +1,13 @@
 package settings
 
 import (
-	"clod-pet/backend/internal/llm"
-	"github.com/goccy/go-json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"clod-pet/backend/internal/llm"
+	"github.com/goccy/go-json"
 )
 
 type LastUpdate struct {
@@ -64,6 +67,7 @@ func Load(path string) (*Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err == nil {
 		if v, ok := raw["ShowDiagnosticsPanel"]; ok {
@@ -75,6 +79,36 @@ func Load(path string) (*Config, error) {
 				return nil, err
 			}
 		}
+
+		var llmName string
+		var llmValue json.RawMessage
+		for name, value := range raw {
+			if !strings.EqualFold(name, "LLM") {
+				continue
+			}
+			if llmName != "" {
+				return nil, fmt.Errorf("settings contain multiple case-insensitive LLM sections")
+			}
+			llmName = name
+			llmValue = value
+		}
+
+		if llmName != "" {
+			sanitized, changed, err := removeCredentialFields(llmValue)
+			if err != nil {
+				return nil, fmt.Errorf("inspect legacy provider settings: %w", err)
+			}
+			if changed {
+				raw[llmName] = sanitized
+				migrated, err := json.MarshalIndent(raw, "", "  ")
+				if err != nil {
+					return nil, fmt.Errorf("serialize migrated provider settings: %w", err)
+				}
+				if err := writeSettingsFile(path, migrated); err != nil {
+					return nil, fmt.Errorf("remove legacy provider credentials from settings: %w", err)
+				}
+			}
+		}
 	}
 	if cfg.PanelStyle == "" {
 		cfg.PanelStyle = "windows-98"
@@ -84,15 +118,60 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) Save(path string) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
+	return writeSettingsFile(path, data)
+}
 
-	return os.WriteFile(path, data, 0644)
+func writeSettingsFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0600)
+}
+
+func removeCredentialFields(raw json.RawMessage) (json.RawMessage, bool, error) {
+	var value interface{}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, false, err
+	}
+	changed := removeCredentialFieldsValue(value)
+	if !changed {
+		return raw, false, nil
+	}
+	sanitized, err := json.Marshal(value)
+	if err != nil {
+		return nil, false, err
+	}
+	return sanitized, true, nil
+}
+
+func removeCredentialFieldsValue(value interface{}) bool {
+	changed := false
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for name, child := range typed {
+			if llm.IsCredentialField(name) {
+				delete(typed, name)
+				changed = true
+				continue
+			}
+			if removeCredentialFieldsValue(child) {
+				changed = true
+			}
+		}
+	case []interface{}:
+		for _, child := range typed {
+			if removeCredentialFieldsValue(child) {
+				changed = true
+			}
+		}
+	}
+	return changed
 }

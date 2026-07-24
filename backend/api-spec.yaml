@@ -632,6 +632,20 @@ components:
           format: double
         CurrentPet:
           type: string
+        LLM:
+          $ref: '#/components/schemas/LLMProviderSettings'
+    LLMProviderSettings:
+      type: object
+      additionalProperties: false
+      description: Non-secret provider preferences. API keys and authorization values are not accepted through settings.
+      properties:
+        provider:
+          type: string
+          enum: [openai, anthropic, gemini, ollama]
+        base_url:
+          type: string
+        model:
+          type: string
     Settings:
       allOf:
         - $ref: '#/components/schemas/SettingsPatch'

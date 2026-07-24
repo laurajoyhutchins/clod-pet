@@ -65,6 +65,32 @@ func TestAPISpecCommandsMatchIPC(t *testing.T) {
 	}
 }
 
+func TestAPISpecLLMSettingsExcludeCredentialFields(t *testing.T) {
+	data, err := os.ReadFile("api-spec.yaml")
+	if err != nil {
+		t.Fatalf("read api spec: %v", err)
+	}
+
+	var spec map[string]interface{}
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		t.Fatalf("parse api spec: %v", err)
+	}
+
+	schemas := yamlMap(t, yamlMap(t, spec, "components"), "schemas")
+	llmSettings := yamlMap(t, schemas, "LLMProviderSettings")
+	properties := yamlMap(t, llmSettings, "properties")
+	for name := range properties {
+		normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(name))
+		switch normalized {
+		case "apikey", "token", "accesstoken", "bearertoken", "authorization", "authorizationheader":
+			t.Fatalf("LLM settings schema exposed credential field %q", name)
+		}
+	}
+	if additional, ok := llmSettings["additionalProperties"].(bool); !ok || additional {
+		t.Fatalf("LLM settings additionalProperties = %v, want false", llmSettings["additionalProperties"])
+	}
+}
+
 func yamlMap(t *testing.T, m map[string]interface{}, key string) map[string]interface{} {
 	t.Helper()
 
