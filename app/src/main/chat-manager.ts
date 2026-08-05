@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, type WebContents } from "electron";
 import * as path from "path";
 import { hardenLocalWindow, localWindowWebPreferences } from "./window-security";
 
@@ -12,9 +12,14 @@ class ChatManager {
   }
 
   setupIpc(): void {
-    ipcMain.on("chat-close", () => {
+    ipcMain.on("chat-close", (event) => {
+      if (!this.ownsSender(event.sender)) return;
       this.closeChat();
     });
+  }
+
+  ownsSender(sender: WebContents) {
+    return Boolean(this.window && !this.window.isDestroyed() && sender === this.window.webContents);
   }
 
   showChat(): void {
