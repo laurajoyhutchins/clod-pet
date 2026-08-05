@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from "electron";
 import logger = require("./logger");
 import BackendManager = require("./backend-manager");
 import PetManager = require("./pet-manager");
@@ -42,6 +42,19 @@ function getRendererLogger(source: string) {
   const created = logger.createLogger(key);
   rendererLoggers.set(key, created);
   return created;
+}
+
+function assertControlPanelSender(event: IpcMainInvokeEvent) {
+  if (!controlPanelWindow || controlPanelWindow.isDestroyed() || event.sender !== controlPanelWindow.webContents) {
+    throw new Error("control-panel request rejected");
+  }
+}
+
+function assertAppRendererSender(event: IpcMainInvokeEvent) {
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  if (!owner || owner.isDestroyed()) {
+    throw new Error("renderer request rejected");
+  }
 }
 
 app.enableSandbox();
@@ -171,11 +184,13 @@ function setupControlPanelHandlers(): void {
   if (controlPanelHandlersRegistered) return;
   controlPanelHandlersRegistered = true;
 
-  ipcMain.handle("control:get-settings", async () => {
+  ipcMain.handle("control:get-settings", async (event) => {
+    assertControlPanelSender(event);
     const resp = await petManager?.backendClient.getSettings();
     return resp?.payload || {};
   });
-  ipcMain.handle("control:set-settings", async (_event, settings) => {
+  ipcMain.handle("control:set-settings", async (event, settings) => {
+    assertControlPanelSender(event);
     const result = await petManager?.backendClient.setSettings(settings);
     if (settings && typeof settings.MultiScreenEnabled === "boolean") {
       petManager?.setMultiScreenEnabled(settings.MultiScreenEnabled);
@@ -185,27 +200,33 @@ function setupControlPanelHandlers(): void {
     }
     return result;
   });
-  ipcMain.handle("control:list-pets", async () => {
+  ipcMain.handle("control:list-pets", async (event) => {
+    assertControlPanelSender(event);
     const resp = await petManager?.backendClient.listPets();
     return resp?.payload || [];
   });
-  ipcMain.handle("control:list-active", async () => {
+  ipcMain.handle("control:list-active", async (event) => {
+    assertControlPanelSender(event);
     const resp = await petManager?.backendClient.listActive();
     return resp?.payload || [];
   });
-  ipcMain.handle("control:set-volume", async (_event, volume) => {
+  ipcMain.handle("control:set-volume", async (event, volume) => {
+    assertControlPanelSender(event);
     const result = await petManager?.backendClient.setVolume(volume);
     petManager?.setVolume(volume);
     return result;
   });
-  ipcMain.handle("control:set-scale", async (_event, scale) => {
+  ipcMain.handle("control:set-scale", async (event, scale) => {
+    assertControlPanelSender(event);
     await petManager?.backendClient.setScale(scale);
     petManager?.setScale(scale);
   });
-  ipcMain.handle("control:set-gravity-factor", async (_event, gravity) => {
+  ipcMain.handle("control:set-gravity-factor", async (event, gravity) => {
+    assertControlPanelSender(event);
     await petManager?.backendClient.setGravityFactor(gravity);
   });
-  ipcMain.handle("control:resize-window", (_event, size: { width: number; height: number }) => {
+  ipcMain.handle("control:resize-window", (event, size: { width: number; height: number }) => {
+    assertControlPanelSender(event);
     if (!controlPanelWindow || controlPanelWindow.isDestroyed()) {
       return false;
     }
@@ -222,15 +243,23 @@ function setupControlPanelHandlers(): void {
     controlPanelWindow.setContentSize(width, height);
     return true;
   });
-  ipcMain.handle("control:add-pet", async (_event, petName) => {
+  ipcMain.handle("control:add-pet", async (event, petName) => {
+    assertControlPanelSender(event);
     if (!petName || typeof petName !== "string") {
       throw new Error("pet name is required");
     }
     return createPet(path.join(getPetsDir(), petName), { throwOnError: true });
   });
-  ipcMain.handle("control:remove-pet", (_event, petId) => petManager?.removePet(petId));
-  ipcMain.handle("control:diagnostics", async () => getDiagnostics());
-  ipcMain.handle("control:renderer-log", (_event, entry) => {
+  ipcMain.handle("control:remove-pet", (event, petId) => {
+    assertControlPanelSender(event);
+    return petManager?.removePet(petId);
+  });
+  ipcMain.handle("control:diagnostics", async (event) => {
+    assertControlPanelSender(event);
+    return getDiagnostics();
+  });
+  ipcMain.handle("control:renderer-log", (event, entry) => {
+    assertAppRendererSender(event);
     const source = entry?.source || "renderer";
     const level = entry?.level === "debug" || entry?.level === "info" || entry?.level === "warn" || entry?.level === "error"
       ? entry.level
@@ -253,7 +282,8 @@ function setupControlPanelHandlers(): void {
     }
     return true;
   });
-  ipcMain.handle("control:renderer-error", (_event, err) => {
+  ipcMain.handle("control:renderer-error", (event, err) => {
+    assertAppRendererSender(event);
     const entry: DiagnosticEvent = {
       source: err.source || "renderer",
       message: err.message || "unknown error",
@@ -267,19 +297,22 @@ function setupControlPanelHandlers(): void {
     return true;
   });
 
-  ipcMain.handle("control:close-window", () => {
+  ipcMain.handle("control:close-window", (event) => {
+    assertControlPanelSender(event);
     app.quit();
     return true;
   });
 
-  ipcMain.handle("control:minimize-window", () => {
+  ipcMain.handle("control:minimize-window", (event) => {
+    assertControlPanelSender(event);
     if (controlPanelWindow && !controlPanelWindow.isDestroyed()) {
       controlPanelWindow.minimize();
     }
     return true;
   });
 
-  ipcMain.handle("control:zoom-window", () => {
+  ipcMain.handle("control:zoom-window", (event) => {
+    assertControlPanelSender(event);
     if (!controlPanelWindow || controlPanelWindow.isDestroyed()) {
       return false;
     }
@@ -293,6 +326,7 @@ function setupControlPanelHandlers(): void {
   });
 
   ipcMain.on("llm-stream-start", async (event, { messages, channel }) => {
+    if (!chatManager?.ownsSender(event.sender)) return;
     try {
       await petManager?.backendClient.streamChat(messages, (streamEvent: any) => {
         if (!event.sender.isDestroyed()) {
