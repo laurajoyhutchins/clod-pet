@@ -18,7 +18,7 @@ Status meanings:
 
 Clod Pet is coherent as a Windows-oriented Electron shell over a Go runtime. The split is useful: Electron owns windows and host integration; Go owns pet state, animation, physics, validated pet loading, settings, and provider invocation. The principal weakness at the review base was that editor renderer paths crossed the privileged filesystem boundary without a main-process authority object.
 
-The implementation pass adds one editor project grant, one shared Electron local-window policy, and canonical containment inside the existing Go pet-root authority. It removes the unused renderer-facing editor launch operation rather than expanding validation around a redundant capability.
+The implementation pass adds one editor project grant, one shared Electron local-window policy, exact renderer-role authorization at consequential IPC handlers, and canonical containment inside the existing Go pet-root authority. It removes the unused renderer-facing editor launch operation rather than expanding validation around a redundant capability.
 
 ## Implemented findings
 
@@ -31,6 +31,7 @@ The implementation pass adds one editor project grant, one shared Electron local
 | CP-05 | Backend pet root | Lexical `PETS_DIR` containment permitted symlink or reparse-point escape. | Canonical root and candidate resolution, including missing-tail handling for approved not-yet-created paths. |
 | CP-06 | Diagnostics | File logs were sanitized, but console logs received original objects and strings. | Console and file sinks now consume the same sanitizer; verbose backend diagnostics remain opt-in and sanitized. |
 | CP-07 | Save As lifecycle | Authority could have become ambiguous around a failed target write. | Save target is prepared first and activated only after successful document, asset, and sidecar writes. |
+| CP-08 | Renderer roles | A shared preload exposed fixed methods to several window roles, while control-panel and chat handlers did not consistently verify the calling window. | Control operations require the exact control-panel renderer; chat close and streaming require the exact chat renderer; diagnostics require an application-owned renderer; editor handlers retain exact editor sender checks. |
 
 ## Existing evidence retained
 
@@ -72,6 +73,7 @@ The implementation pass adds one editor project grant, one shared Electron local
 |---|---|---|---|
 | ANI-01 | Existing animation and physics tests cover many transitions, but this pass did not independently prove fixed-step behavior under every large delta, sleep/resume, display-change, and negative-coordinate case. | Unverified | Deterministic clock tests plus Windows multi-monitor and resume integration evidence. |
 | EDIT-01 | Editor graph validation exists, but concurrent external edits, conflict detection, complete undo/redo semantics, and runtime reload were not independently verified. | Unverified | File-version contract and focused React/editor integration tests. |
+| EDIT-02 | Save As rewrites nested asset references to basenames before preview validation, so a valid nested source asset may be reported missing even though ordinary load and save support the reference. | Deferred defect | Add a nested-asset Save As integration test, validate source assets before basename rewrite, and preserve target-copy containment. |
 | CHAT-01 | Hosted provider fakes exercise configuration and streaming, but rendered Markdown, unsafe links/HTML, cancellation UI, and large-stream renderer behavior need a dedicated UI security pass. | Unverified | DOM sanitization and navigation tests without live credentials. |
 | A11Y-01 | The app has quit and window controls, but reduced-motion behavior, complete keyboard traversal, screen-reader labeling, high-contrast behavior, and focus non-interference are not comprehensively evidenced. | Deferred defect | Accessibility acceptance criteria and Windows assistive-technology smoke tests. |
 | DISP-01 | Windows multi-monitor, taskbar relocation, DPI transitions, display removal, and sleep/resume remain platform-sensitive. | Unverified | Disposable Windows test account with multiple virtual/physical display configurations. |
@@ -83,6 +85,7 @@ The current Electron/Go split remains proportionate. The highest-value simplific
 
 - one local-window security policy instead of four partial configurations;
 - one editor project authority instead of trusting each IPC path independently;
+- one renderer-role check per privileged handler family rather than treating preload exposure as authorization;
 - one canonical pet-root check instead of lexical and runtime assumptions;
 - one sanitized logging sink instead of caller-specific redaction;
 - deletion of the unused renderer editor-launch route.
