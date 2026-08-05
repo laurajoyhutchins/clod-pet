@@ -34,4 +34,28 @@ describe("Electron launch security", () => {
     expect(preload).not.toContain("show: (initialPath?: string)");
     expect(editorMain).not.toContain('ipcMain.handle("editor:show"');
   });
+
+  test("control-panel mutations require the exact control-panel renderer", () => {
+    const main = readAppSource("src/main/main.ts");
+    const authorizationChecks = main.match(/assertControlPanelSender\(event\);/g) || [];
+
+    expect(main).toContain("function assertControlPanelSender");
+    expect(authorizationChecks).toHaveLength(14);
+  });
+
+  test("diagnostic events require an application-owned renderer", () => {
+    const main = readAppSource("src/main/main.ts");
+    const authorizationChecks = main.match(/assertAppRendererSender\(event\);/g) || [];
+
+    expect(main).toContain("function assertAppRendererSender");
+    expect(authorizationChecks).toHaveLength(2);
+  });
+
+  test("chat streaming requires the exact chat window renderer", () => {
+    const main = readAppSource("src/main/main.ts");
+    const chatManager = readAppSource("src/main/chat-manager.ts");
+
+    expect(chatManager).toContain("ownsSender(sender: WebContents)");
+    expect(main).toContain("if (!chatManager?.ownsSender(event.sender)) return;");
+  });
 });
