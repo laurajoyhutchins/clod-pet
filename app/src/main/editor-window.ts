@@ -1,9 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { randomUUID } from "crypto";
+import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from "electron";
 import fs = require("fs");
 import fsp = require("fs/promises");
 import path = require("path");
 import logger = require("./logger");
 import { getPetsDir } from "./project-paths";
+import EditorProjectAccess, { type EditorProjectGrant } from "./editor-project-access";
+import { hardenLocalWindow, localWindowWebPreferences } from "./window-security";
 import {
   type EditorLayoutState,
   type EditorPreviewState,
@@ -37,6 +40,10 @@ interface SavePayload {
   previews?: EditorPreviewState;
 }
 
+function errorType(error: unknown) {
+  return error instanceof Error ? error.name : typeof error;
+}
+
 class EditorWindowManager {
   private window: BrowserWindow | null = null;
   private handlersRegistered = false;
@@ -45,6 +52,7 @@ class EditorWindowManager {
   private readonly preloadPath: string;
   private readonly editorHtmlPath: string;
   private readonly recentFilePath: string;
+  private readonly access = new EditorProjectAccess();
 
   constructor(preloadPath: string) {
     this.preloadPath = preloadPath;
@@ -56,39 +64,43 @@ class EditorWindowManager {
     if (this.handlersRegistered) return;
     this.handlersRegistered = true;
 
-    ipcMain.handle("editor:show", async (_event, initialPath?: string) => {
-      await this.show(initialPath);
-      return true;
-    });
-
-    ipcMain.handle("editor:open-pet-directory", async () => {
+    ipcMain.handle("editor:open-pet-directory", async (event) => {
+      this.assertEditorSender(event);
       const result = await dialog.showOpenDialog({
         title: "Open Pet Directory",
         defaultPath: getPetsDir(),
         properties: ["openDirectory", "createDirectory"],
       });
       if (result.canceled || result.filePaths.length === 0) return null;
-      return result.filePaths[0];
+      const grant = await this.access.approveSelection(result.filePaths[0]);
+      this.bootstrapPath = grant.documentPath;
+      return grant.documentPath;
     });
 
-    ipcMain.handle("editor:open-animation-file", async () => {
+    ipcMain.handle("editor:open-animation-file", async (event) => {
+      this.assertEditorSender(event);
       const result = await dialog.showOpenDialog({
         title: "Open animations.json",
         defaultPath: getPetsDir(),
         properties: ["openFile"],
-        filters: [
-          { name: "Pet JSON", extensions: ["json"] },
-          { name: "All Files", extensions: ["*"] },
-        ],
+        filters: [{ name: "Pet JSON", extensions: ["json"] }],
       });
       if (result.canceled || result.filePaths.length === 0) return null;
-      return result.filePaths[0];
+      const grant = await this.access.approveSelection(result.filePaths[0]);
+      this.bootstrapPath = grant.documentPath;
+      return grant.documentPath;
     });
 
-    ipcMain.handle("editor:read-document", async (_event, input: { path?: string } | string) => {
+    ipcMain.handle("editor:read-document", async (event, input: { path?: string } | string) => {
+      this.assertEditorSender(event);
       const requestedPath = typeof input === "string" ? input : input?.path;
       if (!requestedPath) {
         throw new Error("document path is required");
+      }
+      if (!this.access.isCurrentDocument(requestedPath)) {
+        await this.loadRecentDocuments();
+        await this.access.approveRecent(requestedPath, this.recentDocuments.map((item) => item.path));
+        this.bootstrapPath = this.access.current()?.documentPath || this.bootstrapPath;
       }
       const result = await this.readDocument(requestedPath);
       this.rememberRecentDocument(result.documentPath, result.document);
@@ -99,54 +111,64 @@ class EditorWindowManager {
       } satisfies EditorReadResult;
     });
 
-    ipcMain.handle("editor:refresh-document-previews", async (_event, input: { documentPath: string; document: ModernPetDocument }) => {
+    ipcMain.handle("editor:refresh-document-previews", async (event, input: { documentPath: string; document: ModernPetDocument }) => {
+      this.assertEditorSender(event);
       if (!input?.documentPath) {
         throw new Error("document path is required");
       }
-      const resolvedPath = await this.resolveDocumentPath(input.documentPath);
-      const petDir = path.dirname(resolvedPath);
+      await this.access.requireDocument(input.documentPath);
+      const grant = this.requireCurrentGrant();
       const document = normalizeDocument(input.document);
-      return this.loadPreviews(document, petDir);
+      return this.loadPreviews(document, grant);
     });
 
-    ipcMain.handle("editor:save-document", async (_event, input: SavePayload) => {
+    ipcMain.handle("editor:save-document", async (event, input: SavePayload) => {
+      this.assertEditorSender(event);
       return this.saveDocument(input, false);
     });
 
-    ipcMain.handle("editor:save-document-as", async (_event, input: SavePayload) => {
+    ipcMain.handle("editor:save-document-as", async (event, input: SavePayload) => {
+      this.assertEditorSender(event);
       return this.saveDocument(input, true);
     });
 
-    ipcMain.handle("editor:show-item-in-folder", async (_event, targetPath: string) => {
+    ipcMain.handle("editor:show-item-in-folder", async (event, targetPath: string) => {
+      this.assertEditorSender(event);
       if (!targetPath) return false;
-      shell.showItemInFolder(targetPath);
+      const approvedPath = await this.access.requireVisiblePath(targetPath);
+      shell.showItemInFolder(approvedPath);
       return true;
     });
 
-    ipcMain.handle("editor:get-recent-documents", async () => {
+    ipcMain.handle("editor:get-recent-documents", async (event) => {
+      this.assertEditorSender(event);
       await this.loadRecentDocuments();
       return this.recentDocuments.slice();
     });
 
-    ipcMain.handle("editor:get-bootstrap-path", async () => {
-      return this.bootstrapPath || this.getDefaultDocumentPath();
+    ipcMain.handle("editor:get-bootstrap-path", async (event) => {
+      this.assertEditorSender(event);
+      return this.access.current()?.documentPath || this.bootstrapPath || this.getDefaultDocumentPath();
     });
 
-    ipcMain.handle("editor:close-window", async () => {
+    ipcMain.handle("editor:close-window", async (event) => {
+      this.assertEditorSender(event);
       if (this.window && !this.window.isDestroyed()) {
         this.window.close();
       }
       return true;
     });
 
-    ipcMain.handle("editor:minimize-window", async () => {
+    ipcMain.handle("editor:minimize-window", async (event) => {
+      this.assertEditorSender(event);
       if (this.window && !this.window.isDestroyed()) {
         this.window.minimize();
       }
       return true;
     });
 
-    ipcMain.handle("editor:zoom-window", async () => {
+    ipcMain.handle("editor:zoom-window", async (event) => {
+      this.assertEditorSender(event);
       if (this.window && !this.window.isDestroyed()) {
         if (this.window.isMaximized()) {
           this.window.unmaximize();
@@ -159,7 +181,9 @@ class EditorWindowManager {
   }
 
   async show(initialPath?: string) {
-    this.bootstrapPath = initialPath || this.bootstrapPath || this.getDefaultDocumentPath();
+    const requestedPath = initialPath || this.access.current()?.documentPath || this.bootstrapPath || this.getDefaultDocumentPath();
+    const grant = await this.access.approveSelection(requestedPath);
+    this.bootstrapPath = grant.documentPath;
     await this.loadRecentDocuments();
 
     if (this.window && !this.window.isDestroyed()) {
@@ -185,12 +209,9 @@ class EditorWindowManager {
       backgroundColor: "#00000000",
       title: "Clod Pet - Animation Editor",
       icon: path.join(__dirname, "..", "..", "assets", "icon.png"),
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: this.preloadPath,
-      },
+      webPreferences: localWindowWebPreferences(this.preloadPath),
     });
+    hardenLocalWindow(this.window);
 
     this.window.once("ready-to-show", () => {
       if (this.window && !this.window.isDestroyed()) {
@@ -201,13 +222,27 @@ class EditorWindowManager {
     await this.window.loadFile(this.editorHtmlPath);
     this.window.on("closed", () => {
       this.window = null;
+      this.bootstrapPath = null;
+      this.access.clear();
     });
+  }
+
+  private assertEditorSender(event: IpcMainInvokeEvent) {
+    if (!this.window || this.window.isDestroyed() || event.sender !== this.window.webContents) {
+      throw new Error("editor request rejected");
+    }
+  }
+
+  private requireCurrentGrant() {
+    const grant = this.access.current();
+    if (!grant) throw new Error("editor project approval required");
+    return grant;
   }
 
   private sendBootstrap() {
     if (!this.window || this.window.isDestroyed()) return;
     this.window.webContents.send("editor:bootstrap", {
-      path: this.bootstrapPath || this.getDefaultDocumentPath(),
+      path: this.access.current()?.documentPath || this.bootstrapPath || this.getDefaultDocumentPath(),
     });
   }
 
@@ -216,16 +251,22 @@ class EditorWindowManager {
   }
 
   private async readDocument(documentPath: string): Promise<ReadDocumentResultInternal> {
-    const resolvedPath = await this.resolveDocumentPath(documentPath);
-    const raw = await fsp.readFile(resolvedPath, "utf8");
-    const parsed = normalizeDocument(JSON.parse(raw) as unknown);
-    const petDir = path.dirname(resolvedPath);
-    const savedLayout = await this.loadLayoutSidecar(petDir);
+    const resolvedPath = await this.access.requireDocument(documentPath);
+    let parsed: ModernPetDocument;
+    try {
+      const raw = await fsp.readFile(resolvedPath, "utf8");
+      parsed = normalizeDocument(JSON.parse(raw) as unknown);
+    } catch (error) {
+      log.warn("editor document read failed", { errorType: errorType(error) });
+      throw new Error("editor document could not be read");
+    }
+    const grant = this.requireCurrentGrant();
+    const savedLayout = await this.loadLayoutSidecar(grant);
     const layout = mergeLayout(parsed, savedLayout);
-    const previews = await this.loadPreviews(parsed, petDir);
+    const previews = await this.loadPreviews(parsed, grant);
     return {
       documentPath: resolvedPath,
-      petDir,
+      petDir: grant.root,
       document: parsed,
       layout,
       previews,
@@ -237,15 +278,16 @@ class EditorWindowManager {
       throw new Error("document path is required");
     }
 
+    const sourcePath = await this.access.requireDocument(input.documentPath);
+    const sourceGrant = this.requireCurrentGrant();
     const currentDocument = normalizeDocument(input.document);
     const currentLayout = input.layout || mergeLayout(currentDocument, null);
-    const currentPath = await this.resolveDocumentPath(input.documentPath);
-    const targetPath = saveAs ? await this.promptSaveAsPath(currentPath, currentDocument) : currentPath;
-    const targetDir = path.dirname(targetPath);
-    const sourceDir = path.dirname(currentPath);
+    const targetGrant = saveAs
+      ? await this.access.prepareSaveTarget(await this.promptSaveAsPath(sourcePath))
+      : sourceGrant;
     const documentToWrite = saveAs ? this.prepareSaveAsDocument(currentDocument) : currentDocument;
 
-    const previews = await this.loadPreviews(documentToWrite, sourceDir);
+    const previews = await this.loadPreviews(documentToWrite, sourceGrant);
     const validation = validateDocumentStructure(documentToWrite, previews);
     if (validation.errors.length > 0) {
       const message = validation.errors.slice(0, 4).map((issue) => issue.message).join("\n");
@@ -266,29 +308,36 @@ class EditorWindowManager {
       }
     }
 
-    await fsp.mkdir(targetDir, { recursive: true });
-    await this.copyReferencedAssets(currentDocument, sourceDir, targetDir);
-    await this.writeAtomicFile(targetPath, serializeDocument(documentToWrite));
-    await this.writeLayoutSidecar(targetDir, currentLayout);
+    try {
+      await this.copyReferencedAssets(currentDocument, sourceGrant, targetGrant);
+      await this.writeAtomicFile(targetGrant.documentPath, serializeDocument(documentToWrite), targetGrant);
+      await this.writeLayoutSidecar(targetGrant, currentLayout);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.startsWith("editor ")) throw error;
+      log.warn("editor document save failed", { errorType: errorType(error) });
+      throw new Error("editor document could not be saved");
+    }
 
-    this.rememberRecentDocument(targetPath, currentDocument);
+    if (saveAs) {
+      this.access.activate(targetGrant);
+      this.bootstrapPath = targetGrant.documentPath;
+    }
+    this.rememberRecentDocument(targetGrant.documentPath, documentToWrite);
     await this.persistRecentDocuments();
 
     return {
-      documentPath: targetPath,
-      petDir: targetDir,
+      documentPath: targetGrant.documentPath,
+      petDir: targetGrant.root,
       recentDocuments: this.recentDocuments.slice(),
     };
   }
 
-  private async promptSaveAsPath(currentPath: string, document: ModernPetDocument): Promise<string> {
+  private async promptSaveAsPath(currentPath: string): Promise<string> {
     const result = await dialog.showSaveDialog({
       title: "Save Animation Editor Document As",
       defaultPath: currentPath,
-      filters: [
-        { name: "Pet JSON", extensions: ["json"] },
-        { name: "All Files", extensions: ["*"] },
-      ],
+      filters: [{ name: "Pet JSON", extensions: ["json"] }],
     });
     if (result.canceled || !result.filePath) {
       throw new Error("save cancelled");
@@ -297,7 +346,7 @@ class EditorWindowManager {
     if (result.filePath.toLowerCase().endsWith(".json")) {
       return result.filePath;
     }
-    return path.join(result.filePath, "animations.json");
+    return `${result.filePath}.json`;
   }
 
   private prepareSaveAsDocument(document: ModernPetDocument): ModernPetDocument {
@@ -313,18 +362,7 @@ class EditorWindowManager {
     return next;
   }
 
-  private async resolveDocumentPath(inputPath: string) {
-    const stat = await fsp.stat(inputPath).catch(() => null);
-    if (stat?.isDirectory()) {
-      return path.join(inputPath, "animations.json");
-    }
-    if (path.basename(inputPath).toLowerCase() === "animations.json") {
-      return inputPath;
-    }
-    return path.join(path.dirname(inputPath), "animations.json");
-  }
-
-  private async copyReferencedAssets(document: ModernPetDocument, sourceDir: string, targetDir: string) {
+  private async copyReferencedAssets(document: ModernPetDocument, sourceGrant: EditorProjectGrant, targetGrant: EditorProjectGrant) {
     const assets: Array<{ value: string | undefined; fallbackName: string; field: string }> = [
       { value: document.image.spritesheet, fallbackName: "spritesheet.png", field: "image.spritesheet" },
       { value: document.header.icon, fallbackName: "icon.png", field: "header.icon" },
@@ -332,13 +370,17 @@ class EditorWindowManager {
 
     for (const asset of assets) {
       if (!asset.value) continue;
-      const sourcePath = path.isAbsolute(asset.value)
-        ? asset.value
-        : path.join(sourceDir, asset.value);
-      if (!fs.existsSync(sourcePath)) {
-        throw new Error(`asset missing for ${asset.field}: ${asset.value}`);
+      let sourcePath: string;
+      try {
+        sourcePath = await this.access.resolveAsset(asset.value, sourceGrant);
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith("editor ")) throw error;
+        throw new Error(`asset is not available for ${asset.field}`);
       }
-      const targetPath = path.join(targetDir, path.basename(asset.value || asset.fallbackName));
+      const targetPath = await this.access.requireWritablePath(
+        path.join(targetGrant.root, path.basename(asset.value || asset.fallbackName)),
+        targetGrant,
+      );
       if (path.resolve(sourcePath) === path.resolve(targetPath)) {
         continue;
       }
@@ -346,41 +388,47 @@ class EditorWindowManager {
     }
   }
 
-  private async writeAtomicFile(filePath: string, contents: string) {
-    const tempPath = `${filePath}.tmp`;
-    const backupPath = `${filePath}.bak`;
+  private async writeAtomicFile(filePath: string, contents: string, grant: EditorProjectGrant) {
+    const safePath = await this.access.requireWritablePath(filePath, grant);
+    const directory = path.dirname(safePath);
+    const baseName = path.basename(safePath);
+    const tempPath = await this.access.requireWritablePath(path.join(directory, `.${baseName}.${randomUUID()}.tmp`), grant);
+    const backupPath = await this.access.requireWritablePath(`${safePath}.bak`, grant);
 
     try {
-      if (fs.existsSync(filePath)) {
-        await fsp.copyFile(filePath, backupPath);
+      if (fs.existsSync(safePath)) {
+        await fsp.copyFile(safePath, backupPath);
       }
-      await fsp.writeFile(tempPath, contents, "utf8");
-      await fsp.rename(tempPath, filePath);
-    } catch (err) {
+      await fsp.writeFile(tempPath, contents, { encoding: "utf8", flag: "wx" });
+      await fsp.rename(tempPath, safePath);
+    } catch (error) {
       await fsp.rm(tempPath, { force: true }).catch(() => {});
-      throw err;
+      throw error;
     }
   }
 
-  private async writeLayoutSidecar(targetDir: string, layout: EditorLayoutState) {
-    const filePath = path.join(targetDir, LAYOUT_SUFFIX);
-    await fsp.writeFile(filePath, `${JSON.stringify(layout, null, 2)}\n`, "utf8");
+  private async writeLayoutSidecar(grant: EditorProjectGrant, layout: EditorLayoutState) {
+    await this.writeAtomicFile(
+      path.join(grant.root, LAYOUT_SUFFIX),
+      `${JSON.stringify(layout, null, 2)}\n`,
+      grant,
+    );
   }
 
-  private async loadLayoutSidecar(targetDir: string): Promise<Partial<EditorLayoutState> | null> {
-    const filePath = path.join(targetDir, LAYOUT_SUFFIX);
-    const exists = fs.existsSync(filePath);
-    if (!exists) return null;
+  private async loadLayoutSidecar(grant: EditorProjectGrant): Promise<Partial<EditorLayoutState> | null> {
+    const filePath = path.join(grant.root, LAYOUT_SUFFIX);
+    if (!fs.existsSync(filePath)) return null;
     try {
-      const raw = await fsp.readFile(filePath, "utf8");
+      const approvedPath = await this.access.requireVisiblePath(filePath);
+      const raw = await fsp.readFile(approvedPath, "utf8");
       return JSON.parse(raw) as Partial<EditorLayoutState>;
-    } catch (err) {
-      log.warn("failed to read layout sidecar", { filePath, err });
+    } catch (error) {
+      log.warn("failed to read editor layout sidecar", { errorType: errorType(error) });
       return null;
     }
   }
 
-  private async loadPreviews(document: ModernPetDocument, petDir: string): Promise<EditorPreviewState> {
+  private async loadPreviews(document: ModernPetDocument, grant: EditorProjectGrant): Promise<EditorPreviewState> {
     const previews: EditorPreviewState = {
       spritesheetDataUrl: null,
       iconDataUrl: null,
@@ -389,29 +437,25 @@ class EditorWindowManager {
     };
 
     const spritesheetName = document.image.spritesheet || "spritesheet.png";
-    const spritesheetPath = path.isAbsolute(spritesheetName) ? spritesheetName : path.join(petDir, spritesheetName);
-    if (fs.existsSync(spritesheetPath)) {
-      try {
-        const bytes = await fsp.readFile(spritesheetPath);
-        previews.spritesheetDataUrl = `data:image/png;base64,${bytes.toString("base64")}`;
-      } catch (err) {
-        previews.spritesheetError = err instanceof Error ? err.message : String(err);
-      }
-    } else {
-      previews.spritesheetError = `missing spritesheet: ${spritesheetName}`;
+    try {
+      const spritesheetPath = await this.access.resolveAsset(spritesheetName, grant);
+      const bytes = await fsp.readFile(spritesheetPath);
+      previews.spritesheetDataUrl = `data:image/png;base64,${bytes.toString("base64")}`;
+    } catch (error) {
+      previews.spritesheetError = error instanceof Error && error.message.startsWith("editor ")
+        ? error.message
+        : "could not read spritesheet";
     }
 
     if (document.header.icon) {
-      const iconPath = path.isAbsolute(document.header.icon) ? document.header.icon : path.join(petDir, document.header.icon);
-      if (fs.existsSync(iconPath)) {
-        try {
-          const bytes = await fsp.readFile(iconPath);
-          previews.iconDataUrl = `data:image/png;base64,${bytes.toString("base64")}`;
-        } catch (err) {
-          previews.iconError = err instanceof Error ? err.message : String(err);
-        }
-      } else {
-        previews.iconError = `missing icon: ${document.header.icon}`;
+      try {
+        const iconPath = await this.access.resolveAsset(document.header.icon, grant);
+        const bytes = await fsp.readFile(iconPath);
+        previews.iconDataUrl = `data:image/png;base64,${bytes.toString("base64")}`;
+      } catch (error) {
+        previews.iconError = error instanceof Error && error.message.startsWith("editor ")
+          ? error.message
+          : "could not read icon";
       }
     }
 
@@ -426,10 +470,19 @@ class EditorWindowManager {
 
     try {
       const raw = await fsp.readFile(this.recentFilePath, "utf8");
-      const parsed = JSON.parse(raw);
-      this.recentDocuments = Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_DOCS) : [];
-    } catch (err) {
-      log.warn("failed to load recent documents", err);
+      const parsed = JSON.parse(raw) as unknown;
+      this.recentDocuments = Array.isArray(parsed)
+        ? parsed.filter((item): item is EditorRecentDocument => Boolean(
+          item &&
+          typeof item === "object" &&
+          typeof (item as EditorRecentDocument).path === "string" &&
+          typeof (item as EditorRecentDocument).title === "string" &&
+          typeof (item as EditorRecentDocument).petName === "string" &&
+          typeof (item as EditorRecentDocument).openedAt === "string"
+        )).slice(0, MAX_RECENT_DOCS)
+        : [];
+    } catch (error) {
+      log.warn("failed to load recent editor documents", { errorType: errorType(error) });
       this.recentDocuments = [];
     }
   }

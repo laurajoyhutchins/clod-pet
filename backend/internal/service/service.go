@@ -232,30 +232,71 @@ func (s *Service) cleanPetPath(petPath string) (string, error) {
 		return "", fmt.Errorf("pet path is required")
 	}
 
-	base, err := filepath.Abs(filepath.Clean(s.petsDir))
+	baseAbs, err := filepath.Abs(filepath.Clean(s.petsDir))
 	if err != nil {
-		return "", fmt.Errorf("resolve pets dir: %w", err)
+		return "", fmt.Errorf("pets directory could not be resolved")
+	}
+	base, err := canonicalPath(baseAbs)
+	if err != nil {
+		return "", fmt.Errorf("pets directory could not be resolved")
 	}
 
 	candidate := filepath.Clean(petPath)
 	if !filepath.IsAbs(candidate) {
 		absCandidate, err := filepath.Abs(candidate)
 		if err != nil {
-			return "", fmt.Errorf("resolve pet path: %w", err)
+			return "", fmt.Errorf("pet path could not be resolved")
 		}
-		if !pathWithin(absCandidate, base) {
-			candidate = filepath.Join(base, candidate)
+		if pathWithin(absCandidate, baseAbs) {
+			candidate = absCandidate
+		} else {
+			candidate = filepath.Join(baseAbs, candidate)
 		}
 	}
 
-	candidate, err = filepath.Abs(candidate)
+	candidate, err = canonicalPath(candidate)
 	if err != nil {
-		return "", fmt.Errorf("resolve pet path: %w", err)
+		return "", fmt.Errorf("pet path could not be resolved")
 	}
 	if !pathWithin(candidate, base) {
 		return "", fmt.Errorf("pet path must be inside pets directory")
 	}
 	return candidate, nil
+}
+
+func canonicalPath(candidate string) (string, error) {
+	absolute, err := filepath.Abs(filepath.Clean(candidate))
+	if err != nil {
+		return "", err
+	}
+
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err == nil {
+		return resolved, nil
+	}
+	if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	current := absolute
+	var missing []string
+	for {
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", err
+		}
+		missing = append([]string{filepath.Base(current)}, missing...)
+		current = parent
+
+		resolvedParent, resolveErr := filepath.EvalSymlinks(current)
+		if resolveErr == nil {
+			parts := append([]string{resolvedParent}, missing...)
+			return filepath.Join(parts...), nil
+		}
+		if !os.IsNotExist(resolveErr) {
+			return "", resolveErr
+		}
+	}
 }
 
 func pathWithin(path, base string) bool {

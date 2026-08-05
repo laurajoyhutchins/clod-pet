@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from "electron";
 import * as path from "path";
+import { hardenLocalWindow, localWindowWebPreferences } from "./window-security";
 
 class ChatManager {
   window: BrowserWindow | null = null;
@@ -24,17 +25,14 @@ class ChatManager {
     }
 
     this.window = new BrowserWindow({
-      width:400,
-      height:500,
+      width: 400,
+      height: 500,
       title: "Pet Chat",
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: this.preloadPath,
-      },
+      webPreferences: localWindowWebPreferences(this.preloadPath),
       show: false,
       backgroundColor: "#1a1a2e",
     });
+    hardenLocalWindow(this.window);
 
     this.window.loadFile(path.join(__dirname, "..", "..", "chat.html"));
 

@@ -9,6 +9,7 @@ import { setupDevReloadWatcher } from "./dev-reload";
 import globalStore, { standardizeError } from "../shared/store";
 import { StoreBridge } from "./store-bridge";
 import { getPetsDir } from "./project-paths";
+import { hardenLocalWindow, localWindowWebPreferences } from "./window-security";
 import path = require("path");
 import type { BackendResponse, FullDiagnostics, DiagnosticEvent } from "../shared/store";
 
@@ -42,6 +43,8 @@ function getRendererLogger(source: string) {
   rendererLoggers.set(key, created);
   return created;
 }
+
+app.enableSandbox();
 
 if (process.platform === "linux" && process.env.XDG_SESSION_TYPE === "wayland" && process.env.CLOD_PET_ALLOW_WAYLAND !== "1") {
   // Electron/Wayland compositors can ignore setPosition() for toplevel windows,
@@ -101,6 +104,7 @@ function showControlPanel(): void {
     return;
   }
 
+  const preloadPath = path.join(__dirname, "..", "preload", "preload.js");
   controlPanelWindow = new BrowserWindow({
     width: 420,
     height: 560,
@@ -116,10 +120,9 @@ function showControlPanel(): void {
     transparent: true,
     backgroundColor: "#00000000",
     icon: path.join(__dirname, "..", "..", "assets", "icon.png"),
-    webPreferences: {
-      preload: path.join(__dirname, "..", "preload", "preload.js"),
-    },
+    webPreferences: localWindowWebPreferences(preloadPath),
   });
+  hardenLocalWindow(controlPanelWindow);
 
   controlPanelWindow.loadFile(path.join(__dirname, "..", "..", "control-panel.html"));
 
