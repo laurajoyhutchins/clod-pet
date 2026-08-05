@@ -40,12 +40,12 @@ class Logger {
   _write(level: string, args: unknown[]) {
     if (this.level > LOG_LEVELS[level]) return;
 
-    const consoleMethod = (console as any)[level] || console.log;
-    consoleMethod(`[${this.name}]`, ...args);
-
     const safeArgs = shouldSuppressBackendOutput(args)
       ? [args[0], "[backend output redacted]"]
       : args.map((arg) => sanitizeForLog(arg));
+    const consoleMethod = (console as any)[level] || console.log;
+    consoleMethod(`[${this.name}]`, ...safeArgs);
+
     const line = `[${new Date().toISOString()}] [${level}] [${this.name}] ${safeArgs.map(formatArg).join(" ")}`;
 
     try {
@@ -58,7 +58,9 @@ class Logger {
 }
 
 function shouldSuppressBackendOutput(args: unknown[]) {
-  return typeof args[0] === "string" && /^backend (stdout|stderr):/i.test(args[0]);
+  return process.env.VERBOSE !== "true" &&
+    typeof args[0] === "string" &&
+    /^backend (stdout|stderr):/i.test(args[0]);
 }
 
 function createLogger(name: string) {

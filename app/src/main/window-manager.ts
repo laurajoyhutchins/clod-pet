@@ -1,6 +1,7 @@
 import { BrowserWindow } from "electron";
 import { WorldStore } from "../shared/store";
-import type { PetWindowOptions, PetData } from "../shared/store";
+import type { PetWindowOptions } from "../shared/store";
+import { hardenLocalWindow, localWindowWebPreferences } from "./window-security";
 
 interface WindowEntry {
   win: BrowserWindow;
@@ -25,29 +26,20 @@ class WindowManager {
     if (!this.store) return;
 
     this.store.subscribe((state, prevState) => {
-      // Synchronize window existence with state.pets
-      const currentIds = Object.keys(state.pets);
       const prevIds = Object.keys(prevState.pets);
 
-      // Removed pets -> Close windows
       for (const id of prevIds) {
         if (!state.pets[id]) {
           this.removePetWindow(id);
         }
       }
 
-      // Synchronize positions
       for (const [id, pet] of Object.entries(state.pets)) {
         const prevPet = prevState.pets[id];
         if (!prevPet || pet.state.x !== prevPet.state.x || pet.state.y !== prevPet.state.y) {
           this.updatePosition(id, pet.state.x, pet.state.y);
         }
       }
-
-      // NOTE: Window creation is still handled by PetManager.loadAndCreatePet
-      // for now, as it involves complex async initialization and query params.
-      // In a full redesign, loadAndCreatePet would just update the store,
-      // and this subscriber would handle the creation.
     });
   }
 
@@ -71,12 +63,9 @@ class WindowManager {
       show: false,
       skipTaskbar: true,
       hasShadow: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload,
-      },
+      webPreferences: localWindowWebPreferences(preload),
     });
+    hardenLocalWindow(win);
 
     this.windows.set(petId, { win, opts });
     this.applyPetWindowPriority(win);

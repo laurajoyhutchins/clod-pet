@@ -17,7 +17,6 @@ declare global {
   }
 
   interface EditorFileApi {
-    show(initialPath?: string): Promise<boolean>;
     openPetDirectory(): Promise<string | null>;
     openAnimationFile(): Promise<string | null>;
     readDocument(input: { path: string }): Promise<EditorReadResult>;

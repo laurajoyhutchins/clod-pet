@@ -16,6 +16,17 @@ function isNonNegativeInteger(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
+function assetReferenceProblem(value: string) {
+  const trimmed = value.trim();
+  if (/^(?:[a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(trimmed)) {
+    return "asset path must be relative to the pet project";
+  }
+  if (trimmed.split(/[\\/]+/).some((part) => part === "..")) {
+    return "asset path must not contain parent traversal";
+  }
+  return null;
+}
+
 function pushIssue(target: ValidationIssue[], severity: "error" | "warning", path: string, message: string, entityKey?: string) {
   target.push({ severity, path, message, entityKey });
 }
@@ -40,7 +51,7 @@ function getSchemaValidator() {
 
   try {
     validateModernPetSchema = ajv.compile(modernPetSchema) as ((data: ModernPetDocument) => boolean) & { errors?: ErrorObject[] | null };
-  } catch (err) {
+  } catch {
     schemaValidationDisabled = true;
     validateModernPetSchema = null;
   }
@@ -136,8 +147,15 @@ export function validateDocumentStructure(
   }
   if (typeof image.spritesheet !== "string" || image.spritesheet.trim() === "") {
     pushIssue(issues.errors, "error", "image.spritesheet", "spritesheet is required");
+  } else {
+    const problem = assetReferenceProblem(image.spritesheet);
+    if (problem) pushIssue(issues.errors, "error", "image.spritesheet", problem);
   }
 
+  if (typeof header.icon === "string" && header.icon) {
+    const problem = assetReferenceProblem(header.icon);
+    if (problem) pushIssue(issues.errors, "error", "header.icon", problem);
+  }
   if (typeof header.icon === "string" && header.icon && previews.iconError) {
     pushIssue(issues.errors, "error", "header.icon", previews.iconError);
   }
