@@ -58,7 +58,9 @@ class Logger {
 }
 
 function shouldSuppressBackendOutput(args: unknown[]) {
-  return typeof args[0] === "string" && /^backend (stdout|stderr):/i.test(args[0]);
+  return process.env.VERBOSE !== "true" &&
+    typeof args[0] === "string" &&
+    /^backend (stdout|stderr):/i.test(args[0]);
 }
 
 function createLogger(name: string) {

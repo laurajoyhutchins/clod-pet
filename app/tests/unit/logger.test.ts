@@ -1,6 +1,5 @@
 import logger = require("../../src/main/logger");
 import fs = require("fs");
-import path = require("path");
 
 jest.mock("fs");
 
@@ -61,18 +60,21 @@ describe("Logger", () => {
     err.stack = "stack trace";
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
     l.error(err);
-    // The internal line formatting is checked by side effect of console call
-    expect(consoleSpy).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith("[test]", {
+      name: "Error",
+      message: "boom",
+      stack: "stack trace",
+    });
     consoleSpy.mockRestore();
   });
 
-  test("should handle circular structures in formatArg", () => {
+  test("should sanitize circular structures before console output", () => {
     const l = new logger.Logger("test", "info");
     const circular: any = {};
     circular.self = circular;
     const consoleSpy = jest.spyOn(console, "info").mockImplementation();
     l.info(circular);
-    expect(consoleSpy).toHaveBeenCalledWith("[test]", circular);
+    expect(consoleSpy).toHaveBeenCalledWith("[test]", { self: "[circular]" });
     consoleSpy.mockRestore();
   });
 
@@ -122,10 +124,9 @@ describe("Logger", () => {
     (fs.mkdirSync as jest.Mock).mockImplementation(() => { throw new Error("fs error"); });
     const l = new logger.Logger("test", "info");
     const consoleSpy = jest.spyOn(console, "info").mockImplementation();
-    
-    // Should not throw
+
     expect(() => l.info("test message")).not.toThrow();
-    
+
     consoleSpy.mockRestore();
   });
 });

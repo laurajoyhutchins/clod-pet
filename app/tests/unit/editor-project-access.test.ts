@@ -50,12 +50,17 @@ describe("EditorProjectAccess", () => {
     const access = new EditorProjectAccess();
     await access.approveSelection(project.root);
 
-    const error = await access.resolveAsset(reference).catch((caught) => caught as Error);
+    let error: Error | null = null;
+    try {
+      await access.resolveAsset(reference);
+    } catch (caught) {
+      error = caught instanceof Error ? caught : new Error(String(caught));
+    }
 
-    expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/relative|approved project/);
-    expect(error.message).not.toContain(project.root);
-    expect(error.message).not.toContain(reference);
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/relative|approved project/);
+    expect(error?.message).not.toContain(project.root);
+    expect(error?.message).not.toContain(reference);
   });
 
   test("rejects a linked asset that canonically escapes the project", async () => {
@@ -65,7 +70,7 @@ describe("EditorProjectAccess", () => {
     const linkedAsset = path.join(project.root, "linked.png");
     try {
       await fs.symlink(outside.spritePath, linkedAsset, "file");
-    } catch (error) {
+    } catch {
       return;
     }
     const access = new EditorProjectAccess();
