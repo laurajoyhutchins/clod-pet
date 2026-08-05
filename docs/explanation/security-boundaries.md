@@ -30,7 +30,7 @@ The Electron main process is the only application component allowed to create wi
 | Editor project | Ephemeral Electron main-process project grant | Renderer text field, ReactFlow state |
 | Editor graph content | Normalized pet domain document | ReactFlow node and edge objects |
 | Windows and process lifecycle | Electron main process | Renderer, backend provider output |
-| Renderer capabilities | Fixed preload bridge | Arbitrary IPC channel names |
+| Renderer capabilities | Fixed preload bridge plus exact main-process sender authorization | Arbitrary IPC channel names, another application renderer |
 | Non-secret preferences | Validated settings file | Provider environment, renderer cache |
 | Hosted-provider credentials | Backend process environment | Settings, IPC, command line, logs |
 | Release signing identity | Owner-controlled external certificate store | Repository scripts, development certificate |
@@ -51,6 +51,8 @@ All application windows use one shared policy:
 - webview attachment denied.
 
 The application also enables Electron sandboxing before app readiness. A renderer cannot select a preload path or request a general editor launch path.
+
+The preload bridge is shared, so the main process also authorizes renderer roles at every consequential handler. Control-panel operations require the exact control-panel `webContents`; chat close and streaming require the exact chat-window sender; editor operations require the exact editor sender; renderer diagnostic submissions require an application-owned `BrowserWindow`. A method appearing on the preload object is not sufficient authorization by itself.
 
 The current local HTML still contains inline style, so a strict Content Security Policy migration remains unresolved. Navigation and popup denial do not substitute for CSP.
 
@@ -90,6 +92,8 @@ Provider base URL, model support, streaming, cancellation, and error mapping are
 ## Logging, diagnostics, and privacy
 
 Console and file log sinks use the same recursive sanitizer. Credential-shaped keys, bearer values, common API-key forms, conversation-shaped fields, and absolute Windows paths are redacted. Backend stdout and stderr are suppressed by default; explicit verbose mode permits sanitized backend diagnostic text.
+
+Renderer log and error submissions are accepted only from a `webContents` owned by a live application `BrowserWindow`. This role check prevents unrelated or detached web contents from injecting diagnostic records, but it does not make renderer-provided labels or messages authoritative.
 
 Do not share a diagnostic bundle without reviewing it. Safe-to-share evidence should prefer:
 
