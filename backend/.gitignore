@@ -1,5 +1,5 @@
 bin/
-coverage/
-*_coverage/
+coverage
+*_coverage
 clod-pet-backend
 clod-pet-backend.exe
