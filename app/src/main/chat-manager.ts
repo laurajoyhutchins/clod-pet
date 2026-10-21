@@ -1,5 +1,6 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, type WebContents } from "electron";
 import * as path from "path";
+import { hardenLocalWindow, localWindowWebPreferences } from "./window-security";
 
 class ChatManager {
   window: BrowserWindow | null = null;
@@ -11,9 +12,14 @@ class ChatManager {
   }
 
   setupIpc(): void {
-    ipcMain.on("chat-close", () => {
+    ipcMain.on("chat-close", (event) => {
+      if (!this.ownsSender(event.sender)) return;
       this.closeChat();
     });
+  }
+
+  ownsSender(sender: WebContents) {
+    return Boolean(this.window && !this.window.isDestroyed() && sender === this.window.webContents);
   }
 
   showChat(): void {
@@ -24,17 +30,14 @@ class ChatManager {
     }
 
     this.window = new BrowserWindow({
-      width:400,
-      height:500,
+      width: 400,
+      height: 500,
       title: "Pet Chat",
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: this.preloadPath,
-      },
+      webPreferences: localWindowWebPreferences(this.preloadPath),
       show: false,
       backgroundColor: "#1a1a2e",
     });
+    hardenLocalWindow(this.window);
 
     this.window.loadFile(path.join(__dirname, "..", "..", "chat.html"));
 

@@ -23,4 +23,22 @@ describe("security log redaction", () => {
     expect(result).not.toContain("sk-example-secret-value");
     expect(result).toContain("[path]");
   });
+
+  test("sanitizes console output as well as persisted logs", () => {
+    const consoleSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    const instance = new logger.Logger("security-test");
+
+    instance.info({
+      api_key: "sk-example-secret-value",
+      messages: [{ content: "private chat" }],
+      file: "C:\\Users\\Laura\\repo\\file.txt",
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith("[security-test]", {
+      api_key: "[redacted]",
+      messages: "[redacted]",
+      file: "[path]",
+    });
+    consoleSpy.mockRestore();
+  });
 });

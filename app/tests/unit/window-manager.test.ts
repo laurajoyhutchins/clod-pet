@@ -13,6 +13,10 @@ jest.mock("electron", () => ({
     destroy: jest.fn(),
     isDestroyed: jest.fn(() => false),
     getBounds: jest.fn(() => ({ x: 0, y: 0, width: 100, height: 100 })),
+    webContents: {
+      setWindowOpenHandler: jest.fn(),
+      on: jest.fn(),
+    },
     ...opts,
   })),
 }));
@@ -45,8 +49,16 @@ describe("WindowManager", () => {
         show: false,
         skipTaskbar: true,
         hasShadow: false,
+        webPreferences: expect.objectContaining({
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+          webSecurity: true,
+          allowRunningInsecureContent: false,
+        }),
       })
     );
+    expect(win.webContents.setWindowOpenHandler).toHaveBeenCalledTimes(1);
     expect(win.setAlwaysOnTop).toHaveBeenCalledWith(true, "pop-up-menu");
   });
 

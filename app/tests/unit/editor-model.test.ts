@@ -7,6 +7,13 @@ import { validateDocumentStructure } from "../../src/editor/validation";
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const sheepsJsonPath = path.join(repoRoot, "pets", "eSheep-modern", "animations.json");
 
+const availablePreviews = {
+  spritesheetDataUrl: "data:image/png;base64,placeholder",
+  iconDataUrl: "data:image/png;base64,placeholder",
+  spritesheetError: null,
+  iconError: null,
+};
+
 describe("editor document model", () => {
   test("parses the bundled modern pet document", () => {
     const raw = JSON.parse(fs.readFileSync(sheepsJsonPath, "utf8"));
@@ -20,14 +27,36 @@ describe("editor document model", () => {
   test("validates the bundled modern pet without false forward-reference errors", () => {
     const raw = JSON.parse(fs.readFileSync(sheepsJsonPath, "utf8"));
     const doc = normalizeDocument(raw);
-    const result = validateDocumentStructure(doc, {
-      spritesheetDataUrl: "data:image/png;base64,placeholder",
-      iconDataUrl: "data:image/png;base64,placeholder",
-      spritesheetError: null,
-      iconError: null,
-    });
+    const result = validateDocumentStructure(doc, availablePreviews);
 
     expect(result.errors).toHaveLength(0);
+  });
+
+  test.each([
+    ["absolute spritesheet", "C:\\Users\\Example\\spritesheet.png", undefined, "image.spritesheet"],
+    ["parent-traversing spritesheet", "../outside.png", undefined, "image.spritesheet"],
+    ["absolute icon", "spritesheet.png", "/tmp/icon.png", "header.icon"],
+    ["parent-traversing icon", "spritesheet.png", "..\\outside.ico", "header.icon"],
+  ])("rejects %s references", (_label, spritesheet, icon, issuePath) => {
+    const doc = normalizeDocument({
+      header: { title: "Unsafe asset", icon },
+      image: { tiles_x: 1, tiles_y: 1, spritesheet },
+      spawns: [],
+      animations: [
+        {
+          id: 1,
+          name: "idle",
+          start: { x: "0", y: "0", interval: "100" },
+          sequence: { frames: [0], nexts: [], repeat: "0", repeat_from: 0 },
+        },
+      ],
+    });
+
+    const result = validateDocumentStructure(doc, availablePreviews);
+
+    expect(result.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: issuePath, message: expect.stringMatching(/relative|parent traversal/) }),
+    ]));
   });
 
   test("validation reports duplicate ids, missing targets, and frame overflow", () => {

@@ -49,7 +49,6 @@ contextBridge.exposeInMainWorld("clodPet", Object.freeze({
   }),
 
   editor: Object.freeze({
-    show: (initialPath?: string) => ipcRenderer.invoke("editor:show", initialPath),
     openPetDirectory: () => ipcRenderer.invoke("editor:open-pet-directory"),
     openAnimationFile: () => ipcRenderer.invoke("editor:open-animation-file"),
     readDocument: (input: { path: string }) => ipcRenderer.invoke("editor:read-document", input),

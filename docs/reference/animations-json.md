@@ -17,6 +17,33 @@ The modern pet definition file. New pets should use JSON. The backend loads `ani
 
 `children` and `sounds` are optional arrays.
 
+The current format does not yet contain an explicit schema-version field. Do not add one ad hoc to a pet and assume the runtime will apply migration semantics. Schema versioning is an owner-controlled compatibility decision recorded in the repository review register.
+
+## Project-local asset rule
+
+`header.icon` and `image.spritesheet` are asset references relative to the directory containing `animations.json`.
+
+Valid examples:
+
+```json
+{
+  "header": { "icon": "icon.png" },
+  "image": { "spritesheet": "sprites/sheet.png" }
+}
+```
+
+Invalid references include:
+
+- absolute Windows paths such as `C:\\pets\\sheet.png`;
+- UNC paths such as `\\\\server\\share\\sheet.png`;
+- POSIX absolute paths such as `/tmp/sheet.png`;
+- any segment equal to `..`;
+- a symlink or Windows reparse point that resolves outside the pet project.
+
+The editor domain validator rejects unsafe references, and Electron main independently resolves existing files canonically inside the approved editor project. The Go runtime independently resolves the pet directory canonically inside `PETS_DIR`. These checks are intentionally duplicated at different trust boundaries.
+
+Pet definitions must not contain executable commands, provider configuration, credentials, or arbitrary host paths.
+
 ## `header`
 
 Metadata about the pet.
@@ -29,7 +56,9 @@ Metadata about the pet.
 | `version` | string | Version string |
 | `info` | string | Description |
 | `application` | int | Source application |
-| `icon` | path | Relative path to the icon image file |
+| `icon` | path | Project-relative path to the icon image file |
+
+The current header fields are descriptive only. They are not sufficient asset-license evidence. Bundled release assets must also appear in the asset license and attribution register.
 
 ## `image`
 
@@ -39,7 +68,7 @@ Sprite sheet definition.
 |-------|------|-------------|
 | `tiles_x` | int | Number of columns |
 | `tiles_y` | int | Number of rows |
-| `spritesheet` | path | Sprite sheet filename. Defaults to `spritesheet.png` |
+| `spritesheet` | path | Project-relative sprite sheet filename. Defaults to `spritesheet.png` |
 | `transparency` | string | Optional transparency color name or value |
 
 ## `spawns`
@@ -135,3 +164,5 @@ Sound effects triggered by animations.
 ## Legacy support
 
 Older pets can still use `animations.xml`, but `animations.json` is the preferred format for new pets and for exported modern pets.
+
+Legacy XML is a compatibility and import format, not a second equally authoritative runtime model. Converted output must pass modern validation before use. A future converter review must continue to test external-entity rejection, deterministic conversion, lossy-field diagnostics, and source preservation.

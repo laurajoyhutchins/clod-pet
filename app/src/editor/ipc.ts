@@ -2,10 +2,6 @@ import type { EditorLayoutState, EditorReadResult, EditorRecentDocument, EditorS
 
 export const editorApi = window.clodPet.editor;
 
-export function showEditor(initialPath?: string) {
-  return editorApi.show(initialPath);
-}
-
 export function openPetDirectory() {
   return editorApi.openPetDirectory();
 }

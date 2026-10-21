@@ -16,11 +16,15 @@ nav:
       - Get started: tutorials/get-started.md
   - How-to guides:
       - Add a custom pet: howto/add-custom-pet.md
+      - Configure AI providers: howto/configure-llm-providers.md
   - Reference:
       - Backend HTTP API: reference/ipc-api.md
       - animations.json: reference/animations-json.md
       - Expression language: reference/expressions.md
       - Scripts: reference/scripts.md
+      - Asset licenses and attribution: reference/asset-licenses.md
+      - Repository review registers: reference/review-registers.md
   - Explanation:
       - Architecture: explanation/architecture.md
+      - Security and authority boundaries: explanation/security-boundaries.md
       - Animation engine: explanation/animation-engine.md
