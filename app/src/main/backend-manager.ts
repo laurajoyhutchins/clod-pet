@@ -543,8 +543,10 @@ class BackendManager {
 
       try {
         await this.start(this.port ?? undefined);
+        if (this.shuttingDown) return;
         this.restartAttempt = 0;
         this.fatalError = null;
+        this.nextRestartAt = null;
         this._syncStore();
       } catch (err: unknown) {
         // An explicit shutdown wins even if a pending start() later rejects.
