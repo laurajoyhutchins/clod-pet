@@ -116,3 +116,30 @@ func TestSettingsSnapshotUsesOneTransaction(t *testing.T) {
 		t.Fatal("Settings returned a torn Scale/GravityFactor pair")
 	}
 }
+
+
+func TestUpdateVolumeSaveFailureDoesNotModifyLiveSettings(t *testing.T) {
+	invalidFilePath := t.TempDir() // The save target is a directory, not a file.
+	cfg := settings.DefaultConfig()
+	svc := New(t.TempDir(), invalidFilePath, cfg)
+	before := svc.Settings()["Volume"]
+	if err := svc.UpdateVolume(0.9); err == nil {
+		t.Fatal("expected settings save failure")
+	}
+	if got := svc.Settings()["Volume"]; got != before {
+		t.Fatalf("failed UpdateVolume changed live value: got %v, want %v", got, before)
+	}
+}
+
+func TestUpdateScaleSaveFailureDoesNotModifyLiveSettings(t *testing.T) {
+	invalidFilePath := t.TempDir()
+	cfg := settings.DefaultConfig()
+	svc := New(t.TempDir(), invalidFilePath, cfg)
+	before := svc.Settings()["Scale"]
+	if err := svc.UpdateScale(2.5); err == nil {
+		t.Fatal("expected settings save failure")
+	}
+	if got := svc.Settings()["Scale"]; got != before {
+		t.Fatalf("failed UpdateScale changed live value: got %v, want %v", got, before)
+	}
+}
