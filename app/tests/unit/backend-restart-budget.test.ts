@@ -1,3 +1,6 @@
+import { EventEmitter } from "events";
+import http from "http";
+import type { ChildProcess } from "child_process";
 import BackendManager from "../../src/main/backend-manager";
 
 describe("backend restart budget after failed startup", () => {
@@ -109,5 +112,36 @@ describe("backend restart budget after failed startup", () => {
     expect(start).toHaveBeenCalledTimes(1);
     // Prevent test cleanup from trying to signal our lightweight process mock.
     manager.process = null;
+  });
+
+  test("manual shutdown cancels a pending readiness promise, not only its timer", async () => {
+    const child = new EventEmitter() as EventEmitter & { kill: jest.Mock; pid: number };
+    child.pid = 9876;
+    child.kill = jest.fn(() => true);
+    manager.process = child as unknown as ChildProcess;
+    manager.url = "http://127.0.0.1:8080";
+    manager.state = "starting";
+    jest.spyOn(http, "get").mockImplementation(() => new EventEmitter() as ReturnType<typeof http.get>);
+
+    const readiness = manager._waitForReady(100, 10000);
+    manager.stopWithReason("user closed application");
+    await expect(readiness).rejects.toThrow("startup cancelled by shutdown");
+    expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(manager.state).toBe("stopped");
+    expect(manager.readyReject).toBeNull();
+  });
+
+  test("shutdown during asynchronous port selection prevents a late backend spawn", async () => {
+    let supplyPort: ((port: number) => void) | undefined;
+    jest.spyOn(manager, "_findFreePort").mockImplementation(
+      () => new Promise<number>((resolve) => { supplyPort = resolve; })
+    );
+    const start = manager.start();
+    expect(supplyPort).toBeDefined();
+    manager.stopWithReason("user closed application");
+    supplyPort!(8080);
+    await expect(start).rejects.toThrow("startup cancelled by shutdown");
+    expect(manager.process).toBeNull();
+    expect(manager.state).toBe("stopped");
   });
 });
