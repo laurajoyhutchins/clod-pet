@@ -15,6 +15,7 @@ class PetManager {
   windowManager: InstanceType<typeof WindowManager>;
   petTimers: Map<string, NodeJS.Timeout>;
   petBackendQueues: Map<string, Promise<unknown>>;
+  private petBackendRemovals: Map<string, Promise<void>>;
   windowToPetId: WeakMap<BrowserWindow, string>;
   draggingPets: Set<string>;
   ipcHandlersRegistered: boolean;
@@ -33,6 +34,7 @@ class PetManager {
     this.windowManager = new WindowManager(this.store || undefined);
     this.petTimers = new Map();
     this.petBackendQueues = new Map();
+    this.petBackendRemovals = new Map();
     this.windowToPetId = new WeakMap();
     this.draggingPets = new Set();
     this.ipcHandlersRegistered = false;
@@ -106,6 +108,18 @@ class PetManager {
         }
       });
     this.petBackendQueues.set(petId, next);
+  }
+
+  private _removeBackendPetOnce(petId: string): Promise<void> {
+    const existing = this.petBackendRemovals.get(petId);
+    if (existing) return existing;
+    // Register the promise before starting the backend call: a synchronous window
+    // close and an initialization rollback must share one logical removal.
+    const removal = Promise.resolve().then(async () => {
+      await this.backendClient.removePet(petId);
+    });
+    this.petBackendRemovals.set(petId, removal);
+    return removal;
   }
 
   private _syncEnvironment(): void {
@@ -239,116 +253,164 @@ class PetManager {
       throw new Error("backend did not return a pet id");
     }
 
-    this.lastPetLoad = {
-      ...this.lastPetLoad,
-      backendPetId,
-      tilesX: petData.tiles_x,
-      tilesY: petData.tiles_y,
-      completedAt: new Date().toISOString(),
-    };
+    // Commit only after the pet page loads and its local window/store survive.
+    try {
+      this.lastPetLoad = {
+        ...this.lastPetLoad,
+        backendPetId,
+        tilesX: petData.tiles_x,
+        tilesY: petData.tiles_y,
+        completedAt: new Date().toISOString(),
+      };
 
-    const frameW = petData.frame_w || 64;
-    const frameH = petData.frame_h || 64;
-    const width = Math.round(frameW * this.scale);
-    const height = Math.round(frameH * this.scale);
+      const frameW = petData.frame_w || 64;
+      const frameH = petData.frame_h || 64;
+      const width = Math.round(frameW * this.scale);
+      const height = Math.round(frameH * this.scale);
 
-    const desktop = backendWorld.desktop;
-    const fallbackX = desktop.x + Math.floor(Math.random() * Math.max(1, desktop.w));
-    const fallbackY = desktop.y + Math.floor(Math.random() * Math.max(1, desktop.h * 0.8));
-    const rawX = typeof addResultPayload.x === "number" && Number.isFinite(addResultPayload.x) ? addResultPayload.x as number : fallbackX;
-    const rawY = typeof addResultPayload.y === "number" && Number.isFinite(addResultPayload.y) ? addResultPayload.y as number : fallbackY;
+      const desktop = backendWorld.desktop;
+      const fallbackX = desktop.x + Math.floor(Math.random() * Math.max(1, desktop.w));
+      const fallbackY = desktop.y + Math.floor(Math.random() * Math.max(1, desktop.h * 0.8));
+      const rawX = typeof addResultPayload.x === "number" && Number.isFinite(addResultPayload.x) ? addResultPayload.x as number : fallbackX;
+      const rawY = typeof addResultPayload.y === "number" && Number.isFinite(addResultPayload.y) ? addResultPayload.y as number : fallbackY;
 
-    // Clamp to desktop area — Wayland can't position windows off-screen, so the OS would snap an
-    // off-screen spawn (e.g. screenW+10) to (0,0). Clamping here puts the pet at the nearest
-    // visible edge instead, preserving the intended "enter from the side" behaviour.
-    const x = Math.max(desktop.x, Math.min(desktop.x + desktop.w - width, rawX));
-    const y = Math.max(desktop.y, Math.min(desktop.y + desktop.h - height, rawY));
+      // Clamp to desktop area — Wayland can't position windows off-screen, so the OS would snap an
+      // off-screen spawn (e.g. screenW+10) to (0,0). Clamping here puts the pet at the nearest
+      // visible edge instead, preserving the intended "enter from the side" behaviour.
+      const x = Math.max(desktop.x, Math.min(desktop.x + desktop.w - width, rawX));
+      const y = Math.max(desktop.y, Math.min(desktop.y + desktop.h - height, rawY));
 
-    this._setPet(backendPetId, {
-      id: backendPetId,
-      path: petPath,
-      backendPetId,
-      frameW,
-      frameH,
-      currentAnimId: typeof addResultPayload.current_anim_id === "number" ? addResultPayload.current_anim_id as number : 0,
-      currentAnimName: typeof addResultPayload.current_anim_name === "string" ? addResultPayload.current_anim_name as string : "",
-      stepFailures: 0,
-      lastStepError: null,
-      dragOffsetX: 0,
-      dragOffsetY: 0,
-      state: {
-        frameIndex: 0,
-        x,
-        y,
-        flipH: !!addResultPayload.flip_h,
-        borderCtx: typeof addResultPayload.border_ctx === "number" ? addResultPayload.border_ctx as number : 0,
-      },
-      loaded: false,
-      stopped: false,
-    });
+      this._setPet(backendPetId, {
+        id: backendPetId,
+        path: petPath,
+        backendPetId,
+        frameW,
+        frameH,
+        currentAnimId: typeof addResultPayload.current_anim_id === "number" ? addResultPayload.current_anim_id as number : 0,
+        currentAnimName: typeof addResultPayload.current_anim_name === "string" ? addResultPayload.current_anim_name as string : "",
+        stepFailures: 0,
+        lastStepError: null,
+        dragOffsetX: 0,
+        dragOffsetY: 0,
+        state: {
+          frameIndex: 0,
+          x,
+          y,
+          flipH: !!addResultPayload.flip_h,
+          borderCtx: typeof addResultPayload.border_ctx === "number" ? addResultPayload.border_ctx as number : 0,
+        },
+        loaded: false,
+        stopped: false,
+      });
 
-    const win = this.windowManager.createPetWindow(backendPetId, {
-      x, y,
-      width, height,
-      preload: path.join(__dirname, "..", "preload", "preload.js"),
-      petData,
-    });
+      const win = this.windowManager.createPetWindow(backendPetId, {
+        x, y,
+        width, height,
+        preload: path.join(__dirname, "..", "preload", "preload.js"),
+        petData,
+      });
 
-    log.info("Window created, loading pet.html...");
-    this.windowToPetId.set(win, backendPetId);
+      log.info("Window created, loading pet.html...");
+      this.windowToPetId.set(win, backendPetId);
 
-    // If the OS clamped our spawn position, tell the backend the real starting point so
-    // its physics begin from where the window actually is.
-    if (x !== rawX || y !== rawY) {
-      try {
-        await this.backendClient.setPosition(backendPetId, x, y);
-      } catch (err: unknown) {
-        log.warn("Failed to sync clamped spawn position:", err instanceof Error ? err.message : String(err));
+      // If the OS clamped our spawn position, tell the backend the real starting point so
+      // its physics begin from where the window actually is.
+      if (x !== rawX || y !== rawY) {
+        try {
+          await this.backendClient.setPosition(backendPetId, x, y);
+        } catch (err: unknown) {
+          log.warn("Failed to sync clamped spawn position:", err instanceof Error ? err.message : String(err));
+        }
       }
-    }
 
-    const petHtmlUrl = new URL(pathToFileURL(path.join(__dirname, "..", "..", "pet.html")).toString());
-    petHtmlUrl.searchParams.set("petId", backendPetId);
-    const loadPromise = win.loadURL(petHtmlUrl.toString());
+      const petHtmlUrl = new URL(pathToFileURL(path.join(__dirname, "..", "..", "pet.html")).toString());
+      petHtmlUrl.searchParams.set("petId", backendPetId);
+      const loadPromise = win.loadURL(petHtmlUrl.toString());
 
-    let shown = false;
-    const showPetWindow = () => {
-      if (shown || win.isDestroyed()) return;
-      shown = true;
-      // Re-apply the intended position right before showing so the window manager has a
-      // chance to honor the spawn coordinates before the first physics sync runs.
-      const showX = Number.isFinite(x) ? Math.round(x) : desktop.x;
-      const showY = Number.isFinite(y) ? Math.round(y) : desktop.y;
-      win.setPosition(showX, showY);
-      log.debug("Window ready to show", win.getBounds());
-      win.showInactive();
-      this.windowManager.raisePetWindow(backendPetId);
-      this._startPetLoop(backendPetId);
-    };
+      let shown = false;
+      const showPetWindow = () => {
+        if (shown || win.isDestroyed()) return;
+        shown = true;
+        // Re-apply the intended position right before showing so the window manager has a
+        // chance to honor the spawn coordinates before the first physics sync runs.
+        const showX = Number.isFinite(x) ? Math.round(x) : desktop.x;
+        const showY = Number.isFinite(y) ? Math.round(y) : desktop.y;
+        win.setPosition(showX, showY);
+        log.debug("Window ready to show", win.getBounds());
+        win.showInactive();
+        this.windowManager.raisePetWindow(backendPetId);
+        this._startPetLoop(backendPetId);
+      };
 
-    win.once("ready-to-show", showPetWindow);
+      win.once("ready-to-show", showPetWindow);
 
-    win.webContents.on("did-finish-load", () => {
-      log.info("pet.html loaded successfully");
-      this._updatePet(backendPetId, { loaded: true });
-      setTimeout(showPetWindow, 50);
-    });
+      win.webContents.on("did-finish-load", () => {
+        log.info("pet.html loaded successfully");
+        this._updatePet(backendPetId, { loaded: true });
+        setTimeout(showPetWindow, 50);
+      });
 
-    win.webContents.on("render-process-gone", (_event: Electron.Event, details: Electron.RenderProcessGoneDetails) => {
-      log.error("Pet window crashed:", details);
-    });
+      win.webContents.on("render-process-gone", (_event: Electron.Event, details: Electron.RenderProcessGoneDetails) => {
+        log.error("Pet window crashed:", details);
+      });
 
-    win.on("closed", () => {
+      win.on("closed", () => {
+        this.draggingPets.delete(backendPetId);
+        this._clearPetTimer(backendPetId);
+        if (!this.appIsQuitting && this._getPet(backendPetId)) {
+          void this._removeBackendPetOnce(backendPetId)
+            .catch((err: unknown) => {
+              log.warn("Failed to remove closed pet from backend:", err instanceof Error ? err.message : String(err));
+            })
+            .finally(() => {
+              this.petBackendRemovals.delete(backendPetId);
+            });
+        }
+        this._removePetFromStore(backendPetId);
+      });
+
+      await loadPromise;
+      // A destroyed window or removed store entry is not a committed pet.
+      if (win.isDestroyed() || !this._getPet(backendPetId)) {
+        throw new Error("pet window closed before initialization completed");
+      }
+      return backendPetId;
+    } catch (initializationError: unknown) {
+      // The backend add succeeded, but the renderer has not committed. Fence
+      // backend deletion before window destruction can emit "closed".
+      const backendRemoval = this._removeBackendPetOnce(backendPetId);
+      const rollbackErrors: string[] = [];
       this.draggingPets.delete(backendPetId);
+      this.petBackendQueues.delete(backendPetId);
       this._clearPetTimer(backendPetId);
-      if (!this.appIsQuitting && this._getPet(backendPetId)) {
-        this.backendClient.removePet(backendPetId);
+      try {
+        this._removePetFromStore(backendPetId);
+      } catch (err: unknown) {
+        rollbackErrors.push(`store: ${err instanceof Error ? err.message : String(err)}`);
       }
-      this._removePetFromStore(backendPetId);
-    });
-
-    await loadPromise;
-    return backendPetId;
+      try {
+        this.windowManager.removePetWindow(backendPetId);
+      } catch (err: unknown) {
+        rollbackErrors.push(`window: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      try {
+        await backendRemoval;
+      } catch (err: unknown) {
+        rollbackErrors.push(`backend: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        this.petBackendRemovals.delete(backendPetId);
+      }
+      const originalMessage = initializationError instanceof Error
+        ? initializationError.message : String(initializationError);
+      this.lastError = rollbackErrors.length
+        ? `${originalMessage}; pet creation rollback failed (${rollbackErrors.join("; ")})`
+        : originalMessage;
+      if (rollbackErrors.length) {
+        log.error("Pet initialization rollback incomplete:", rollbackErrors.join("; "));
+      }
+      // Do not replace the caller's original initialization failure.
+      throw initializationError;
+    }
   }
 
   _buildWorldContext(): WorldContext {
@@ -387,9 +449,13 @@ class PetManager {
     this.draggingPets.delete(petId);
     this.petBackendQueues.delete(petId);
     this._clearPetTimer(petId);
-    await this.backendClient.removePet(petId);
-    this._removePetFromStore(petId);
-    this.windowManager.removePetWindow(petId);
+    try {
+      await this._removeBackendPetOnce(petId);
+    } finally {
+      this._removePetFromStore(petId);
+      this.windowManager.removePetWindow(petId);
+      this.petBackendRemovals.delete(petId);
+    }
     return true;
   }
 
