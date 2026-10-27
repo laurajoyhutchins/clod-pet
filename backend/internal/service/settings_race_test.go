@@ -117,7 +117,6 @@ func TestSettingsSnapshotUsesOneTransaction(t *testing.T) {
 	}
 }
 
-
 func TestUpdateVolumeSaveFailureDoesNotModifyLiveSettings(t *testing.T) {
 	invalidFilePath := t.TempDir() // The save target is a directory, not a file.
 	cfg := settings.DefaultConfig()
