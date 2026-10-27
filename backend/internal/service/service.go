@@ -39,9 +39,12 @@ type Service struct {
 
 func New(petsDir, settingsPath string, cfg *settings.Config) *Service {
 	poolSize := runtime.NumCPU()
+	// Own the mutable configuration: callers must not mutate Service state through
+	// the pointer they used to construct it.
+	snapshot := *cfg
 	svc := &Service{
 		petsDir:       petsDir,
-		settings:      cfg,
+		settings:      &snapshot,
 		settingsPath:  settingsPath,
 		petStore:      make(map[string]*pet.Pet),
 		engines:       make(map[string]*engine.Engine),
@@ -57,8 +60,15 @@ func (s *Service) PetsDir() string {
 	return s.petsDir
 }
 
+func (s *Service) llmConfigSnapshot() llm.ProviderConfig {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.settings.LLM
+}
+
 func (s *Service) LLMChat(payload json.RawMessage) (*ipc.Response, error) {
-	client, err := llm.NewClient(&s.settings.LLM)
+	config := s.llmConfigSnapshot()
+	client, err := llm.NewClient(&config)
 	if err != nil {
 		return nil, fmt.Errorf("create llm client: %w", err)
 	}
@@ -85,7 +95,8 @@ func (s *Service) LLMChat(payload json.RawMessage) (*ipc.Response, error) {
 }
 
 func (s *Service) LLMStream(ctx context.Context, payload json.RawMessage) (<-chan llm.StreamEvent, error) {
-	client, err := llm.NewClient(&s.settings.LLM)
+	config := s.llmConfigSnapshot()
+	client, err := llm.NewClient(&config)
 	if err != nil {
 		return nil, fmt.Errorf("create llm client: %w", err)
 	}
@@ -133,7 +144,8 @@ func (s *Service) LLMStream(ctx context.Context, payload json.RawMessage) (<-cha
 }
 
 func (s *Service) LLMHealth(ctx context.Context) error {
-	client, err := llm.NewClient(&s.settings.LLM)
+	config := s.llmConfigSnapshot()
+	client, err := llm.NewClient(&config)
 	if err != nil {
 		return fmt.Errorf("create llm client: %w", err)
 	}
@@ -422,10 +434,15 @@ func (s *Service) Status() map[string]int {
 }
 
 func (s *Service) UpdateVolume(volume float64) error {
-	s.settings.Volume = volume
-	if err := s.settings.Save(s.settingsPath); err != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	next := *s.settings
+	next.Volume = volume
+	if err := next.Save(s.settingsPath); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
+	*s.settings = next
 	return nil
 }
 
@@ -433,17 +450,22 @@ func (s *Service) UpdateScale(scale float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.settings.Scale = scale
+	next := *s.settings
+	next.Scale = scale
+	if err := next.Save(s.settingsPath); err != nil {
+		return fmt.Errorf("save settings: %w", err)
+	}
+	*s.settings = next
 	for _, e := range s.engines {
 		e.SetScale(scale)
-	}
-	if err := s.settings.Save(s.settingsPath); err != nil {
-		return fmt.Errorf("save settings: %w", err)
 	}
 	return nil
 }
 
 func (s *Service) Settings() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return map[string]interface{}{
 		"Volume":               s.settings.Volume,
 		"WinForeGround":        s.settings.WinForeGround,

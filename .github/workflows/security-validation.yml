@@ -48,6 +48,9 @@ jobs:
         run: |
           go vet ./...
           go test ./...
+      - name: Race-check concurrent service settings
+        working-directory: backend
+        run: go test -race -count=1 ./internal/service
       - name: Frontend install, type-check, build, and tests
         working-directory: app
         run: |
