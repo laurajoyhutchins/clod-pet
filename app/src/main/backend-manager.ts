@@ -29,6 +29,8 @@ class BackendManager {
   launch: LaunchInfo | null;
   readyTimer: NodeJS.Timeout | null;
   restartTimer: NodeJS.Timeout | null;
+  readyReject: ((error: Error) => void) | null;
+  lifecycleGeneration: number;
   state: string;
   ready: boolean;
   available: boolean;
@@ -57,6 +59,8 @@ class BackendManager {
     this.launch = null;
     this.readyTimer = null;
     this.restartTimer = null;
+    this.readyReject = null;
+    this.lifecycleGeneration = 0;
     this.state = "idle";
     this.ready = false;
     this.available = false;
@@ -95,6 +99,7 @@ class BackendManager {
   }
 
   async start(portOverride?: number): Promise<string> {
+    const generation = this.lifecycleGeneration;
     this.shuttingDown = false;
     this.shutdownReason = null;
     this.exitReason = null;
@@ -102,6 +107,8 @@ class BackendManager {
     this.fatalError = null;
     this.available = false;
     this.ready = false;
+    // Exit status from the prior process must not contaminate readiness checks.
+    this.exitCode = null;
     this.state = this.state === "restarting" ? "restarting" : "starting";
     this._syncStore();
 
@@ -111,6 +118,10 @@ class BackendManager {
       ? portOverride
       : this.port ?? await this._findFreePort(8080);
 
+    // A stop during asynchronous port selection must prevent a late spawn.
+    if (this.shuttingDown || generation !== this.lifecycleGeneration) {
+      throw new Error("backend startup cancelled by shutdown");
+    }
     if (!port) throw new Error("unable to find a free backend port");
     this.port = port;
     const backendPath = getBackendDir();
@@ -244,6 +255,9 @@ class BackendManager {
 
     const readyTimeout = this._getReadyTimeout(cmd);
     await this._waitForReady(readyTimeout.maxRetries, readyTimeout.interval);
+    if (this.shuttingDown || generation !== this.lifecycleGeneration) {
+      throw new Error("backend startup cancelled by shutdown");
+    }
     this.ready = true;
     this.available = true;
     this.state = "ready";
@@ -315,6 +329,9 @@ class BackendManager {
 
   stopWithReason(reason: string): void {
     this.shuttingDown = true;
+    this.lifecycleGeneration += 1;
+    // Cancel an in-flight readiness Promise, not just its timeout handle.
+    this.readyReject?.(new Error("backend startup cancelled by shutdown"));
     this.shutdownReason = reason;
     this.ready = false;
     this.available = false;
@@ -430,6 +447,7 @@ class BackendManager {
       const processRef = this.process;
 
       const cleanup = () => {
+        if (this.readyReject === finishReject) this.readyReject = null;
         if (this.readyTimer) {
           clearTimeout(this.readyTimer);
           this.readyTimer = null;
@@ -453,6 +471,8 @@ class BackendManager {
         cleanup();
         reject(err);
       };
+
+      this.readyReject = finishReject;
 
       const onClose = (code: number) => {
         finishReject(new Error(code === null || code === undefined
@@ -509,9 +529,12 @@ class BackendManager {
     if (this.restartAttempt >= this.restartMaxAttempts) {
       this.state = "fatal";
       this.available = false;
+      this.ready = false;
+      this.nextRestartAt = null;
       this.fatalError = this.lastError || (code === null || code === undefined
         ? "backend exited unexpectedly"
         : `backend exited unexpectedly with code ${code}`);
+      this._syncStore();
       log.error("backend restart limit reached", { attempts: this.restartAttempt, fatalError: this.fatalError });
       return;
     }
@@ -538,17 +561,34 @@ class BackendManager {
 
       try {
         await this.start(this.port ?? undefined);
+        if (this.shuttingDown) return;
         this.restartAttempt = 0;
         this.fatalError = null;
+        this.nextRestartAt = null;
         this._syncStore();
       } catch (err: unknown) {
+        // An explicit shutdown wins even if a pending start() later rejects.
+        if (this.shuttingDown) return;
         const error = err instanceof Error ? err : new Error(String(err));
         this.lastError = error.message;
-        this.fatalError = error.message;
         this.available = false;
-        this.state = "fatal";
-        this._syncStore();
-        log.error("backend restart failed", { pid: this.process?.pid ?? this.launch?.pid ?? null, error });
+        this.ready = false;
+        this.nextRestartAt = null;
+        if (this.process) {
+          // A readiness timeout can leave a child alive. Do not launch another
+          // process on the same port until that child is independently gone.
+          this.state = "fatal";
+          this.fatalError = "restart blocked: failed backend process may still be running";
+          this._syncStore();
+          log.error("backend restart blocked by running process", { pid: this.process.pid, error });
+          return;
+        }
+        this.fatalError = null;
+        this.state = "restarting";
+        log.warn("backend startup attempt failed; checking retry budget", {
+          attempt: this.restartAttempt, maxAttempts: this.restartMaxAttempts, error: error.message
+        });
+        this._scheduleRestart(null);
       }
     }, delay);
   }
