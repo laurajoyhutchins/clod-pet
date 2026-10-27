@@ -121,7 +121,7 @@ describe("backend restart budget after failed startup", () => {
     manager.process = child as unknown as ChildProcess;
     manager.url = "http://127.0.0.1:8080";
     manager.state = "starting";
-    jest.spyOn(http, "get").mockImplementation(() => new EventEmitter() as ReturnType<typeof http.get>);
+    jest.spyOn(http, "get").mockImplementation(() => new EventEmitter() as unknown as ReturnType<typeof http.get>);
 
     const readiness = manager._waitForReady(100, 10000);
     manager.stopWithReason("user closed application");
