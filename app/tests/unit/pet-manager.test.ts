@@ -338,6 +338,92 @@ describe("PetManager", () => {
     if (crashCb) crashCb[1](null, { reason: "crashed" }); // Should log error and not throw
   });
 
+  const arrangeBackendPet = () => {
+    mockBackendClient.loadPet.mockResolvedValue({
+      png_base64: "abc123", tiles_x: 4, tiles_y: 1,
+    });
+    mockBackendClient.addPet.mockResolvedValue({
+      ok: true, payload: { pet_id: "pet_1", x: 321, y: 654, flip_h: false },
+    });
+  };
+
+  const createMockPetWindow = (loadURL: jest.Mock = jest.fn().mockResolvedValue(undefined)) => ({
+    loadURL,
+    showInactive: jest.fn(),
+    once: jest.fn(),
+    on: jest.fn(),
+    webContents: { on: jest.fn(), send: jest.fn() },
+    setPosition: jest.fn(),
+    getBounds: jest.fn(() => ({ x: 321, y: 654, width: 64, height: 64 })),
+    getPosition: jest.fn(() => [321, 654]),
+    getSize: jest.fn(() => [64, 64]),
+    isDestroyed: jest.fn(() => false),
+  });
+
+  test("rollback compensates exact backend ID when window creation throws", async () => {
+    arrangeBackendPet();
+    const original = new Error("window constructor failed");
+    mockWindowManager.createPetWindow.mockImplementation(() => {
+      throw original;
+    });
+    await expect(manager.loadAndCreatePet("../pets/sheep")).rejects.toBe(original);
+    expect(mockBackendClient.removePet).toHaveBeenCalledTimes(1);
+    expect(mockBackendClient.removePet).toHaveBeenCalledWith("pet_1");
+    expect(mockStore.getState().pets).toEqual({});
+    expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet_1");
+    expect(manager.petTimers.size).toBe(0);
+    expect(manager.petBackendQueues.size).toBe(0);
+  });
+
+  test("rejected loadURL rolls back exactly once even when close event fires", async () => {
+    arrangeBackendPet();
+    const original = new Error("renderer refused to load");
+    const win = createMockPetWindow(jest.fn().mockRejectedValue(original));
+    mockWindowManager.createPetWindow.mockReturnValue(win);
+    mockWindowManager.removePetWindow.mockImplementation(() => {
+      const closed = win.on.mock.calls.find(([event]) => event === "closed");
+      if (closed) closed[1]();
+    });
+    await expect(manager.loadAndCreatePet("../pets/sheep")).rejects.toBe(original);
+    expect(mockBackendClient.removePet).toHaveBeenCalledTimes(1);
+    expect(mockBackendClient.removePet).toHaveBeenCalledWith("pet_1");
+    expect(mockWindowManager.removePetWindow).toHaveBeenCalledWith("pet_1");
+    expect(mockStore.getState().pets).toEqual({});
+    expect(manager.getAllPets()).toEqual([]);
+  });
+
+  test("rollback preserves initialization error and reports separate backend compensation failure", async () => {
+    arrangeBackendPet();
+    const original = new Error("pet window unavailable");
+    mockWindowManager.createPetWindow.mockImplementation(() => {
+      throw original;
+    });
+    mockBackendClient.removePet.mockRejectedValue(new Error("backend unreachable"));
+    await expect(manager.loadAndCreatePet("../pets/sheep")).rejects.toBe(original);
+    expect(mockBackendClient.removePet).toHaveBeenCalledTimes(1);
+    expect(manager.lastError).toContain("pet window unavailable");
+    expect(manager.lastError).toContain("rollback failed");
+    expect(manager.lastError).toContain("backend unreachable");
+    expect(mockStore.getState().pets).toEqual({});
+  });
+
+  test("successful initialization commits one pet; ordinary close deletes once", async () => {
+    arrangeBackendPet();
+    const win = createMockPetWindow();
+    mockWindowManager.createPetWindow.mockReturnValue(win);
+    await expect(manager.loadAndCreatePet("../pets/sheep")).resolves.toBe("pet_1");
+    expect(mockBackendClient.addPet).toHaveBeenCalledTimes(1);
+    expect(mockBackendClient.removePet).not.toHaveBeenCalled();
+    expect(Object.keys(mockStore.getState().pets)).toEqual(["pet_1"]);
+    const closed = win.on.mock.calls.find(([event]) => event === "closed");
+    expect(closed).toBeDefined();
+    closed![1]();
+    closed![1]();
+    await Promise.resolve();
+    expect(mockBackendClient.removePet).toHaveBeenCalledTimes(1);
+    expect(mockStore.getState().pets).toEqual({});
+  });
+
   test("loadAndCreatePet should throw if pet data is invalid", async () => {
     mockBackendClient.loadPet.mockResolvedValue({});
     await expect(manager.loadAndCreatePet("bad")).rejects.toThrow("invalid pet sprite data");
