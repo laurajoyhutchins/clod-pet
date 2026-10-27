@@ -102,6 +102,8 @@ class BackendManager {
     this.fatalError = null;
     this.available = false;
     this.ready = false;
+    // Exit status from the prior process must not contaminate readiness checks.
+    this.exitCode = null;
     this.state = this.state === "restarting" ? "restarting" : "starting";
     this._syncStore();
 
@@ -509,9 +511,12 @@ class BackendManager {
     if (this.restartAttempt >= this.restartMaxAttempts) {
       this.state = "fatal";
       this.available = false;
+      this.ready = false;
+      this.nextRestartAt = null;
       this.fatalError = this.lastError || (code === null || code === undefined
         ? "backend exited unexpectedly"
         : `backend exited unexpectedly with code ${code}`);
+      this._syncStore();
       log.error("backend restart limit reached", { attempts: this.restartAttempt, fatalError: this.fatalError });
       return;
     }
@@ -542,13 +547,28 @@ class BackendManager {
         this.fatalError = null;
         this._syncStore();
       } catch (err: unknown) {
+        // An explicit shutdown wins even if a pending start() later rejects.
+        if (this.shuttingDown) return;
         const error = err instanceof Error ? err : new Error(String(err));
         this.lastError = error.message;
-        this.fatalError = error.message;
         this.available = false;
-        this.state = "fatal";
-        this._syncStore();
-        log.error("backend restart failed", { pid: this.process?.pid ?? this.launch?.pid ?? null, error });
+        this.ready = false;
+        this.nextRestartAt = null;
+        if (this.process) {
+          // A readiness timeout can leave a child alive. Do not launch another
+          // process on the same port until that child is independently gone.
+          this.state = "fatal";
+          this.fatalError = "restart blocked: failed backend process may still be running";
+          this._syncStore();
+          log.error("backend restart blocked by running process", { pid: this.process.pid, error });
+          return;
+        }
+        this.fatalError = null;
+        this.state = "restarting";
+        log.warn("backend startup attempt failed; checking retry budget", {
+          attempt: this.restartAttempt, maxAttempts: this.restartMaxAttempts, error: error.message
+        });
+        this._scheduleRestart(null);
       }
     }, delay);
   }
