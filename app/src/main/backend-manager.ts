@@ -29,6 +29,8 @@ class BackendManager {
   launch: LaunchInfo | null;
   readyTimer: NodeJS.Timeout | null;
   restartTimer: NodeJS.Timeout | null;
+  readyReject: ((error: Error) => void) | null;
+  lifecycleGeneration: number;
   state: string;
   ready: boolean;
   available: boolean;
@@ -57,6 +59,8 @@ class BackendManager {
     this.launch = null;
     this.readyTimer = null;
     this.restartTimer = null;
+    this.readyReject = null;
+    this.lifecycleGeneration = 0;
     this.state = "idle";
     this.ready = false;
     this.available = false;
@@ -95,6 +99,7 @@ class BackendManager {
   }
 
   async start(portOverride?: number): Promise<string> {
+    const generation = this.lifecycleGeneration;
     this.shuttingDown = false;
     this.shutdownReason = null;
     this.exitReason = null;
@@ -113,6 +118,10 @@ class BackendManager {
       ? portOverride
       : this.port ?? await this._findFreePort(8080);
 
+    // A stop during asynchronous port selection must prevent a late spawn.
+    if (this.shuttingDown || generation !== this.lifecycleGeneration) {
+      throw new Error("backend startup cancelled by shutdown");
+    }
     if (!port) throw new Error("unable to find a free backend port");
     this.port = port;
     const backendPath = getBackendDir();
@@ -246,6 +255,9 @@ class BackendManager {
 
     const readyTimeout = this._getReadyTimeout(cmd);
     await this._waitForReady(readyTimeout.maxRetries, readyTimeout.interval);
+    if (this.shuttingDown || generation !== this.lifecycleGeneration) {
+      throw new Error("backend startup cancelled by shutdown");
+    }
     this.ready = true;
     this.available = true;
     this.state = "ready";
@@ -317,6 +329,9 @@ class BackendManager {
 
   stopWithReason(reason: string): void {
     this.shuttingDown = true;
+    this.lifecycleGeneration += 1;
+    // Cancel an in-flight readiness Promise, not just its timeout handle.
+    this.readyReject?.(new Error("backend startup cancelled by shutdown"));
     this.shutdownReason = reason;
     this.ready = false;
     this.available = false;
@@ -432,6 +447,7 @@ class BackendManager {
       const processRef = this.process;
 
       const cleanup = () => {
+        if (this.readyReject === finishReject) this.readyReject = null;
         if (this.readyTimer) {
           clearTimeout(this.readyTimer);
           this.readyTimer = null;
@@ -455,6 +471,8 @@ class BackendManager {
         cleanup();
         reject(err);
       };
+
+      this.readyReject = finishReject;
 
       const onClose = (code: number) => {
         finishReject(new Error(code === null || code === undefined
