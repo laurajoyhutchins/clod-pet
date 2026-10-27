@@ -75,7 +75,9 @@ func TestSettingsReadersObserveCoherentConcurrentUpdates(t *testing.T) {
 }
 
 func TestSettingsSnapshotUsesOneTransaction(t *testing.T) {
-	svc := New(t.TempDir(), filepath.Join(t.TempDir(), "settings.json"), settings.DefaultConfig())
+	cfg := settings.DefaultConfig()
+	cfg.GravityFactor = cfg.Scale
+	svc := New(t.TempDir(), filepath.Join(t.TempDir(), "settings.json"), cfg)
 	const iterations = 200
 	var wg sync.WaitGroup
 	start := make(chan struct{})
