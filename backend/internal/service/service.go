@@ -437,10 +437,12 @@ func (s *Service) UpdateVolume(volume float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.settings.Volume = volume
-	if err := s.settings.Save(s.settingsPath); err != nil {
+	next := *s.settings
+	next.Volume = volume
+	if err := next.Save(s.settingsPath); err != nil {
 		return fmt.Errorf("save settings: %w", err)
 	}
+	*s.settings = next
 	return nil
 }
 
@@ -448,12 +450,14 @@ func (s *Service) UpdateScale(scale float64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.settings.Scale = scale
+	next := *s.settings
+	next.Scale = scale
+	if err := next.Save(s.settingsPath); err != nil {
+		return fmt.Errorf("save settings: %w", err)
+	}
+	*s.settings = next
 	for _, e := range s.engines {
 		e.SetScale(scale)
-	}
-	if err := s.settings.Save(s.settingsPath); err != nil {
-		return fmt.Errorf("save settings: %w", err)
 	}
 	return nil
 }
